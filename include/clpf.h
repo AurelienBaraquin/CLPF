@@ -1,6 +1,6 @@
 #pragma once
 
-#include <process.h>
+#include <scheduler.h>
 
 #define MAX_PROCESSES 65536 // 2^16
 

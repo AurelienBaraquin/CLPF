@@ -2,6 +2,8 @@
 
 #include <memory/heap.h>
 
+typedef void (*Task)(void);
+
 typedef enum process_state_e {
     PROCESS_RUNNING,
     PROCESS_READY,
