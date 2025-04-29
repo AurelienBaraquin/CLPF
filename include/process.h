@@ -19,12 +19,17 @@ typedef enum process_priority_e {
 } process_priority;
 
 typedef struct process_s {
-    int pid;
+    size_t pid;
     
     heap_t heap;
 
     process_state state;
     process_priority priority;
 
+    Task task;
+
     TAILQ_ENTRY(process_s) next;
 } Process;
+
+Process *process_create(Task task, process_priority priority);
+void process_destroy(Process *process);
