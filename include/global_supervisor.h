@@ -1,6 +1,6 @@
 #pragma once
 
-#include <clpf_internal.h>
+#include <utils/mpscq.h>
 
 typedef struct {
     MPSCQ signal_queue;

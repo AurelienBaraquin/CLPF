@@ -23,3 +23,6 @@ void *mpscq_drain(MPSCQ *q);
 
 /// Retourne vrai si la queue est vide
 bool mpscq_empty(MPSCQ *q);
+
+/// Libère la mémoire de la queue
+void mpscq_clear(MPSCQ *q, void (*destroy)(void *));

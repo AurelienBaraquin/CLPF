@@ -45,6 +45,10 @@ void clpf_task_add(Task task, process_priority priority, Pid parent_pid)
         scheduler = &clpf.scheduler_table[0];
     }
 
+    process->scheduler_pid = scheduler->pid;
+    clpf.process_count++;
+    atomic_fetch_add(&scheduler->process_count, 1);
+
     switch (priority) {
         case PROCESS_PRIORITY_LOW:
         case PROCESS_PRIORITY_MEDIUM:

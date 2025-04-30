@@ -22,7 +22,7 @@ typedef struct scheduler_s {
 
     MPSCQ waiting_queue;
 
-    int process_count;
+    atomic_int process_count;
 
     MPSCQ signal_queue;
 } Scheduler;

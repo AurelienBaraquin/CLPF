@@ -7,21 +7,21 @@
 
 #define MINIMAL_HEAP_POOL_SIZE (16 * 1024)  // ~16  Ko
 
-typedef struct heap_pool_s {
+typedef struct safe_heap_pool_s {
     void* base;
     size_t size;
-    SLIST_ENTRY(heap_pool_s) next;
-} heap_pool_t;
+    SLIST_ENTRY(safe_heap_pool_s) next;
+} safe_heap_pool_t;
 
 typedef struct {
     tlsf_t tlsf;
-    SLIST_HEAD(pool_list_head, heap_pool_s) pools;
+    SLIST_HEAD(pool_list_head, safe_heap_pool_s) pools;
     spinlock_t lock; // Spinlock for thread-safe access
-} heap_t;
+} safe_heap_t;
 
-int heap_create(heap_t* heap, size_t initial_size);
-int heap_grow(heap_t* heap, size_t size);
-void heap_destroy(heap_t* heap);
-void* heap_alloc(heap_t* heap, size_t size);
-void* heap_realloc(heap_t* heap, void* ptr, size_t size);
-void heap_free(heap_t* heap, void* ptr);
+int safe_heap_create(safe_heap_t* safe_heap, size_t initial_size);
+int safe_heap_grow(safe_heap_t* safe_heap, size_t size);
+void safe_heap_destroy(safe_heap_t* safe_heap);
+void* safe_heap_alloc(safe_heap_t* safe_heap, size_t size);
+void* safe_heap_realloc(safe_heap_t* safe_heap, void* ptr, size_t size);
+void safe_heap_free(safe_heap_t* safe_heap, void* ptr);

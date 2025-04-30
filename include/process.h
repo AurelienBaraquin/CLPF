@@ -4,6 +4,7 @@
 #include <utils/mpscq.h>
 #include <utils/pid.h>
 #include <signal.h>
+#include <links.h>
 
 typedef void (*Task)(void);
 
@@ -20,12 +21,6 @@ typedef enum process_priority_e {
     PROCESS_PRIORITY_HIGH,
     PROCESS_PRIORITY_VERY_HIGH,
 } process_priority;
-
-typedef struct links_s {
-    Pid other_pid; // if other pid = 0, this is a link to the main core
-    enum { LINK_TYPE_TO_PARENT, LINK_TYPE_TO_CHILD } type;
-    struct links_s *next;
-} links_t;
 
 typedef struct process_s {
     Pid pid;
@@ -44,8 +39,6 @@ typedef struct process_s {
     links_t *links;
 
     MPSCQ signal_queue;
-
-    struct process_s *next;
 } Process;
 
 int process_init(Process *process, Task task, process_priority priority, Pid pid, Pid parent_pid);

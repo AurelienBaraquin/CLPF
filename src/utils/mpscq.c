@@ -47,3 +47,26 @@ void *mpscq_drain(MPSCQ *q) {
     // Retourne la tête de la liste
     return fifo;
 }
+
+void mpscq_clear(MPSCQ *q, void (*destroy)(void *)) {
+    MPSCQNode *node = atomic_exchange(&q->head, NULL);
+    q->tail = NULL;
+
+    // Inverse la liste pour FIFO
+    MPSCQNode *prev = NULL, *curr = node, *next;
+    while (curr) {
+        next = curr->next;
+        curr->next = prev;
+        prev = curr;
+        curr = next;
+    }
+
+    node = prev;
+    while (node) {
+        MPSCQNode *next = node->next;
+        if (destroy)
+            destroy(node->data);
+        free(node);
+        node = next;
+    }
+}

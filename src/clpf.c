@@ -5,8 +5,39 @@
 
 CLPF clpf = {0};
 
+void clpf_init()
+{
+    clpf.process_count = 0;
+    clpf.scheduler_count = 0;
+    clpf.fix = 0;
+    clpf.tix = 0;
+
+    global_supervisor_init(&clpf.global_supervisor);
+}
+
+void clpf_destroy()
+{
+    for (int i = 0; i < clpf.scheduler_count; i++) {
+        scheduler_destroy(&clpf.scheduler_table[i]);
+    }
+
+    for (int i = 0; i < clpf.process_count; i++) {
+        printf("Destroying process %d\n", clpf.process_table[i].pid);
+        process_destroy(&clpf.process_table[i]);
+    }
+
+    global_supervisor_destroy(&clpf.global_supervisor);
+}
+
 void clpf_main(Task entry_point)
 {
+    if (!entry_point) {
+        fprintf(stderr, "Entry point is NULL\n");
+        return;
+    }
+
+    clpf_init();
+
     int cpus = nb_cpu();
     if (cpus < 0) {
         perror("Failed to get number of CPUs");
@@ -36,4 +67,6 @@ void clpf_main(Task entry_point)
         Scheduler* scheduler = &clpf.scheduler_table[i];
         pthread_join(scheduler->system_thread_id, NULL);
     }
+
+    clpf_destroy();
 }

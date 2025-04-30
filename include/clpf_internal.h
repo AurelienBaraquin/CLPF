@@ -1,6 +1,7 @@
 #pragma once
 
 #include <scheduler.h>
+#include <global_supervisor.h>
 
 #define MAX_PROCESSES 65536 // 2^16
 #define MAX_SCHEDULERS 64
@@ -14,6 +15,8 @@ typedef struct {
 
     unsigned short fix; // From index -> Emigrate to
     unsigned short tix; // Target index -> Immigrate from
+
+    GlobalSupervisor global_supervisor;
 } CLPF;
 
 extern CLPF clpf;

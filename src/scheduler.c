@@ -7,6 +7,7 @@ int scheduler_init(Scheduler* scheduler, Pid pid) {
     scheduler->pid = pid;
     scheduler->immigrate_from = NULL;
     scheduler->emigrate_to = NULL;
+    atomic_init(&scheduler->process_count, 0);
 
     mpscq_init(&scheduler->ready_vh_queue);
     mpscq_init(&scheduler->ready_h_queue);
@@ -20,31 +21,10 @@ void scheduler_destroy(Scheduler* scheduler) {
     if (!scheduler)
         return;
 
-    Process *proc = NULL;
-
-    proc = mpscq_drain(&scheduler->ready_vh_queue);
-    while (proc) {
-        process_destroy(proc);
-        proc = proc->next;
-    }
-
-    proc = mpscq_drain(&scheduler->ready_h_queue);
-    while (proc) {
-        process_destroy(proc);
-        proc = proc->next;
-    }
-
-    proc = mpscq_drain(&scheduler->ready_m_and_l_queue);
-    while (proc) {
-        process_destroy(proc);
-        proc = proc->next;
-    }
-
-    proc = mpscq_drain(&scheduler->waiting_queue);
-    while (proc) {
-        process_destroy(proc);
-        proc = proc->next;
-    }
+    mpscq_clear(&scheduler->ready_vh_queue, NULL);
+    mpscq_clear(&scheduler->ready_h_queue, NULL);
+    mpscq_clear(&scheduler->ready_m_and_l_queue, NULL);
+    mpscq_clear(&scheduler->waiting_queue, NULL);
 }
 
 void scheduler_loop(Scheduler* scheduler) {
