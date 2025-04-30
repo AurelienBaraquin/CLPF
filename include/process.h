@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory/heap.h>
+#include <utils/mpscq.h>
 
 typedef void (*Task)(void);
 
@@ -28,7 +29,7 @@ typedef struct process_s {
 
     Task task;
 
-    TAILQ_ENTRY(process_s) next;
+    struct process_s *next;
 } Process;
 
 int process_init(Process *process, Task task, process_priority priority, size_t pid);

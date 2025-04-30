@@ -8,10 +8,10 @@ int scheduler_init(Scheduler* scheduler, size_t pid) {
     scheduler->immigrate_from = NULL;
     scheduler->emigrate_to = NULL;
 
-    TAILQ_INIT(&scheduler->ready_vh_queue);
-    TAILQ_INIT(&scheduler->ready_h_queue);
-    TAILQ_INIT(&scheduler->ready_m_and_l_queue);
-    TAILQ_INIT(&scheduler->waiting_queue);
+    mpscq_init(&scheduler->ready_vh_queue);
+    mpscq_init(&scheduler->ready_h_queue);
+    mpscq_init(&scheduler->ready_m_and_l_queue);
+    mpscq_init(&scheduler->waiting_queue);
 
     return 0;
 }
@@ -20,26 +20,30 @@ void scheduler_destroy(Scheduler* scheduler) {
     if (!scheduler)
         return;
 
-    Process* process;
-    while (!TAILQ_EMPTY(&scheduler->ready_vh_queue)) {
-        process = TAILQ_FIRST(&scheduler->ready_vh_queue);
-        TAILQ_REMOVE(&scheduler->ready_vh_queue, process, next);
-        process_destroy(process);
+    Process *proc = NULL;
+
+    proc = mpscq_drain(&scheduler->ready_vh_queue);
+    while (proc) {
+        process_destroy(proc);
+        proc = proc->next;
     }
-    while (!TAILQ_EMPTY(&scheduler->ready_h_queue)) {
-        process = TAILQ_FIRST(&scheduler->ready_h_queue);
-        TAILQ_REMOVE(&scheduler->ready_h_queue, process, next);
-        process_destroy(process);
+
+    proc = mpscq_drain(&scheduler->ready_h_queue);
+    while (proc) {
+        process_destroy(proc);
+        proc = proc->next;
     }
-    while (!TAILQ_EMPTY(&scheduler->ready_m_and_l_queue)) {
-        process = TAILQ_FIRST(&scheduler->ready_m_and_l_queue);
-        TAILQ_REMOVE(&scheduler->ready_m_and_l_queue, process, next);
-        process_destroy(process);
+
+    proc = mpscq_drain(&scheduler->ready_m_and_l_queue);
+    while (proc) {
+        process_destroy(proc);
+        proc = proc->next;
     }
-    while (!TAILQ_EMPTY(&scheduler->waiting_queue)) {
-        process = TAILQ_FIRST(&scheduler->waiting_queue);
-        TAILQ_REMOVE(&scheduler->waiting_queue, process, next);
-        process_destroy(process);
+
+    proc = mpscq_drain(&scheduler->waiting_queue);
+    while (proc) {
+        process_destroy(proc);
+        proc = proc->next;
     }
 }
 
