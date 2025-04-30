@@ -10,8 +10,8 @@ typedef struct links_s {
     struct links_s *next;
 } links_t;
 
-void link_add(Process *self, Pid other_pid);
-void link_remove(Process *self, Pid other_pid);
-void link_notify_all(Process *self); // lors de la mort
+void link_add(Pid self, Pid other_pid, int type);
+void link_remove(Pid self, Pid other_pid);
+void link_notify_all(Pid self); // lors de la mort
 
 void link_clear(links_t *link);

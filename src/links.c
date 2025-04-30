@@ -1,8 +1,14 @@
 #include <links.h>
 #include <process.h>
+#include <clpf_internal.h>
 
-void link_add(Process *self, Pid other_pid)
+void link_add(Pid self_pid, Pid other_pid, int type)
 {
+    if (type != LINK_TYPE_TO_PARENT && type != LINK_TYPE_TO_CHILD)
+        return;
+
+    Process *self = &clpf.process_table[self_pid];
+
     if (!self)
         return;
 
@@ -11,13 +17,15 @@ void link_add(Process *self, Pid other_pid)
         return;
 
     link->other_pid = other_pid;
-    link->type = LINK_TYPE_TO_CHILD;
+    link->type = type;
     link->next = self->links;
     self->links = link;
 }
 
-void link_remove(Process *self, Pid other_pid)
+void link_remove(Pid self_pid, Pid other_pid)
 {
+    Process *self = &clpf.process_table[self_pid];
+
     if (!self)
         return;
 
@@ -39,7 +47,7 @@ void link_remove(Process *self, Pid other_pid)
     }
 }
 
-void link_notify_all(Process *self)
+void link_notify_all(Pid self)
 {
     // todo but we will see
 }

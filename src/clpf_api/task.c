@@ -21,7 +21,7 @@ Pid clpf_task_add(Task task, process_priority priority, Pid parent_pid)
     // create the process
     Process *process = &clpf.process_table[empty_process];
     if (process_init(process, task, priority, empty_process, parent_pid) != 0) {
-        fprintf(stderr, "Failed to initialize process %d\n", empty_process);
+        fprintf(stderr, "Failed to initialize process %ld\n", empty_process);
         return -1;
     }
 

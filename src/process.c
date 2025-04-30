@@ -1,5 +1,6 @@
 #include <process.h>
 #include <clpf_internal.h>
+#include <links.h>
 
 int process_init(Process *process, Task task, process_priority priority, Pid pid, Pid parent_pid) {
     if (!task || !process)
@@ -27,11 +28,12 @@ int process_init(Process *process, Task task, process_priority priority, Pid pid
 
     process->task = task;
 
-    process->links = NULL;
-    link_add(process, parent_pid);
-
     if (heap_create(&process->heap, MINIMAL_HEAP_POOL_SIZE) != 0)
         return -1;
+
+    process->links = NULL;
+    link_add(pid, parent_pid, LINK_TYPE_TO_PARENT);
+    link_add(parent_pid, pid, LINK_TYPE_TO_CHILD);
 
     return 0;
 }
