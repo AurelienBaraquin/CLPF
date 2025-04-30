@@ -18,6 +18,11 @@ int scheduler_init(Scheduler* scheduler, Pid pid) {
         runq_init(&scheduler->rq[i]);
     }
 
+    scheduler->system_thread_id = pthread_self();
+
+    pthread_mutex_init(&scheduler->mutex, NULL);
+    pthread_cond_init(&scheduler->cond, NULL);
+
     return 0;
 }
 
@@ -31,6 +36,9 @@ void scheduler_destroy(Scheduler* scheduler) {
     for (int i = 0; i < NB_RQ; i++) {
         runq_clear(&scheduler->rq[i], NULL);
     }
+
+    pthread_mutex_destroy(&scheduler->mutex);
+    pthread_cond_destroy(&scheduler->cond);
 }
 
 void scheduler_push_shared(Scheduler* scheduler, Process* process) {
@@ -136,7 +144,11 @@ void scheduler_loop(Scheduler* scheduler) {
         return;
 
     while (1) {
-        usleep(1000); // Simulate scheduler work
+        LOCK_UNTIL(runq_empty(&scheduler->rq[0]) ||
+                   runq_empty(&scheduler->rq[1]) ||
+                   runq_empty(&scheduler->rq[2]) ||
+                   !exit_in_progress,
+                   &scheduler->cond, &scheduler->mutex);
         if (UNLIKELY(exit_in_progress)) {
             break;
         }

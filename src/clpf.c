@@ -85,6 +85,12 @@ void clpf_main(Task entry_point)
 
         if (total_process_count == 0) {
             exit_in_progress = 1;
+            for (int i = 0; i < clpf.scheduler_count; ++i) {
+                Scheduler* scheduler = &clpf.scheduler_table[i];
+                pthread_mutex_lock(&scheduler->mutex);
+                pthread_cond_signal(&scheduler->cond);
+                pthread_mutex_unlock(&scheduler->mutex);
+            }
             break;
         }
     }

@@ -32,7 +32,19 @@ typedef struct scheduler_s {
     RunQueue rq[NB_RQ];
 
     atomic_int process_count;
+
+    pthread_mutex_t mutex;
+    pthread_cond_t cond;
 } Scheduler;
+
+#define LOCK_UNTIL(predicate, cond, mutex) \
+    do { \
+        pthread_mutex_lock(mutex); \
+        while (!(predicate)) { \
+            pthread_cond_wait(cond, mutex); \
+        } \
+        pthread_mutex_unlock(mutex); \
+    } while (0)
 
 int scheduler_init(Scheduler* scheduler, Pid pid);
 void scheduler_destroy(Scheduler* scheduler);
