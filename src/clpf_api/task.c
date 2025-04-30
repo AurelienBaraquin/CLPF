@@ -1,4 +1,5 @@
 #include <clpf_internal.h>
+#include <scheduler_manager.h>
 #include <stdio.h>
 
 void clpf_task_add(Task task, process_priority priority, Pid parent_pid)
@@ -27,8 +28,13 @@ void clpf_task_add(Task task, process_priority priority, Pid parent_pid)
     Scheduler *scheduler = NULL;
 
     if (parent_pid == -1) {
-        // take the scheduler with the less processes
-        scheduler = &clpf.scheduler_table[0]; // TODO
+        Pid less_process_scheduler = sch_mg_get_less_process_scheduler();
+        if (less_process_scheduler == -1) {
+            fprintf(stderr, "No scheduler available\n");
+            process_destroy(process);
+            return;
+        }
+        scheduler = &clpf.scheduler_table[less_process_scheduler];
     } else {
         // take the scheduler of the parent process
         scheduler = &clpf.scheduler_table[clpf.process_table[parent_pid].scheduler_pid];

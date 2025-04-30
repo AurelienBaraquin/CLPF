@@ -10,6 +10,20 @@ int process_init(Process *process, Task task, process_priority priority, Pid pid
     process->scheduler_pid = ~0;
     process->state = PROCESS_READY;
     process->priority = priority;
+
+    switch (priority) {
+        case PROCESS_PRIORITY_LOW:
+            process->schedule_count = 8;
+            break;
+        case PROCESS_PRIORITY_MEDIUM:
+        case PROCESS_PRIORITY_HIGH:
+        case PROCESS_PRIORITY_VERY_HIGH:
+            process->schedule_count = 1;
+            break;
+        default:
+            return -1;
+    }
+
     process->task = task;
 
     links_t *link = malloc(sizeof(links_t));

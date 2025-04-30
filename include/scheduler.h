@@ -21,6 +21,10 @@ typedef struct scheduler_s {
     MPSCQ ready_m_and_l_queue;
 
     MPSCQ waiting_queue;
+
+    int process_count;
+
+    MPSCQ signal_queue;
 } Scheduler;
 
 int scheduler_init(Scheduler* scheduler, Pid pid);

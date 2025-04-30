@@ -2,8 +2,9 @@
 
 #include <memory/heap.h>
 #include <utils/mpscq.h>
+#include <utils/pid.h>
+#include <signal.h>
 
-typedef long Pid;
 typedef void (*Task)(void);
 
 typedef enum process_state_e {
@@ -35,9 +36,14 @@ typedef struct process_s {
     process_state state;
     process_priority priority;
 
+    // == 1 for VH, H, M and == 8 for Low
+    unsigned short schedule_count; // Decremented each time the process is picked from the front of the queue, and scheduled if == 0 otherwise it goes to the back of the queue
+
     Task task;
 
     links_t *links;
+
+    MPSCQ signal_queue;
 
     struct process_s *next;
 } Process;
