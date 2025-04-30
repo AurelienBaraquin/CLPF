@@ -11,6 +11,11 @@ struct MPSCQ {
     MPSCQNode *tail;
 };
 
+struct MPSCQNode {
+    void *data;
+    struct MPSCQNode *next;
+};
+
 /// Initialise la queue (heap ou stack)
 void mpscq_init(MPSCQ *q);
 

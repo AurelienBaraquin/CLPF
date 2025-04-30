@@ -2,11 +2,16 @@
 #include <stdio.h>
 #include <pthread.h>
 #include <utils/cpu.h>
+#include <flags_internal.h>
 
 CLPF clpf = {0};
 
 void clpf_init()
 {
+    for (int i = 0; i < MAX_PROCESSES; i++) {
+        clpf.process_table[i].pid = -1;
+    }
+
     clpf.process_count = 0;
     clpf.scheduler_count = 0;
     clpf.fix = 0;
@@ -22,7 +27,6 @@ void clpf_destroy()
     }
 
     for (int i = 0; i < clpf.process_count; i++) {
-        printf("Destroying process %d\n", clpf.process_table[i].pid);
         process_destroy(&clpf.process_table[i]);
     }
 
@@ -61,7 +65,29 @@ void clpf_main(Task entry_point)
         }
     }
 
-    clpf_task_add(entry_point, PROCESS_PRIORITY_VERY_HIGH, -1);
+    Pid pid = clpf_task_add(entry_point, PROCESS_PRIORITY_VERY_HIGH, -1);
+    clpf_task_add(entry_point, PROCESS_PRIORITY_VERY_HIGH, pid);
+    pid = clpf_task_add(entry_point, PROCESS_PRIORITY_VERY_HIGH, pid);
+    clpf_task_add(entry_point, PROCESS_PRIORITY_VERY_HIGH, pid);
+    pid = clpf_task_add(entry_point, PROCESS_PRIORITY_VERY_HIGH, pid);
+    clpf_task_add(entry_point, PROCESS_PRIORITY_VERY_HIGH, pid);
+    clpf_task_add(entry_point, PROCESS_PRIORITY_VERY_HIGH, pid);
+    clpf_task_add(entry_point, PROCESS_PRIORITY_VERY_HIGH, pid);
+
+    while (exit_in_progress == 0) {
+        usleep(1000); // Sleep for 1ms to avoid busy waiting
+
+        size_t total_process_count = 0;
+
+        for (int i = 0; i < clpf.scheduler_count; ++i) {
+            total_process_count += atomic_load(&clpf.scheduler_table[i].process_count);
+        }
+
+        if (total_process_count == 0) {
+            exit_in_progress = 1;
+            break;
+        }
+    }
 
     for (int i = 0; i < clpf.scheduler_count; i++) {
         Scheduler* scheduler = &clpf.scheduler_table[i];

@@ -23,4 +23,4 @@ extern CLPF clpf;
 
 void clpf_main(Task entry_point);
 
-void clpf_task_add(Task task, process_priority priority, Pid parent_pid);
+Pid clpf_task_add(Task task, process_priority priority, Pid parent_pid);

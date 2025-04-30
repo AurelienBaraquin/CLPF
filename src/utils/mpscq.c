@@ -2,11 +2,6 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
-struct MPSCQNode {
-    void *data;
-    struct MPSCQNode *next;
-};
-
 void mpscq_init(MPSCQ *q) {
     atomic_store(&q->head, NULL);
     q->tail = NULL;

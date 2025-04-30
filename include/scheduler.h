@@ -2,12 +2,15 @@
 
 #include <process.h>
 #include <pthread.h>
+#include <utils/run_queue.h>
 
 typedef enum scheduler_migration_state_e {
     SCHEDULER_IMMIGRATING,
     SCHEDULER_EMIGRATING,
     SCHEDULER_BALANCED,
 } scheduler_migration_state;
+
+#define NB_RQ 4 // Number of run queues
 
 typedef struct scheduler_s {
     pthread_t system_thread_id;
@@ -16,17 +19,23 @@ typedef struct scheduler_s {
     struct scheduler_s* immigrate_from;
     struct scheduler_s* emigrate_to;
 
-    MPSCQ ready_vh_queue;
-    MPSCQ ready_h_queue;
-    MPSCQ ready_m_and_l_queue;
+    // 0 -> VERY_HIGH
+    // 1 -> HIGH
+    // 2 -> MEDIUM & LOW
+    // 3 -> WAITING
+    MPSCQ shared_rq[NB_RQ];
 
-    MPSCQ waiting_queue;
+    // 0 -> VERY_HIGH
+    // 1 -> HIGH
+    // 2 -> MEDIUM & LOW
+    // 3 -> WAITING
+    RunQueue rq[NB_RQ];
 
     atomic_int process_count;
-
-    MPSCQ signal_queue;
 } Scheduler;
 
 int scheduler_init(Scheduler* scheduler, Pid pid);
 void scheduler_destroy(Scheduler* scheduler);
 void scheduler_loop(Scheduler* scheduler);
+
+void scheduler_push_shared(Scheduler* scheduler, Process* process);

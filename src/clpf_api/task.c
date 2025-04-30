@@ -2,12 +2,12 @@
 #include <scheduler_manager.h>
 #include <stdio.h>
 
-void clpf_task_add(Task task, process_priority priority, Pid parent_pid)
+Pid clpf_task_add(Task task, process_priority priority, Pid parent_pid)
 {
     // find an empty process (when id is 0)
-    int empty_process = -1;
+    Pid empty_process = -1;
     for (int i = 0; i < MAX_PROCESSES; i++) {
-        if (clpf.process_table[i].pid == 0) {
+        if (clpf.process_table[i].pid == -1) {
             empty_process = i;
             break;
         }
@@ -15,14 +15,14 @@ void clpf_task_add(Task task, process_priority priority, Pid parent_pid)
 
     if (empty_process == -1) {
         fprintf(stderr, "No empty process available\n");
-        return;
+        return -1;
     }
 
     // create the process
     Process *process = &clpf.process_table[empty_process];
     if (process_init(process, task, priority, empty_process, parent_pid) != 0) {
         fprintf(stderr, "Failed to initialize process %d\n", empty_process);
-        return;
+        return -1;
     }
 
     Scheduler *scheduler = NULL;
@@ -32,7 +32,7 @@ void clpf_task_add(Task task, process_priority priority, Pid parent_pid)
         if (less_process_scheduler == -1) {
             fprintf(stderr, "No scheduler available\n");
             process_destroy(process);
-            return;
+            return -1;
         }
         scheduler = &clpf.scheduler_table[less_process_scheduler];
     } else {
@@ -49,20 +49,7 @@ void clpf_task_add(Task task, process_priority priority, Pid parent_pid)
     clpf.process_count++;
     atomic_fetch_add(&scheduler->process_count, 1);
 
-    switch (priority) {
-        case PROCESS_PRIORITY_LOW:
-        case PROCESS_PRIORITY_MEDIUM:
-            mpscq_push(&scheduler->ready_m_and_l_queue, process);
-            break;
-        case PROCESS_PRIORITY_HIGH:
-            mpscq_push(&scheduler->ready_h_queue, process);
-            break;
-        case PROCESS_PRIORITY_VERY_HIGH:
-            mpscq_push(&scheduler->ready_vh_queue, process);
-            break;
-        default:
-            fprintf(stderr, "Invalid priority %d\n", priority);
-            process_destroy(process);
-            return;
-    }
+    scheduler_push_shared(scheduler, process);
+
+    return process->pid;
 }

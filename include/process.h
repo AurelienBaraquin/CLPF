@@ -39,6 +39,8 @@ typedef struct process_s {
     links_t *links;
 
     MPSCQ signal_queue;
+
+    struct process_s *next; // For Queues
 } Process;
 
 int process_init(Process *process, Task task, process_priority priority, Pid pid, Pid parent_pid);
