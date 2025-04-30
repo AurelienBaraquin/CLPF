@@ -1,12 +1,12 @@
-#include <clpf.h>
+#include <clpf_internal.h>
 #include <stdio.h>
 #include <pthread.h>
 #include <utils/cpu.h>
 
-void clpf(Task entry_point)
-{
-    CLPF clpf = {0};
+CLPF clpf = {0};
 
+void clpf_main(Task entry_point)
+{
     int cpus = nb_cpu();
     if (cpus < 0) {
         perror("Failed to get number of CPUs");
@@ -29,6 +29,8 @@ void clpf(Task entry_point)
             return;
         }
     }
+
+    clpf_task_add(entry_point, PROCESS_PRIORITY_VERY_HIGH, -1);
 
     for (int i = 0; i < clpf.scheduler_count; i++) {
         Scheduler* scheduler = &clpf.scheduler_table[i];

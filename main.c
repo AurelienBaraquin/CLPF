@@ -1,4 +1,4 @@
-#include <clpf.h>
+#include <clpf_internal.h>
 #include <stdio.h>
 
 void task(void) {
@@ -7,5 +7,5 @@ void task(void) {
 
 int main(void)
 {
-    clpf(task);
+    clpf_main(task);
 }

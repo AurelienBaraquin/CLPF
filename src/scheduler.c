@@ -1,6 +1,6 @@
 #include <scheduler.h>
 
-int scheduler_init(Scheduler* scheduler, size_t pid) {
+int scheduler_init(Scheduler* scheduler, Pid pid) {
     if (!scheduler)
         return -1;
 

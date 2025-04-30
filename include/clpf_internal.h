@@ -16,4 +16,8 @@ typedef struct {
     unsigned short tix; // Target index -> Immigrate from
 } CLPF;
 
-void clpf(Task entry_point);
+extern CLPF clpf;
+
+void clpf_main(Task entry_point);
+
+void clpf_task_add(Task task, process_priority priority, Pid parent_pid);

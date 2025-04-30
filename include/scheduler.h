@@ -11,7 +11,7 @@ typedef enum scheduler_migration_state_e {
 
 typedef struct scheduler_s {
     pthread_t system_thread_id;
-    size_t pid;
+    Pid pid;
 
     struct scheduler_s* immigrate_from;
     struct scheduler_s* emigrate_to;
@@ -23,6 +23,6 @@ typedef struct scheduler_s {
     MPSCQ waiting_queue;
 } Scheduler;
 
-int scheduler_init(Scheduler* scheduler, size_t pid);
+int scheduler_init(Scheduler* scheduler, Pid pid);
 void scheduler_destroy(Scheduler* scheduler);
 void scheduler_loop(Scheduler* scheduler);
