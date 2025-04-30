@@ -1,24 +1,20 @@
 #include <process.h>
 
-Process *process_create(Task task, process_priority priority) {
-    if (!task)
-        return NULL;
+int process_init(Process *process, Task task, process_priority priority, size_t pid) {
+    if (!task || !process)
+        return -1;
+    if (priority < PROCESS_PRIORITY_LOW || priority > PROCESS_PRIORITY_VERY_HIGH)
+        return -1;
 
-    Process *process = malloc(sizeof(Process));
-    if (!process)
-        return NULL;
-
-    process->pid = ~0; // ~0 indicates that the process is not yet assigned a PID
+    process->pid = pid;
     process->state = PROCESS_READY;
     process->priority = priority;
     process->task = task;
 
-    if (heap_create(&process->heap, MINIMAL_HEAP_POOL_SIZE) != 0) {
-        free(process);
-        return NULL;
-    }
+    if (heap_create(&process->heap, MINIMAL_HEAP_POOL_SIZE) != 0)
+        return -1;
 
-    return process;
+    return 0;
 }
 
 void process_destroy(Process *process) {
@@ -26,5 +22,4 @@ void process_destroy(Process *process) {
         return;
 
     heap_destroy(&process->heap);
-    free(process);
 }

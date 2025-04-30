@@ -31,5 +31,5 @@ typedef struct process_s {
     TAILQ_ENTRY(process_s) next;
 } Process;
 
-Process *process_create(Task task, process_priority priority);
+int process_init(Process *process, Task task, process_priority priority, size_t pid);
 void process_destroy(Process *process);
