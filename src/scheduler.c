@@ -148,6 +148,12 @@ void scheduler_loop(Scheduler* scheduler) {
     if (!scheduler)
         return;
 
+    ucontext_t main_context;
+    if (getcontext(&main_context) == -1) {
+        perror("getcontext");
+        return;
+    }
+
     while (1) {
         #ifdef RUNNING_ON_VALGRIND
         usleep(1000); // Sleep for 1ms to avoid busy waiting
@@ -178,7 +184,7 @@ void scheduler_loop(Scheduler* scheduler) {
 
         Process* process = pick_process(scheduler);
 
-        if (process) {
+        if (process) { // TODO CONTEXT using ucontext
             process->task();
             process->state = PROCESS_EXITING;
             atomic_fetch_sub(&scheduler->process_count, 1);

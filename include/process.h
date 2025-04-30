@@ -7,6 +7,7 @@
 #include <utils/pid.h>
 #include <signal.h>
 #include <links.h>
+#include <ucontext.h>
 
 typedef void (*Task)(void);
 
@@ -29,6 +30,7 @@ typedef struct process_s {
     Pid scheduler_pid;
 
     heap_t heap;
+    ucontext_t context;
 
     process_state state;
     process_priority priority;
