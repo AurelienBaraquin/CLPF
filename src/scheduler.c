@@ -59,6 +59,11 @@ void scheduler_push_shared(Scheduler* scheduler, Process* process) {
         default:
             break;
     }
+
+    // Notify the scheduler thread
+    pthread_mutex_lock(&scheduler->mutex);
+    pthread_cond_signal(&scheduler->cond);
+    pthread_mutex_unlock(&scheduler->mutex);
 }
 
 void scheduler_push(Scheduler* scheduler, Process* process) {
