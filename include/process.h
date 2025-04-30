@@ -1,5 +1,7 @@
 #pragma once
 
+#define RUNNING_ON_VALGRIND
+
 #include <memory/heap.h>
 #include <utils/mpscq.h>
 #include <utils/pid.h>

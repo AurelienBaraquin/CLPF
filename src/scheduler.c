@@ -149,11 +149,16 @@ void scheduler_loop(Scheduler* scheduler) {
         return;
 
     while (1) {
+        #ifdef RUNNING_ON_VALGRIND
+        usleep(1000); // Sleep for 1ms to avoid busy waiting
+        #else
         LOCK_UNTIL(runq_empty(&scheduler->rq[0]) ||
                    runq_empty(&scheduler->rq[1]) ||
                    runq_empty(&scheduler->rq[2]) ||
                    !exit_in_progress,
                    &scheduler->cond, &scheduler->mutex);
+        #endif
+
         if (UNLIKELY(exit_in_progress)) {
             break;
         }

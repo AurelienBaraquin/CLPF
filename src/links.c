@@ -1,6 +1,7 @@
 #include <links.h>
 #include <process.h>
 #include <clpf_internal.h>
+#include <stdio.h>
 
 void link_add(Pid self_pid, Pid other_pid, int type)
 {
@@ -9,8 +10,10 @@ void link_add(Pid self_pid, Pid other_pid, int type)
 
     Process *self = &clpf.process_table[self_pid];
 
-    if (!self)
+    if (!self) {
+        fprintf(stderr, "Process %ld not found\n", self_pid);
         return;
+    }
 
     links_t *link = malloc(sizeof(links_t));
     if (!link)
@@ -57,7 +60,9 @@ void link_clear(links_t *link)
     if (!link)
         return;
 
-    links_t *next = link->next;
-    free(link);
-    link_clear(next);
+    for (links_t *l = link; l != NULL;) {
+        links_t *next = l->next;
+        free(l);
+        l = next;
+    }
 }

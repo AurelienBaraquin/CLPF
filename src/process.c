@@ -33,7 +33,8 @@ int process_init(Process *process, Task task, process_priority priority, Pid pid
 
     process->links = NULL;
     link_add(pid, parent_pid, LINK_TYPE_TO_PARENT);
-    link_add(parent_pid, pid, LINK_TYPE_TO_CHILD);
+    if (parent_pid != -1)
+        link_add(parent_pid, pid, LINK_TYPE_TO_CHILD);
 
     return 0;
 }
