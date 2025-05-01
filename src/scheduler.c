@@ -1,6 +1,7 @@
 #include <scheduler.h>
 #include <flags_internal.h>
 #include <utils/ox.h>
+#include <stdio.h>
 
 int scheduler_init(Scheduler* scheduler, Pid pid) {
     if (!scheduler)
@@ -150,7 +151,7 @@ void scheduler_loop(Scheduler* scheduler) {
 
     ucontext_t main_context;
     if (getcontext(&main_context) == -1) {
-        perror("getcontext");
+        fprintf(stderr, "Error when getting main context in scheduler : %li\n", scheduler->pid);
         return;
     }
 
@@ -185,7 +186,8 @@ void scheduler_loop(Scheduler* scheduler) {
         Process* process = pick_process(scheduler);
 
         if (process) { // TODO CONTEXT using ucontext
-            process->task();
+            makecontext(&process->context, (void (*)(void))context_entry, 2, process, &main_context);
+            swapcontext(&main_context, &process->context);
             process->state = PROCESS_EXITING;
             atomic_fetch_sub(&scheduler->process_count, 1);
         }

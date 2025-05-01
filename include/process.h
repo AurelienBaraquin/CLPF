@@ -3,6 +3,7 @@
 #define RUNNING_ON_VALGRIND
 
 #include <memory/heap.h>
+#include <memory/stack.h>
 #include <utils/mpscq.h>
 #include <utils/pid.h>
 #include <signal.h>
@@ -30,6 +31,7 @@ typedef struct process_s {
     Pid scheduler_pid;
 
     heap_t heap;
+    void *stack;
     ucontext_t context;
 
     process_state state;
@@ -49,3 +51,5 @@ typedef struct process_s {
 
 int process_init(Process *process, Task task, process_priority priority, Pid pid, Pid parent_pid);
 void process_destroy(Process *process);
+
+void context_entry(Process* self, ucontext_t* arg);

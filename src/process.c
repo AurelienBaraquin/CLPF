@@ -28,6 +28,17 @@ int process_init(Process *process, Task task, process_priority priority, Pid pid
 
     process->task = task;
 
+    process->stack = stack_alloc(STACK_SIZE);
+    if (!process->stack)
+        return -1;
+
+    process->context.uc_stack.ss_sp = process->stack;
+    process->context.uc_stack.ss_size = STACK_SIZE;
+    process->context.uc_stack.ss_flags = 0;
+    process->context.uc_link = NULL;    
+
+    if (getcontext(&process->context) == -1)
+        return -1;
     if (heap_create(&process->heap, MINIMAL_HEAP_POOL_SIZE) != 0)
         return -1;
 
@@ -44,5 +55,6 @@ void process_destroy(Process *process) {
         return;
 
     heap_destroy(&process->heap);
+    stack_free(process->stack, STACK_SIZE);
     link_clear(process->links);
 }
