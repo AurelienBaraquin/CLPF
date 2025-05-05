@@ -8,7 +8,6 @@
 #include <utils/pid.h>
 #include <signal.h>
 #include <links.h>
-#include <ucontext.h>
 #include <utils/funcall.h>
 #include <libco/libco.h>
 

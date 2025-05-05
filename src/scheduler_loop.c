@@ -53,7 +53,7 @@ void scheduler_loop(Scheduler* scheduler) {
 
         Process* process = pick_process(scheduler);
 
-        if (process) { // TODO CONTEXT using ucontext
+        if (process) {
             __proc = process;
             __sch_co = &sch_co;
             process->state = PROCESS_RUNNING;
