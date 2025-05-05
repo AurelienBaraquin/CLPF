@@ -67,6 +67,11 @@ void scheduler_push_shared(Scheduler* scheduler, Process* process) {
 void scheduler_push(Scheduler* scheduler, Process* process) {
     if (!scheduler || !process)
         return;
+    
+    if (process->state == PROCESS_WAITING) {
+        runq_push(&scheduler->rq[3], process);
+        return;
+    }
 
     switch (process->priority) {
         case PROCESS_PRIORITY_LOW:

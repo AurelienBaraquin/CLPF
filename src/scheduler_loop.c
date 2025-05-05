@@ -53,13 +53,29 @@ void scheduler_loop(Scheduler* scheduler) {
 
         Process* process = pick_process(scheduler);
 
-        if (process) {
-            __proc = process;
-            __sch_co = &sch_co;
-            process->state = PROCESS_RUNNING;
-            co_switch(process->coro);
+        if (!process)
+            continue;
+
+        __proc = process;
+        __sch_co = &sch_co;
+
+        process->state = PROCESS_RUNNING;
+        co_switch(process->coro);
+
+        if (process->state == PROCESS_RUNNING)
             process->state = PROCESS_EXITING;
-            atomic_fetch_sub(&scheduler->process_count, 1);
+
+        switch (process->state) {
+            case PROCESS_WAITING:
+                scheduler_push(scheduler, process);
+                break;
+            case PROCESS_READY:
+                fprintf(stderr, "Process shouldn't be ready here\n");
+            case PROCESS_EXITING:
+                atomic_fetch_sub(&scheduler->process_count, 1);
+                break;
+            default:
+                break;
         }
     }
 }

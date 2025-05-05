@@ -53,4 +53,7 @@ void scheduler_loop(Scheduler* scheduler);
 // Thread-safe push to the scheduler
 void scheduler_push_shared(Scheduler* scheduler, Process* process);
 
+// Non-thread-safe push to the scheduler (only in the scheduler thread)
+void scheduler_push(Scheduler* scheduler, Process* process);
+
 Process* pick_process(Scheduler* scheduler);
