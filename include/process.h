@@ -12,7 +12,7 @@
 #include <libco/libco.h>
 #include <mailbox.h>
 
-typedef void (*Task)(void);
+typedef void (*Task)();
 
 typedef enum process_state_e {
     PROCESS_RUNNING,
