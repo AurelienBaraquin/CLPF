@@ -21,6 +21,8 @@ int scheduler_init(Scheduler* scheduler, Pid pid) {
     pthread_mutex_init(&scheduler->mutex, NULL);
     pthread_cond_init(&scheduler->cond, NULL);
 
+    scheduler->scheduler_coro = co_active();
+
     return 0;
 }
 
@@ -105,6 +107,30 @@ void scheduler_drain(Scheduler* scheduler) {
     }
 }
 
+void update_waiting_processes(Scheduler* scheduler) {
+    if (!scheduler) return;
+
+    RunQueue temp_rq = {0};
+    runq_init(&temp_rq);
+
+    size_t count = runq_size(&scheduler->rq[3]);
+    if (count == 0) return;
+
+    Process* process;
+    while ((process = runq_pop(&scheduler->rq[3])) != NULL) {
+        if (process->state == PROCESS_WAITING) {
+            runq_push(&temp_rq, process);
+        } else {
+            process->state = PROCESS_READY;
+            scheduler_push(scheduler, process);
+        }
+    }
+
+    while ((process = runq_pop(&temp_rq)) != NULL) {
+        runq_push(&scheduler->rq[3], process);
+    }
+}
+
 Process* get_process_by_priority(Scheduler* scheduler) {
     if (!scheduler)
         return NULL;
@@ -124,6 +150,8 @@ Process* get_process_by_priority(Scheduler* scheduler) {
 Process* pick_process(Scheduler* scheduler) {
     if (!scheduler)
         return NULL;
+
+    update_waiting_processes(scheduler);
 
     Process* process = get_process_by_priority(scheduler);
 

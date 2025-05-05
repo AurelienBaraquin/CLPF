@@ -57,3 +57,10 @@ void runq_clear(RunQueue *rq, void (*destroy)(Process *)) {
     rq->head = NULL;
     rq->tail = NULL;
 }
+
+size_t runq_size(RunQueue *rq) {
+    size_t count = 0;
+    for (Process *p = rq->head; p; p = p->next)
+        ++count;
+    return count;
+}

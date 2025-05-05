@@ -29,3 +29,6 @@ void runq_foreach(RunQueue *rq, void (*callback)(Process *));
 
 // Libération de la mémoire
 void runq_clear(RunQueue *rq, void (*destroy)(Process *));
+
+// Taille de la queue
+size_t runq_size(RunQueue *rq);

@@ -21,8 +21,6 @@ void scheduler_loop(Scheduler* scheduler) {
     if (!scheduler)
         return;
 
-    cothread_t sch_co = co_active();
-
     while (1) {
         #ifdef RUNNING_ON_VALGRIND
         usleep(1000); // Sleep for 1ms to avoid busy waiting
@@ -57,15 +55,16 @@ void scheduler_loop(Scheduler* scheduler) {
             continue;
 
         __proc = process;
-        __sch_co = &sch_co;
+        __sch_co = &scheduler->scheduler_coro;
 
         process->state = PROCESS_RUNNING;
         co_switch(process->coro);
 
-        if (process->state == PROCESS_RUNNING)
-            process->state = PROCESS_EXITING;
-
         switch (process->state) {
+            case PROCESS_RUNNING:
+                process->state = PROCESS_READY;
+                scheduler_push(scheduler, process);
+                break;
             case PROCESS_WAITING:
                 scheduler_push(scheduler, process);
                 break;

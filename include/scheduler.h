@@ -35,6 +35,8 @@ typedef struct scheduler_s {
 
     pthread_mutex_t mutex;
     pthread_cond_t cond;
+
+    cothread_t* scheduler_coro;
 } Scheduler;
 
 #define LOCK_UNTIL(predicate, cond, mutex) \

@@ -47,3 +47,7 @@ Pid __clpf_task_add(Funcall_t *fun, process_priority priority, Pid parent_pid);
 
 // Thread-safe task creation
 Pid __clpf_request_task_add(Funcall_t *fun, process_priority priority, Pid parent_pid);
+
+
+// Yield
+void yield(Process *self);

@@ -46,6 +46,9 @@ int process_init(Process *process, Funcall_t *taskcall, process_priority priorit
     link_add(pid, parent_pid, LINK_TYPE_TO_PARENT);
     if (parent_pid != -1)
         link_add(parent_pid, pid, LINK_TYPE_TO_CHILD);
+    
+    mpscq_init(&process->signal_queue);
+    mailbox_init(&process->mailbox);
 
     return 0;
 }
@@ -58,4 +61,6 @@ void process_destroy(Process *process) {
     heap_destroy(&process->heap);
     co_delete(process->coro);
     link_clear(process->links);
+    mpscq_clear(&process->signal_queue, NULL);
+    mailbox_destroy(&process->mailbox);
 }

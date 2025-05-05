@@ -10,6 +10,7 @@
 #include <links.h>
 #include <utils/funcall.h>
 #include <libco/libco.h>
+#include <mailbox.h>
 
 typedef void (*Task)(void);
 
@@ -45,6 +46,7 @@ typedef struct process_s {
     links_t *links;
 
     MPSCQ signal_queue;
+    Mailbox mailbox;
 
     struct process_s *next; // For Queues
 } Process;
