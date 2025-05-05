@@ -14,7 +14,7 @@ void co_entrypoint() {
     cothread_t* sch_co = __sch_co;
 
     funcall_call(&proc->taskcall);
-    co_switch(*sch_co);
+    co_switch(sch_co);
 }
 
 void scheduler_loop(Scheduler* scheduler) {
@@ -55,7 +55,7 @@ void scheduler_loop(Scheduler* scheduler) {
             continue;
 
         __proc = process;
-        __sch_co = &scheduler->scheduler_coro;
+        __sch_co = scheduler->scheduler_coro;
 
         process->state = PROCESS_RUNNING;
         co_switch(process->coro);

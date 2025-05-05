@@ -6,13 +6,20 @@
 
 TASK(other_task, int a) {
     SEND(PARENT(), &a, sizeof(int));
+    int *msg = RECEIVE(NULL, NULL);
+    if (msg) {
+        printf("Received message: %d\n", *msg);
+        free(msg);
+    } else {
+        printf("No message received\n");
+    }
     EXIT();
 }
 
 TASK(task, int argc, char *argv[]) {
     SPAWN(other_task, 1, 50);
 
-    int *msg = receive(self, NULL, NULL);
+    int *msg = RECEIVE(NULL, NULL);
 
     if (msg) {
         printf("Received message: %d\n", *msg);
@@ -20,6 +27,8 @@ TASK(task, int argc, char *argv[]) {
     } else {
         printf("No message received\n");
     }
+
+    SEND(self->links->other_pid, &argc, sizeof(int));
 
     EXIT();
 }
