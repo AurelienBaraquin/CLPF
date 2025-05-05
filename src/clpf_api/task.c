@@ -1,6 +1,8 @@
 #include <clpf_internal.h>
 #include <scheduler_manager.h>
 #include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
 
 Pid __clpf_task_add(Funcall_t *fun, process_priority priority, Pid parent_pid)
 {
@@ -52,4 +54,24 @@ Pid __clpf_task_add(Funcall_t *fun, process_priority priority, Pid parent_pid)
     scheduler_push_shared(scheduler, process);
 
     return process->pid;
+}
+
+Pid __clpf_request_task_add(Funcall_t *fun, process_priority priority, Pid parent_pid) {
+    CoreMessage *msg = malloc(sizeof(CoreMessage));
+    if (!msg)
+        return -1;
+
+    msg->op = CORE_MESSAGE_TYPE_SPAWN;
+
+    msg->data.spawn.taskcall = malloc(sizeof(Funcall_t));
+    if (!msg->data.spawn.taskcall)
+        return -1;
+    memcpy(msg->data.spawn.taskcall, fun, sizeof(Funcall_t));
+
+    msg->data.spawn.priority = priority;
+    msg->data.spawn.parent_pid = parent_pid;
+
+    mpscq_push(&clpf.message_queue, msg);
+
+    return 0;
 }

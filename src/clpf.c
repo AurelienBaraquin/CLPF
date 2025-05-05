@@ -18,6 +18,8 @@ void clpf_init()
     clpf.tix = 0;
 
     global_supervisor_init(&clpf.global_supervisor);
+
+    mpscq_init(&clpf.message_queue);
 }
 
 void clpf_destroy()
@@ -31,6 +33,8 @@ void clpf_destroy()
     }
 
     global_supervisor_destroy(&clpf.global_supervisor);
+
+    mpscq_clear(&clpf.message_queue, free);
 }
 
 void clpf_main(Task entry_point, int argc, char *argv[])
@@ -82,7 +86,10 @@ void clpf_main(Task entry_point, int argc, char *argv[])
             total_process_count += atomic_load(&clpf.scheduler_table[i].process_count);
         }
 
-        if (total_process_count == 0) {
+        int stop = __clpf_main_update();
+
+        // Check if all processes are finished
+        if ((total_process_count == 0 && mpscq_empty(&clpf.message_queue)) || stop == 1) {
             exit_in_progress = 1;
             for (int i = 0; i < clpf.scheduler_count; ++i) {
                 Scheduler* scheduler = &clpf.scheduler_table[i];

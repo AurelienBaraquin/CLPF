@@ -25,12 +25,12 @@ int process_init(Process *process, Funcall_t *taskcall, process_priority priorit
             break;
         default:
             return -1;
-    }
+    } 
 
     Funcall_t funcall = {0};
     funcall.func = taskcall->func;
     funcall.argc = taskcall->argc + 1;
-    funcall.args[0] = (uintptr_t)process->pid;
+    funcall.args[0] = (uintptr_t)process;
     memcpy(&funcall.args[1], taskcall->args, sizeof(uintptr_t) * (taskcall->argc));
 
     process->taskcall = funcall;
