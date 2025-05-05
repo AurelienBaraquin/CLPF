@@ -50,6 +50,7 @@ int scheduler_init(Scheduler* scheduler, Pid pid);
 void scheduler_destroy(Scheduler* scheduler);
 void scheduler_loop(Scheduler* scheduler);
 
+// Thread-safe push to the scheduler
 void scheduler_push_shared(Scheduler* scheduler, Process* process);
 
 Process* pick_process(Scheduler* scheduler);
