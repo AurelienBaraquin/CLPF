@@ -145,15 +145,25 @@ Process* pick_process(Scheduler* scheduler) {
     return pick_process(scheduler);
 }
 
+Process *__proc;
+cothread_t *__sch_co;
+
+void co_entrypoint() {
+    if (!__proc || !__sch_co)
+        return;
+
+    Process* proc = __proc;
+    cothread_t* sch_co = __sch_co;
+
+    funcall_call(&proc->taskcall);
+    co_switch(*sch_co);
+}
+
 void scheduler_loop(Scheduler* scheduler) {
     if (!scheduler)
         return;
 
-    ucontext_t main_context;
-    if (getcontext(&main_context) == -1) {
-        fprintf(stderr, "Error when getting main context in scheduler : %li\n", scheduler->pid);
-        return;
-    }
+    cothread_t sch_co = co_active();
 
     while (1) {
         #ifdef RUNNING_ON_VALGRIND
@@ -186,8 +196,10 @@ void scheduler_loop(Scheduler* scheduler) {
         Process* process = pick_process(scheduler);
 
         if (process) { // TODO CONTEXT using ucontext
-            makecontext(&process->context, (void (*)(void))context_entry, 2, process, &main_context);
-            swapcontext(&main_context, &process->context);
+            __proc = process;
+            __sch_co = &sch_co;
+            process->state = PROCESS_RUNNING;
+            co_switch(process->coro);
             process->state = PROCESS_EXITING;
             atomic_fetch_sub(&scheduler->process_count, 1);
         }

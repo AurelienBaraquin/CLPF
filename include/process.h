@@ -10,6 +10,7 @@
 #include <links.h>
 #include <ucontext.h>
 #include <utils/funcall.h>
+#include <libco/libco.h>
 
 typedef void (*Task)(void);
 
@@ -32,8 +33,7 @@ typedef struct process_s {
     Pid scheduler_pid;
 
     heap_t heap;
-    void *stack;
-    ucontext_t context;
+    cothread_t coro;
 
     process_state state;
     process_priority priority;
@@ -53,4 +53,4 @@ typedef struct process_s {
 int process_init(Process *process, Funcall_t *taskcall, process_priority priority, Pid pid, Pid parent_pid);
 void process_destroy(Process *process);
 
-void context_entry(Process* self, ucontext_t* arg);
+void co_entrypoint();

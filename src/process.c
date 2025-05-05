@@ -35,17 +35,10 @@ int process_init(Process *process, Funcall_t *taskcall, process_priority priorit
 
     process->taskcall = funcall;
 
-    process->stack = stack_alloc(STACK_SIZE);
-    if (!process->stack)
+    process->coro = co_create(STACK_SIZE, co_entrypoint);
+    if (!process->coro)
         return -1;
 
-    process->context.uc_stack.ss_sp = process->stack;
-    process->context.uc_stack.ss_size = STACK_SIZE;
-    process->context.uc_stack.ss_flags = 0;
-    process->context.uc_link = NULL;    
-
-    if (getcontext(&process->context) == -1)
-        return -1;
     if (heap_create(&process->heap, MINIMAL_HEAP_POOL_SIZE) != 0)
         return -1;
 
@@ -63,6 +56,6 @@ void process_destroy(Process *process) {
 
     funcall_destroy(&process->taskcall);
     heap_destroy(&process->heap);
-    stack_free(process->stack, STACK_SIZE);
+    co_delete(process->coro);
     link_clear(process->links);
 }
