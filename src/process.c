@@ -1,9 +1,10 @@
 #include <process.h>
 #include <clpf_internal.h>
 #include <links.h>
+#include <string.h>
 
-int process_init(Process *process, Task task, process_priority priority, Pid pid, Pid parent_pid) {
-    if (!task || !process)
+int process_init(Process *process, Funcall_t *taskcall, process_priority priority, Pid pid, Pid parent_pid) {
+    if (!taskcall || !process)
         return -1;
     if (priority < PROCESS_PRIORITY_LOW || priority > PROCESS_PRIORITY_VERY_HIGH)
         return -1;
@@ -26,7 +27,13 @@ int process_init(Process *process, Task task, process_priority priority, Pid pid
             return -1;
     }
 
-    process->task = task;
+    Funcall_t funcall = {0};
+    funcall.func = taskcall->func;
+    funcall.argc = taskcall->argc + 1;
+    funcall.args[0] = (uintptr_t)process->pid;
+    memcpy(&funcall.args[1], taskcall->args, sizeof(uintptr_t) * (taskcall->argc));
+
+    process->taskcall = funcall;
 
     process->stack = stack_alloc(STACK_SIZE);
     if (!process->stack)
@@ -54,6 +61,7 @@ void process_destroy(Process *process) {
     if (!process)
         return;
 
+    funcall_destroy(&process->taskcall);
     heap_destroy(&process->heap);
     stack_free(process->stack, STACK_SIZE);
     link_clear(process->links);

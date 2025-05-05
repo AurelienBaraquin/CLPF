@@ -9,6 +9,7 @@
 #include <signal.h>
 #include <links.h>
 #include <ucontext.h>
+#include <utils/funcall.h>
 
 typedef void (*Task)(void);
 
@@ -40,7 +41,7 @@ typedef struct process_s {
     // == 1 for VH, H, M and == 8 for Low
     unsigned short schedule_count; // Decremented each time the process is picked from the front of the queue, and scheduled if == 0 otherwise it goes to the back of the queue
 
-    Task task;
+    Funcall_t taskcall;
 
     links_t *links;
 
@@ -49,7 +50,7 @@ typedef struct process_s {
     struct process_s *next; // For Queues
 } Process;
 
-int process_init(Process *process, Task task, process_priority priority, Pid pid, Pid parent_pid);
+int process_init(Process *process, Funcall_t *taskcall, process_priority priority, Pid pid, Pid parent_pid);
 void process_destroy(Process *process);
 
 void context_entry(Process* self, ucontext_t* arg);

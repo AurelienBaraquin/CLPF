@@ -2,7 +2,7 @@
 #include <scheduler_manager.h>
 #include <stdio.h>
 
-Pid clpf_task_add(Task task, process_priority priority, Pid parent_pid)
+Pid __clpf_task_add(Funcall_t *fun, process_priority priority, Pid parent_pid)
 {
     // find an empty process (when id is 0)
     Pid empty_process = -1;
@@ -20,7 +20,7 @@ Pid clpf_task_add(Task task, process_priority priority, Pid parent_pid)
 
     // create the process
     Process *process = &clpf.process_table[empty_process];
-    if (process_init(process, task, priority, empty_process, parent_pid) != 0) {
+    if (process_init(process, fun, priority, empty_process, parent_pid) != 0) {
         fprintf(stderr, "Failed to initialize process %ld\n", empty_process);
         return -1;
     }

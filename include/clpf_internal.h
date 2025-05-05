@@ -21,6 +21,6 @@ typedef struct {
 
 extern CLPF clpf;
 
-void clpf_main(Task entry_point);
+void clpf_main(Task entry_point, int argc, char *argv[]);
 
-Pid clpf_task_add(Task task, process_priority priority, Pid parent_pid);
+Pid __clpf_task_add(Funcall_t *fun, process_priority priority, Pid parent_pid);

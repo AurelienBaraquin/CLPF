@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.15)
-project(cbeam LANGUAGES C)
+project(cbeam LANGUAGES C ASM)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
 # Add -g3 flag for debugging
-add_compile_options(-g3 -Wall -Wextra -Wpedantic -O0)
+add_compile_options(-g3 -O0)
 
 # Ajouter la bibliothèque TLSF
 add_library(tlsf STATIC external/tlsf/tlsf.c)
@@ -20,7 +20,11 @@ file(GLOB_RECURSE CBEAM_SOURCES
     src/*.c
 )
 
-add_library(cbeam STATIC ${CBEAM_SOURCES} ${EXTERNAL_SOURCES})
+file(GLOB_RECURSE ASM_SOURCES src/**/*.S)
+
+message(STATUS "ASM_SOURCES: ${ASM_SOURCES}")
+
+add_library(cbeam STATIC ${CBEAM_SOURCES} ${ASM_SOURCES} ${EXTERNAL_SOURCES})
 target_link_libraries(cbeam tlsf)
 
 # Optional main binary

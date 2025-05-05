@@ -1,0 +1,43 @@
+    .globl call_raw_func
+    .text
+
+call_raw_func:
+    # Entrée :
+    # %rdi = pointeur vers la fonction (void (*func)())
+    # %rsi = pointeur vers le tableau de uintptr_t
+    # %rdx = nombre d’arguments
+
+    # Sauvegarde des registres d'entrée
+    mov %rdi, %rax      # RAX = adresse fonction
+    mov %rsi, %r10      # R10 = args[]
+    mov %rdx, %r11      # R11 = argc
+
+    cmp $1, %r11
+    jl .call
+    mov (%r10), %rdi    # arg1
+
+    cmp $2, %r11
+    jl .call
+    mov 8(%r10), %rsi   # arg2
+
+    cmp $3, %r11
+    jl .call
+    mov 16(%r10), %rdx  # arg3
+
+    cmp $4, %r11
+    jl .call
+    mov 24(%r10), %rcx  # arg4
+
+    cmp $5, %r11
+    jl .call
+    mov 32(%r10), %r8   # arg5
+
+    cmp $6, %r11
+    jl .call
+    mov 40(%r10), %r9   # arg6
+
+.call:
+    call *%rax
+    ret
+
+.section .note.GNU-stack,"",@progbits

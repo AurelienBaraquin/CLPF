@@ -3,6 +3,6 @@
 void context_entry(Process* self, ucontext_t* arg) {
     if (!self || !arg)
         return;
-    self->task();
+    funcall_call(&self->taskcall);
     setcontext(arg);
 }

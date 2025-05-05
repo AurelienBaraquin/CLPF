@@ -33,7 +33,7 @@ void clpf_destroy()
     global_supervisor_destroy(&clpf.global_supervisor);
 }
 
-void clpf_main(Task entry_point)
+void clpf_main(Task entry_point, int argc, char *argv[])
 {
     if (!entry_point) {
         fprintf(stderr, "Entry point is NULL\n");
@@ -65,14 +65,13 @@ void clpf_main(Task entry_point)
         }
     }
 
-    Pid pid = clpf_task_add(entry_point, PROCESS_PRIORITY_VERY_HIGH, -1);
-    clpf_task_add(entry_point, PROCESS_PRIORITY_VERY_HIGH, pid);
-    pid = clpf_task_add(entry_point, PROCESS_PRIORITY_VERY_HIGH, pid);
-    clpf_task_add(entry_point, PROCESS_PRIORITY_VERY_HIGH, pid);
-    pid = clpf_task_add(entry_point, PROCESS_PRIORITY_VERY_HIGH, pid);
-    clpf_task_add(entry_point, PROCESS_PRIORITY_VERY_HIGH, pid);
-    clpf_task_add(entry_point, PROCESS_PRIORITY_VERY_HIGH, pid);
-    clpf_task_add(entry_point, PROCESS_PRIORITY_VERY_HIGH, pid);
+    Funcall_t funcall;
+    funcall_init(&funcall, entry_point, 2, argc, argv);
+    Pid pid = __clpf_task_add(&funcall, PROCESS_PRIORITY_VERY_HIGH, -1);
+    if (pid == -1) {
+        fprintf(stderr, "Failed to add first task\n");
+        exit_in_progress = 1;
+    }
 
     while (exit_in_progress == 0) {
         usleep(1000); // Sleep for 1ms to avoid busy waiting
