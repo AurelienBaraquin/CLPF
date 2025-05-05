@@ -39,6 +39,7 @@ Pid __clpf_task_add(Funcall_t *fun, process_priority priority, Pid parent_pid)
         scheduler = &clpf.scheduler_table[less_process_scheduler];
     } else {
         // take the scheduler of the parent process
+        // TODO : if the scheduler is already very busy, we should take the less busy scheduler
         scheduler = &clpf.scheduler_table[clpf.process_table[parent_pid].scheduler_pid];
     }
 

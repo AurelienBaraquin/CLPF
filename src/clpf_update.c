@@ -17,6 +17,9 @@ void __clpf_message_destroy(CoreMessage* msg)
 int __clpf_main_update()
 {
     MPSCQNode* node = mpscq_drain(&clpf.message_queue);
+    if (node == NULL) return 0;
+
+    int count = 0;
 
     for (MPSCQNode* n = node; n != NULL; n = n->next) {
         CoreMessage* msg = (CoreMessage*)n->data;
@@ -27,6 +30,7 @@ int __clpf_main_update()
             default:
                 break;
         }
+        ++count;
     }
 
     for (MPSCQNode* n = node; n != NULL; ) {
@@ -36,5 +40,5 @@ int __clpf_main_update()
         n = next;
     }
 
-    return 0;
+    return count;
 }

@@ -86,19 +86,20 @@ void clpf_main(Task entry_point, int argc, char *argv[])
             total_process_count += atomic_load(&clpf.scheduler_table[i].process_count);
         }
 
-        int stop = __clpf_main_update();
+        int updated = __clpf_main_update();
 
         // Check if all processes are finished
-        if ((total_process_count == 0 && mpscq_empty(&clpf.message_queue)) || stop == 1) {
-            exit_in_progress = 1;
-            for (int i = 0; i < clpf.scheduler_count; ++i) {
-                Scheduler* scheduler = &clpf.scheduler_table[i];
-                pthread_mutex_lock(&scheduler->mutex);
-                pthread_cond_signal(&scheduler->cond);
-                pthread_mutex_unlock(&scheduler->mutex);
-            }
+        if (total_process_count == 0 && mpscq_empty(&clpf.message_queue) && updated == 0) {
             break;
         }
+    }
+
+    exit_in_progress = 1;
+    for (int i = 0; i < clpf.scheduler_count; ++i) {
+        Scheduler* scheduler = &clpf.scheduler_table[i];
+        pthread_mutex_lock(&scheduler->mutex);
+        pthread_cond_signal(&scheduler->cond);
+        pthread_mutex_unlock(&scheduler->mutex);
     }
 
     for (int i = 0; i < clpf.scheduler_count; i++) {
