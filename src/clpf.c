@@ -37,7 +37,7 @@ void clpf_destroy()
     mpscq_clear(&clpf.message_queue, free);
 }
 
-void clpf_main(Task entry_point, int argc, char *argv[])
+void __clpf_main(Task entry_point, int argc, char *argv[])
 {
     if (!entry_point) {
         fprintf(stderr, "Entry point is NULL\n");

@@ -39,7 +39,7 @@ typedef struct {
 
 extern CLPF clpf;
 
-void clpf_main(Task entry_point, int argc, char *argv[]);
+void __clpf_main(Task entry_point, int argc, char *argv[]);
 int __clpf_main_update();
 
 // This function is not thread-safe and should be used with caution only in the main thread (use __clpf_request_task_add for thread-safe task creation)
