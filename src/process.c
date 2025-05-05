@@ -2,6 +2,7 @@
 #include <clpf_internal.h>
 #include <links.h>
 #include <string.h>
+#include <stdio.h>
 
 int process_init(Process *process, Funcall_t *taskcall, process_priority priority, Pid pid, Pid parent_pid) {
     if (!taskcall || !process)
@@ -63,4 +64,20 @@ void process_destroy(Process *process) {
     link_clear(process->links);
     mpscq_clear(&process->signal_queue, NULL);
     mailbox_destroy(&process->mailbox);
+}
+
+Pid process_get_parent_pid(Process *self) {
+    if (!self)
+        return -1;
+
+    links_t *link = self->links;
+    while (link) {
+        if (link->type == LINK_TYPE_TO_PARENT) {
+            return link->other_pid;
+        }
+        link = link->next;
+    }
+
+    fprintf(stderr, "[%ld] No parent found\n", self->pid);
+    return -1;
 }

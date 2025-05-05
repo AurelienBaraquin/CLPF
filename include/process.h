@@ -55,3 +55,6 @@ int process_init(Process *process, Funcall_t *taskcall, process_priority priorit
 void process_destroy(Process *process);
 
 void co_entrypoint();
+
+Pid process_get_parent_pid(Process *self);
+

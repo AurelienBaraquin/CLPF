@@ -5,8 +5,8 @@
 #include <stdio.h>
 
 TASK(other_task, int a) {
-    SEND(self->links->other_pid, &a, sizeof(int));
-    self->state = PROCESS_EXITING;
+    SEND(PARENT(), &a, sizeof(int));
+    EXIT();
 }
 
 TASK(task, int argc, char *argv[]) {
@@ -21,7 +21,7 @@ TASK(task, int argc, char *argv[]) {
         printf("No message received\n");
     }
 
-    self->state = PROCESS_EXITING;
+    EXIT();
 }
 
 CLPF_ENTRY(task)

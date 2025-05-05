@@ -10,3 +10,12 @@
         __clpf_main(task, argc, argv); \
         return 0; \
     }
+
+#define EXIT() \
+    do { \
+        self->state = PROCESS_EXITING; \
+        return; \
+    } while (0)
+
+#define PARENT() \
+    process_get_parent_pid(self)
