@@ -51,3 +51,5 @@ void scheduler_destroy(Scheduler* scheduler);
 void scheduler_loop(Scheduler* scheduler);
 
 void scheduler_push_shared(Scheduler* scheduler, Process* process);
+
+Process* pick_process(Scheduler* scheduler);
