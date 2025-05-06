@@ -23,7 +23,7 @@ void* receive(Process* self, MessageMatchFn match, void* userdata) {
     }
 }
 
-void send(Process* self, Pid pid, void* data, size_t size) {
+void send(Process* self, Pid pid, void* data, size_t size, Tag tag) {
     if (pid == -1) {
         fprintf(stderr, "Invalid PID: %ld\n", pid);
         return;
@@ -34,8 +34,20 @@ void send(Process* self, Pid pid, void* data, size_t size) {
         fprintf(stderr, "Process %ld not found\n", pid);
         return;
     }
-    mailbox_send_message(&other_process->mailbox, data, size);
+    mailbox_send_message(&other_process->mailbox, data, size, tag);
     if (other_process->state == PROCESS_WAITING) {
         other_process->state = PROCESS_READY;
     }
+}
+
+
+
+/*
+    Some matching functions for the messages
+*/
+
+// This function matches messages with the same tag
+bool MessageMatchFn_SameTag(Message *msg, void *userdata) {
+    Tag tag = (Tag)(uintptr_t)userdata;
+    return msg->tag == tag;
 }

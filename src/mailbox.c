@@ -34,12 +34,14 @@ void mailbox_destroy(Mailbox* mbox) {
     }
 }
 
-void mailbox_send_message(Mailbox* dest, void* data, size_t size) {
+void mailbox_send_message(Mailbox* dest, void* data, size_t size, Tag tag) {
     Message* msg = malloc(sizeof(Message));
     if (!msg) return;
 
     msg->payload = malloc(size);
     if (!msg->payload) { free(msg); return; }
+
+    msg->tag = tag;
 
     memcpy(msg->payload, data, size);
     msg->size = size;

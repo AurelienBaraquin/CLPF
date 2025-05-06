@@ -1,4 +1,5 @@
 #include <clpf_internal.h>
+#include <clpf_const.h>
 
 void __clpf_message_destroy(CoreMessage* msg)
 {
@@ -28,7 +29,7 @@ int __clpf_main_update()
                 Pid new_pid = __clpf_task_add(msg->data.spawn.taskcall, msg->data.spawn.priority, msg->data.spawn.parent_pid);
                 if (msg->reply_to != -1) {
                     mailbox_send_message(&clpf.process_table[msg->reply_to].mailbox,
-                                         &new_pid, sizeof(Pid));
+                                         &new_pid, sizeof(Pid), CORE_MESSAGE_TYPE_SPAWN_TAG);
                 }
                 break;
             default:

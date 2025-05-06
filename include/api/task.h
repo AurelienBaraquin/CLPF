@@ -13,13 +13,14 @@
 #define SPAWN SPAWN_NORET
 #else
 #include <api/message.h>
+#include <clpf_const.h>
 
 #define SPAWN(func, argc, ...) \
     ({ \
         Funcall_t funcall; \
         funcall_init(&funcall, func, argc, __VA_ARGS__); \
         __clpf_request_task_add(self, true, &funcall, PROCESS_PRIORITY_MEDIUM, self->pid); \
-        Pid *__pid_ptr = (Pid *)RECEIVE(NULL, NULL); \
+        Pid *__pid_ptr = (Pid *)RECEIVE(MessageMatchFn_SameTag, (void *)CORE_MESSAGE_TYPE_SPAWN_TAG); \
         Pid __pid = *__pid_ptr; \
         free(__pid_ptr); \
         __pid; \
