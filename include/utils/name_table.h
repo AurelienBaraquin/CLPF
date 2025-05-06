@@ -17,7 +17,7 @@ TrieNode* name_table_init(void);
 void name_table_free(TrieNode *root);
 
 // Inserts a name with its Pid
-void name_table_insert(TrieNode *root, const char* name, Pid pid);
+int name_table_insert(TrieNode *root, const char* name, Pid pid);
 
 // Searches for a Pid associated with a name, returns -1 if not found
 Pid name_table_lookup(TrieNode *root, const char* name);

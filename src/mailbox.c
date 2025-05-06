@@ -20,10 +20,10 @@ void mailbox_destroy(Mailbox* mbox, heap_t *heap) {
     while (msg) {
         Message *next = msg->next;
         if (heap) {
-            heap_free(heap, msg->payload);
+            if (msg->payload) heap_free(heap, msg->payload);
             heap_free(heap, msg);
         } else {
-            free(msg->payload);
+            if (msg->payload) free(msg->payload);
             free(msg);
         }
         msg = next;
@@ -35,10 +35,10 @@ void mailbox_destroy(Mailbox* mbox, heap_t *heap) {
     while (msg) {
         Message *next = msg->next;
         if (heap) {
-            heap_free(heap, msg->payload);
+            if (msg->payload) heap_free(heap, msg->payload);
             heap_free(heap, msg);
         } else {
-            free(msg->payload);
+            if (msg->payload) free(msg->payload);
             free(msg);
         }
         msg = next;
@@ -55,7 +55,8 @@ void mailbox_send_message(Mailbox* dest, heap_t *dest_heap, void* data, size_t s
     msg->tag = tag;
     msg->heap = dest_heap;
 
-    memcpy(msg->payload, data, size);
+    if (data)
+        memcpy(msg->payload, data, size);
     msg->size = size;
     msg->next = NULL;
 
@@ -122,10 +123,10 @@ void mailbox_clear_seen(Mailbox* mbox, heap_t *heap) {
     while (msg) {
         Message* next = msg->next;
         if (heap) {
-            heap_free(heap, msg->payload);
+            if (msg->payload) heap_free(heap, msg->payload);
             heap_free(heap, msg);
         } else {
-            free(msg->payload);
+            if (msg->payload) free(msg->payload);
             free(msg);
         }
         msg = next;

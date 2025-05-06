@@ -12,6 +12,7 @@ typedef enum core_message_type_e {
     CORE_MESSAGE_TYPE_NAME_REGISTER,
     CORE_MESSAGE_TYPE_NAME_UNREGISTER,
     CORE_MESSAGE_TYPE_NAME_LOOKUP,
+    CORE_MESSAGE_TYPE_PROCESS_EXIT,
 } CoreMessageType;
 
 typedef struct {
@@ -28,17 +29,21 @@ typedef struct {
         } spawn;
 
         struct {
-            char name[64];
+            char name[NAME_MAX_LENGTH];
             Pid pid;
         } name_register;
 
         struct {
-            char name[64];
+            char name[NAME_MAX_LENGTH];
         } name_unregister;
 
         struct {
-            char name[64];
+            char name[NAME_MAX_LENGTH];
         } name_lookup;
+
+        struct {
+            Pid pid;
+        } process_exit;
     } data;
 } CoreMessage;
 

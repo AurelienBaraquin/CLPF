@@ -2,6 +2,9 @@
 
 #include <clpf_internal.h>
 
+#define TASK0(_name) \
+    void _name(Process *self) \
+
 #define TASK(_name, ...) \
     void _name(Process *self, __VA_ARGS__) \
 

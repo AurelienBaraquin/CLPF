@@ -1,5 +1,6 @@
 #include <api/message.h>
 #include <stdio.h>
+#include <string.h>
 
 void* receive(Process* self, MessageMatchFn match, void* userdata) {
     while (1) {
@@ -55,4 +56,12 @@ void send(Process *self, Pid pid, void* data, size_t size, Tag tag) {
 bool MessageMatchFn_SameTag(Message *msg, void *userdata) {
     Tag tag = (Tag)(uintptr_t)userdata;
     return msg->tag == tag;
+}
+
+// This function matches messages with the same data string
+bool MessageMatchFn_SameDataString(Message *msg, void *userdata) {
+    if (!msg || !userdata)
+        return false;
+
+    return strcmp((char *)msg->payload, (char *)userdata) == 0;
 }

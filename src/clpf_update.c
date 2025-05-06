@@ -2,6 +2,8 @@
 #include <clpf_const.h>
 #include <stdio.h>
 #include <api/message.h>
+#include <stdlib.h>
+#include <string.h>
 
 void __clpf_message_destroy(CoreMessage* msg)
 {
@@ -34,9 +36,13 @@ int __clpf_main_update()
                 break;
 
             case CORE_MESSAGE_TYPE_NAME_REGISTER:
-                name_table_insert(clpf.name_table, msg->data.name_register.name, msg->data.name_register.pid);
+                if (name_table_insert(clpf.name_table, msg->data.name_register.name, msg->data.name_register.pid) == 0) {
+                    memset(clpf.process_table[msg->data.name_register.pid].__name, 0, NAME_MAX_LENGTH);
+                    strcpy(clpf.process_table[msg->data.name_register.pid].__name, msg->data.name_register.name);
+                }
                 break;
             case CORE_MESSAGE_TYPE_NAME_UNREGISTER:
+                memset(clpf.process_table[name_table_lookup(clpf.name_table, msg->data.name_unregister.name)].__name, 0, NAME_MAX_LENGTH);
                 name_table_remove(clpf.name_table, msg->data.name_unregister.name);
                 break;
             case CORE_MESSAGE_TYPE_NAME_LOOKUP:
@@ -48,6 +54,15 @@ int __clpf_main_update()
                 send(NULL, msg->reply_to, &pid, sizeof(Pid), CORE_MESSAGE_TYPE_NAME_LOOKUP_TAG);
                 break;
 
+            case CORE_MESSAGE_TYPE_PROCESS_EXIT:
+                if (msg->data.process_exit.pid != -1) {
+                    name_table_remove(clpf.name_table, clpf.process_table[msg->data.process_exit.pid].__name);
+                    memset(clpf.process_table[msg->data.process_exit.pid].__name, 0, NAME_MAX_LENGTH);
+                    process_destroy(&clpf.process_table[msg->data.process_exit.pid]);
+                    clpf.process_table[msg->data.process_exit.pid].pid = -1;
+                    clpf.process_count--;
+                }
+                break;
             default:
                 break;
         }

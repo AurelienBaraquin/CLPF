@@ -2,6 +2,7 @@
 #include <flags_internal.h>
 #include <utils/ox.h>
 #include <stdio.h>
+#include <clpf_internal.h>
 
 __thread Process *__proc;
 __thread cothread_t *__sch_co;
@@ -15,6 +16,19 @@ void co_entrypoint() {
 
     funcall_call(&proc->taskcall);
     co_switch(sch_co);
+}
+
+void request_process_exit(Process* process) {
+    CoreMessage* msg = malloc(sizeof(CoreMessage));
+    if (!msg)
+        return;
+    
+    msg->op = CORE_MESSAGE_TYPE_PROCESS_EXIT;
+    msg->sender = process->pid;
+    msg->reply_to = -1;
+    msg->data.process_exit.pid = process->pid;
+
+    mpscq_push(&clpf.message_queue, msg);
 }
 
 void scheduler_loop(Scheduler* scheduler) {
@@ -72,6 +86,8 @@ void scheduler_loop(Scheduler* scheduler) {
                 fprintf(stderr, "Process shouldn't be ready here\n");
             case PROCESS_EXITING:
                 atomic_fetch_sub(&scheduler->process_count, 1);
+                request_process_exit(process);
+
                 break;
             default:
                 break;

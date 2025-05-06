@@ -9,8 +9,16 @@
         __clpf_request_task_add(self, false, &funcall, PROCESS_PRIORITY_MEDIUM, self->pid); \
     } while (0)
 
+#define SPAWN_NORET0(func) \
+    do { \
+        Funcall_t funcall; \
+        funcall_init(&funcall, func, 0); \
+        __clpf_request_task_add(self, false, &funcall, PROCESS_PRIORITY_MEDIUM, self->pid); \
+    } while (0)
+
 #ifdef INCLUDE_CLPF_MESSAGE
 #define SPAWN SPAWN_NORET
+#define SPAWN0 SPAWN_NORET0
 #else
 #include <api/message.h>
 #include <clpf_const.h>
@@ -19,6 +27,17 @@
     ({ \
         Funcall_t funcall; \
         funcall_init(&funcall, func, argc, __VA_ARGS__); \
+        __clpf_request_task_add(self, true, &funcall, PROCESS_PRIORITY_MEDIUM, self->pid); \
+        Pid *__pid_ptr = (Pid *)RECEIVE(MessageMatchFn_SameTag, (void *)CORE_MESSAGE_TYPE_SPAWN_TAG); \
+        Pid __pid = *__pid_ptr; \
+        safe_heap_free(&self->heap, __pid_ptr); \
+        __pid; \
+    })
+
+    #define SPAWN0(func) \
+    ({ \
+        Funcall_t funcall; \
+        funcall_init(&funcall, func, 0); \
         __clpf_request_task_add(self, true, &funcall, PROCESS_PRIORITY_MEDIUM, self->pid); \
         Pid *__pid_ptr = (Pid *)RECEIVE(MessageMatchFn_SameTag, (void *)CORE_MESSAGE_TYPE_SPAWN_TAG); \
         Pid __pid = *__pid_ptr; \

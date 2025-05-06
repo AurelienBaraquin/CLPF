@@ -36,13 +36,13 @@ void name_table_free(TrieNode* root) {
     name_table_free_recursive(root);
 }
 
-void name_table_insert(TrieNode *root, const char* name, Pid pid) {
+int name_table_insert(TrieNode *root, const char* name, Pid pid) {
     TrieNode* current = root;
     while (*name) {
         int index = char_to_index(*name);
         if (index == -1) {
             fprintf(stderr, "Invalid character in name: %c\n", *name);
-            return;
+            return -1;
         }
 
         if (!current->children[index])
@@ -52,6 +52,8 @@ void name_table_insert(TrieNode *root, const char* name, Pid pid) {
     }
     current->is_end = 1;
     current->pid = pid;
+
+    return 0;
 }
 
 Pid name_table_lookup(TrieNode *root, const char* name) {

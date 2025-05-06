@@ -12,6 +12,8 @@
 #include <libco/libco.h>
 #include <mailbox.h>
 
+#define NAME_MAX_LENGTH 64
+
 typedef void (*Task)();
 
 typedef enum process_state_e {
@@ -31,6 +33,8 @@ typedef enum process_priority_e {
 typedef struct process_s {
     Pid pid;
     Pid scheduler_pid;
+
+    char __name[NAME_MAX_LENGTH]; // Name of the process used only in Core
 
     safe_heap_t heap;
     cothread_t coro;

@@ -6,41 +6,37 @@
 #include <stdio.h>
 #include <string.h>
 
-TASK(other_task, int a) {
-    int i = 10;
-    while (i --> 0) {
-        SEND(PARENT(), &a, sizeof(int));
+TASK0(named) {
+    REGISTER("named_proc", self->pid);
+    printf("Registered under 'named_proc'\n");
 
-        char *msg = RECEIVE(NULL, NULL);
+    NOTIFY(PARENT(), "ready");
 
-        if (msg) {
-            printf("Pong: %s\n", msg);
-        } else {
-            printf("No message received\n");
-        }
-    }
+    int *msg = RECEIVE(NULL, NULL);
+    printf("Named received: %d\n", *msg);
+    safe_heap_free(&self->heap, msg);
+
+    UNREGISTER("named_proc");
+    printf("Unregistered 'named_proc'\n");
     EXIT();
 }
 
 TASK(task, int argc, char *argv[]) {
-    Pid _pid = SPAWN(other_task, 1, 50);
-    REGISTER("other_task_tag", _pid);
-    Pid pid = WHEREIS("other_task_tag");
-    printf("Spawned other_task with pid: %ld\n", pid);
-    char *msg_ = "Hello from task!";
+    SPAWN0(named);
 
-    int i = 10;
-    while (i --> 0) {
-        int *msg = RECEIVE(NULL, NULL);
+    WAIT_NOTIF("ready");
 
-        if (msg) {
-            printf("Ping: %d\n", *msg);
-        } else {
-            printf("No message received in : %ld\n", self->pid);
-        }
+    Pid target = WHEREIS("named_proc");
+    printf("Found 'named_proc' with pid: %ld\n", target);
+    int x = 42;
+    SEND(target, &x, sizeof(int));
 
-        SEND(pid, msg_, strlen(msg_) + 1);
+    while (WHEREIS("named_proc") != -1) {
+        yield(self);  // ou sleep court
     }
+
+    Pid res = WHEREIS("named_proc");
+    printf("Should not find anymore: %ld\n", res);
 
     EXIT();
 }

@@ -164,7 +164,8 @@ Process* pick_process(Scheduler* scheduler) {
         return NULL;
     }
 
-    process->schedule_count--;
+    if (process->schedule_count > 0)
+        process->schedule_count--;
 
     if (process->schedule_count == 0) {
         return process;
