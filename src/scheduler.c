@@ -113,8 +113,8 @@ void update_waiting_processes(Scheduler* scheduler) {
     RunQueue temp_rq = {0};
     runq_init(&temp_rq);
 
-    size_t count = runq_size(&scheduler->rq[3]);
-    if (count == 0) return;
+    if (runq_empty(&scheduler->rq[3]))
+        return;
 
     Process* process;
     while ((process = runq_pop(&scheduler->rq[3])) != NULL) {
