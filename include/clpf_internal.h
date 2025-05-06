@@ -2,12 +2,16 @@
 
 #include <scheduler.h>
 #include <global_supervisor.h>
+#include <utils/name_table.h>
 
 #define MAX_PROCESSES 65536 // 2^16
 #define MAX_SCHEDULERS 64
 
 typedef enum core_message_type_e {
     CORE_MESSAGE_TYPE_SPAWN,
+    CORE_MESSAGE_TYPE_NAME_REGISTER,
+    CORE_MESSAGE_TYPE_NAME_UNREGISTER,
+    CORE_MESSAGE_TYPE_NAME_LOOKUP,
 } CoreMessageType;
 
 typedef struct {
@@ -22,6 +26,19 @@ typedef struct {
             process_priority priority;
             Pid parent_pid;
         } spawn;
+
+        struct {
+            char name[64];
+            Pid pid;
+        } name_register;
+
+        struct {
+            char name[64];
+        } name_unregister;
+
+        struct {
+            char name[64];
+        } name_lookup;
     } data;
 } CoreMessage;
 
@@ -31,6 +48,8 @@ typedef struct {
 
     Scheduler scheduler_table[MAX_SCHEDULERS];
     int scheduler_count;
+
+    TrieNode *name_table;
 
     unsigned short fix; // From index -> Emigrate to
     unsigned short tix; // Target index -> Immigrate from
@@ -50,7 +69,6 @@ Pid __clpf_task_add(Funcall_t *fun, process_priority priority, Pid parent_pid);
 
 // Thread-safe task creation
 int __clpf_request_task_add(Process *self, bool need_reply, Funcall_t *fun, process_priority priority, Pid parent_pid);
-
 
 // Yield
 void yield(Process *self);

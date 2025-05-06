@@ -14,6 +14,13 @@ void clpf_init()
 
     clpf.process_count = 0;
     clpf.scheduler_count = 0;
+
+    clpf.name_table = name_table_init();
+    if (!clpf.name_table) {
+        fprintf(stderr, "Failed to initialize name table\n");
+        return;
+    }
+
     clpf.fix = 0;
     clpf.tix = 0;
 
@@ -31,6 +38,8 @@ void clpf_destroy()
     for (int i = 0; i < clpf.process_count; i++) {
         process_destroy(&clpf.process_table[i]);
     }
+
+    name_table_free(clpf.name_table);
 
     global_supervisor_destroy(&clpf.global_supervisor);
 

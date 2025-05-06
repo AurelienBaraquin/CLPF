@@ -2,6 +2,7 @@
 #include <api/run.h>
 #include <api/message.h>
 #include <api/base.h>
+#include <api/tag.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -23,7 +24,9 @@ TASK(other_task, int a) {
 }
 
 TASK(task, int argc, char *argv[]) {
-    Pid pid = SPAWN(other_task, 1, 50);
+    Pid _pid = SPAWN(other_task, 1, 50);
+    REGISTER("other_task_tag", _pid);
+    Pid pid = WHEREIS("other_task_tag");
     printf("Spawned other_task with pid: %ld\n", pid);
     char *msg_ = "Hello from task!";
 

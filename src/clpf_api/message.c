@@ -23,7 +23,7 @@ void* receive(Process* self, MessageMatchFn match, void* userdata) {
     }
 }
 
-void send(Process* self, Pid pid, void* data, size_t size, Tag tag) {
+void send(Pid pid, void* data, size_t size, Tag tag) {
     if (pid == -1) {
         fprintf(stderr, "Invalid PID: %ld\n", pid);
         return;

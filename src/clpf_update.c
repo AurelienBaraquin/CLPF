@@ -1,5 +1,7 @@
 #include <clpf_internal.h>
 #include <clpf_const.h>
+#include <stdio.h>
+#include <api/message.h>
 
 void __clpf_message_destroy(CoreMessage* msg)
 {
@@ -27,11 +29,25 @@ int __clpf_main_update()
         switch (msg->op) {
             case CORE_MESSAGE_TYPE_SPAWN:
                 Pid new_pid = __clpf_task_add(msg->data.spawn.taskcall, msg->data.spawn.priority, msg->data.spawn.parent_pid);
-                if (msg->reply_to != -1) {
-                    mailbox_send_message(&clpf.process_table[msg->reply_to].mailbox,
-                                         &new_pid, sizeof(Pid), CORE_MESSAGE_TYPE_SPAWN_TAG);
-                }
+                if (msg->reply_to != -1)
+                    send(msg->reply_to, &new_pid, sizeof(Pid), CORE_MESSAGE_TYPE_SPAWN_TAG);
                 break;
+
+            case CORE_MESSAGE_TYPE_NAME_REGISTER:
+                name_table_insert(clpf.name_table, msg->data.name_register.name, msg->data.name_register.pid);
+                break;
+            case CORE_MESSAGE_TYPE_NAME_UNREGISTER:
+                name_table_remove(clpf.name_table, msg->data.name_unregister.name);
+                break;
+            case CORE_MESSAGE_TYPE_NAME_LOOKUP:
+                Pid pid = name_table_lookup(clpf.name_table, msg->data.name_lookup.name);
+                if (msg->reply_to == -1) {
+                    fprintf(stderr, "[ERROR] No reply_to for name lookup\n");
+                    break;
+                }
+                send(msg->reply_to, &pid, sizeof(Pid), CORE_MESSAGE_TYPE_NAME_LOOKUP_TAG);
+                break;
+
             default:
                 break;
         }
