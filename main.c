@@ -5,30 +5,38 @@
 #include <stdio.h>
 
 TASK(other_task, int a) {
-    SEND(PARENT(), &a, sizeof(int));
-    int *msg = RECEIVE(NULL, NULL);
-    if (msg) {
-        printf("Received message: %d\n", *msg);
-        free(msg);
-    } else {
-        printf("No message received\n");
+    int i = 10;
+    while (i-- > 0) {
+        SEND(PARENT(), &a, sizeof(int));
+
+        int *msg = RECEIVE(NULL, NULL);
+
+        if (msg) {
+            printf("Pong: %d\n", *msg);
+            free(msg);
+        } else {
+            printf("No message received\n");
+        }
     }
     EXIT();
 }
 
 TASK(task, int argc, char *argv[]) {
     SPAWN(other_task, 1, 50);
+    
+    int i = 10;
+    while (i-- > 0) {
+        int *msg = RECEIVE(NULL, NULL);
 
-    int *msg = RECEIVE(NULL, NULL);
+        if (msg) {
+            printf("Ping: %d\n", *msg);
+            free(msg);
+        } else {
+            printf("No message received in : %ld\n", self->pid);
+        }
 
-    if (msg) {
-        printf("Received message: %d\n", *msg);
-        free(msg);
-    } else {
-        printf("No message received\n");
+        SEND(CHILD(0), &argc, sizeof(int));
     }
-
-    SEND(self->links->other_pid, &argc, sizeof(int));
 
     EXIT();
 }

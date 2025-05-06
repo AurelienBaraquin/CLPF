@@ -43,11 +43,14 @@ int process_init(Process *process, Funcall_t *taskcall, process_priority priorit
     if (heap_create(&process->heap, MINIMAL_HEAP_POOL_SIZE) != 0)
         return -1;
 
-    process->links = NULL;
-    link_add(pid, parent_pid, LINK_TYPE_TO_PARENT);
-    if (parent_pid != -1)
-        link_add(parent_pid, pid, LINK_TYPE_TO_CHILD);
-    
+    links_init(&process->links);
+
+    if (parent_pid != -1) {
+        process->links.parent = parent_pid;
+        Process *parent = &clpf.process_table[parent_pid];
+        link_add_child(&parent->links, pid);
+    }
+
     mpscq_init(&process->signal_queue);
     mailbox_init(&process->mailbox);
 
@@ -61,23 +64,19 @@ void process_destroy(Process *process) {
     funcall_destroy(&process->taskcall);
     heap_destroy(&process->heap);
     co_delete(process->coro);
-    link_clear(process->links);
+    links_clear(&process->links);
     mpscq_clear(&process->signal_queue, NULL);
     mailbox_destroy(&process->mailbox);
 }
 
 Pid process_get_parent_pid(Process *self) {
-    if (!self)
-        return -1;
+    return self ? self->links.parent : -1;
+}
 
-    links_t *link = self->links;
-    while (link) {
-        if (link->type == LINK_TYPE_TO_PARENT) {
-            return link->other_pid;
-        }
-        link = link->next;
-    }
+size_t process_get_child_count(Process *self) {
+    return self ? link_count(self->links.children) : 0;
+}
 
-    fprintf(stderr, "[%ld] No parent found\n", self->pid);
-    return -1;
+Pid process_get_child_pid(Process *self, size_t index) {
+    return self ? link_get_nth(self->links.children, index) : -1;
 }

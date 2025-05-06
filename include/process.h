@@ -43,7 +43,7 @@ typedef struct process_s {
 
     Funcall_t taskcall;
 
-    links_t *links;
+    ProcessLinks links;
 
     MPSCQ signal_queue;
     Mailbox mailbox;
@@ -57,4 +57,5 @@ void process_destroy(Process *process);
 void co_entrypoint();
 
 Pid process_get_parent_pid(Process *self);
-
+Pid process_get_child_pid(Process *self, size_t index);
+size_t process_get_child_count(Process *self);

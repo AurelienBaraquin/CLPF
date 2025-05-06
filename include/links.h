@@ -1,17 +1,29 @@
 #pragma once
 
 #include <utils/pid.h>
-
-typedef struct process_s Process;
+#include <stddef.h>
 
 typedef struct links_s {
-    Pid other_pid; // if other pid = 0, this is a link to the main core
-    enum { LINK_TYPE_TO_PARENT, LINK_TYPE_TO_CHILD } type;
+    Pid pid;
     struct links_s *next;
 } links_t;
 
-void link_add(Pid self, Pid other_pid, int type);
-void link_remove(Pid self, Pid other_pid);
-void link_notify_all(Pid self); // lors de la mort
+typedef struct {
+    Pid parent;
+    links_t *children;
+    links_t *monitors;
+    links_t *monitored_by;
+} ProcessLinks;
 
-void link_clear(links_t *link);
+void links_init(ProcessLinks *links);
+void links_clear(ProcessLinks *links);
+
+void link_add_child(ProcessLinks *links, Pid child);
+void link_add_monitor(ProcessLinks *links, Pid monitor);
+void link_add_monitored_by(ProcessLinks *links, Pid target);
+
+int link_has_child(ProcessLinks *links, Pid child);
+void link_remove_child(ProcessLinks *links, Pid child);
+
+size_t link_count(links_t *list);
+Pid link_get_nth(links_t *list, size_t index);

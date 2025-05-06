@@ -22,6 +22,11 @@ void* receive(Process* self, MessageMatchFn match, void* userdata) {
 }
 
 void send(Process* self, Pid pid, void* data, size_t size) {
+    if (pid == -1) {
+        fprintf(stderr, "Invalid PID: %ld\n", pid);
+        return;
+    }
+
     Process* other_process = &clpf.process_table[pid];
     if (!other_process) {
         fprintf(stderr, "Process %ld not found\n", pid);

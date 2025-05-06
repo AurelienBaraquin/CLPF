@@ -2,8 +2,8 @@
 
 #include <clpf_internal.h>
 
-#define TASK(name, ...) \
-    void name(Process *self, __VA_ARGS__) \
+#define TASK(_name, ...) \
+    void _name(Process *self, __VA_ARGS__) \
 
 #define CLPF_ENTRY(task) \
     int main(int argc, char *argv[]) { \
@@ -19,3 +19,9 @@
 
 #define PARENT() \
     process_get_parent_pid(self)
+
+#define CHILD(index) \
+    process_get_child_pid(self, index)
+
+#define NB_CHILDREN() \
+    process_get_child_count(self)
