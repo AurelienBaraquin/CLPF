@@ -1,29 +1,42 @@
 #include <mailbox.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 
 void mailbox_init(Mailbox* mailbox) {
-    mailbox->head = NULL;
-    mailbox->tail = NULL;
-    mailbox->len = 0;
+    mailbox->seen_head = NULL;
+    mailbox->seen_tail = NULL;
+    mailbox->inbox_head = NULL;
+    mailbox->inbox_tail = NULL;
+    mailbox->inbox_len = 0;
     pthread_mutex_init(&mailbox->lock, NULL);
 }
 
-void mailbox_destroy(Mailbox* mailbox) {
-    pthread_mutex_lock(&mailbox->lock);
-    Message* msg = mailbox->head;
+void mailbox_destroy(Mailbox* mbox) {
+    // Inbox : protégée
+    pthread_mutex_lock(&mbox->lock);
+    Message *msg = mbox->inbox_head;
     while (msg) {
-        Message* next = msg->next;
+        Message *next = msg->next;
         free(msg->payload);
         free(msg);
         msg = next;
     }
-    pthread_mutex_unlock(&mailbox->lock);
+    pthread_mutex_unlock(&mbox->lock);
+
+    // Seen : non protégé
+    msg = mbox->seen_head;
+    while (msg) {
+        Message *next = msg->next;
+        free(msg->payload);
+        free(msg);
+        msg = next;
+    }
 }
 
 void mailbox_send_message(Mailbox* dest, void* data, size_t size) {
     Message* msg = malloc(sizeof(Message));
-    if (!msg) return; // gérer l’erreur
+    if (!msg) return;
 
     msg->payload = malloc(size);
     if (!msg->payload) { free(msg); return; }
@@ -32,57 +45,72 @@ void mailbox_send_message(Mailbox* dest, void* data, size_t size) {
     msg->size = size;
     msg->next = NULL;
 
-    pthread_mutex_lock(&dest->lock); // si nécessaire
-    if (dest->tail) {
-        dest->tail->next = msg;
-    } else {
-        dest->head = msg;
-    }
-    dest->tail = msg;
-    dest->len++;
+    pthread_mutex_lock(&dest->lock);
+    if (dest->inbox_tail)
+        dest->inbox_tail->next = msg;
+    else
+        dest->inbox_head = msg;
+    dest->inbox_tail = msg;
+    dest->inbox_len++;
     pthread_mutex_unlock(&dest->lock);
 }
 
-Message* mailbox_receive_message(Mailbox* self) {
-    pthread_mutex_lock(&self->lock);
-    Message* msg = self->head;
-    if (msg) {
-        self->head = msg->next;
-        if (!self->head)
-            self->tail = NULL;
-        self->len--;
+void mailbox_transfer_inbox_to_seen(Mailbox* mbox) {
+    pthread_mutex_lock(&mbox->lock);
+    if (mbox->inbox_head) {
+        if (mbox->seen_tail)
+            mbox->seen_tail->next = mbox->inbox_head;
+        else
+            mbox->seen_head = mbox->inbox_head;
+        mbox->seen_tail = mbox->inbox_tail;
+
+        mbox->inbox_head = NULL;
+        mbox->inbox_tail = NULL;
+        mbox->inbox_len = 0;
     }
-    pthread_mutex_unlock(&self->lock);
-    return msg; // à libérer après usage
+    pthread_mutex_unlock(&mbox->lock);
 }
 
-Message* mailbox_peek_and_match(Mailbox* self, MessageMatchFn match, void* userdata) {
-    pthread_mutex_lock(&self->lock);
-    Message* msg = self->head;
+Message* mailbox_receive_seen(Mailbox* mbox) {
+    Message* msg = mbox->seen_head;
+    if (msg) {
+        mbox->seen_head = msg->next;
+        if (!mbox->seen_head)
+            mbox->seen_tail = NULL;
+        msg->next = NULL;
+    }
+    return msg;
+}
+
+Message* mailbox_peek_and_match_seen(Mailbox* mbox, MessageMatchFn match, void* userdata) {
+    Message* prev = NULL;
+    Message* msg = mbox->seen_head;
+
     while (msg) {
-        if (match(msg, userdata)) {
-            // Retirer le message de la boîte aux lettres
-            if (msg == self->head) {
-                self->head = msg->next;
-                if (!self->head)
-                    self->tail = NULL;
-            } else {
-                Message* prev = self->head;
-                while (prev && prev->next != msg) {
-                    prev = prev->next;
-                }
-                if (prev) {
-                    prev->next = msg->next;
-                    if (!msg->next)
-                        self->tail = prev;
-                }
-            }
-            self->len--;
-            pthread_mutex_unlock(&self->lock);
-            return msg; // à libérer après usage
+        if (!match || match(msg, userdata)) {
+            if (prev)
+                prev->next = msg->next;
+            else
+                mbox->seen_head = msg->next;
+            if (msg == mbox->seen_tail)
+                mbox->seen_tail = prev;
+            msg->next = NULL;
+            return msg;
         }
+        prev = msg;
         msg = msg->next;
     }
-    pthread_mutex_unlock(&self->lock);
-    return NULL; // aucun message correspondant trouvé
+    return NULL;
+}
+
+void mailbox_clear_seen(Mailbox* mbox) {
+    Message* msg = mbox->seen_head;
+    while (msg) {
+        Message* next = msg->next;
+        free(msg->payload);
+        free(msg);
+        msg = next;
+    }
+    mbox->seen_head = NULL;
+    mbox->seen_tail = NULL;
 }

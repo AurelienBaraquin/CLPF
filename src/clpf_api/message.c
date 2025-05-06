@@ -3,12 +3,14 @@
 
 void* receive(Process* self, MessageMatchFn match, void* userdata) {
     while (1) {
+        mailbox_transfer_inbox_to_seen(&self->mailbox);
+
         Message* msg;
 
         if (match)
-            msg = mailbox_peek_and_match(&self->mailbox, match, userdata);
+            msg = mailbox_peek_and_match_seen(&self->mailbox, match, userdata);
         else
-            msg = mailbox_receive_message(&self->mailbox);
+            msg = mailbox_receive_seen(&self->mailbox);
 
         if (msg) {
             void *payload = msg->payload;

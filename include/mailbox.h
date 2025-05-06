@@ -5,25 +5,30 @@
 #include <stdbool.h>
 
 typedef struct Message {
-    struct Message* next;       // pour la queue
-    size_t size;                // taille utile
-    void* payload;              // pointeur vers les données (à toi de définir)
+    void *payload;
+    size_t size;
+    struct Message *next;
 } Message;
 
+typedef bool (*MessageMatchFn)(Message *msg, void *userdata);
+
 typedef struct Mailbox {
-    Message* head;
-    Message* tail;
-    size_t   len;
+    // Pour lecture locale sans lock
+    Message *seen_head;
+    Message *seen_tail;
+
+    // Pour réception depuis autres threads
+    Message *inbox_head;
+    Message *inbox_tail;
+    size_t inbox_len;
 
     pthread_mutex_t lock;
 } Mailbox;
 
-typedef bool (*MessageMatchFn)(Message* msg, void* userdata);
-
 void mailbox_init(Mailbox* mailbox);
 void mailbox_destroy(Mailbox* mailbox);
-
 void mailbox_send_message(Mailbox* dest, void* data, size_t size);
-Message* mailbox_receive_message(Mailbox* self);
-
-Message* mailbox_peek_and_match(Mailbox* self, MessageMatchFn match, void* userdata);
+void mailbox_transfer_inbox_to_seen(Mailbox* mbox);
+Message* mailbox_receive_seen(Mailbox* mbox);
+Message* mailbox_peek_and_match_seen(Mailbox* mbox, MessageMatchFn match, void* userdata);
+void mailbox_clear_seen(Mailbox* mbox);
