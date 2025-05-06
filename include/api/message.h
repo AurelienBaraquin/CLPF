@@ -2,6 +2,8 @@
 
 #include <clpf_internal.h>
 
+#define INCLUDE_CLPF_MESSAGE
+
 #define RECEIVE(match, userdata) \
     receive(self, match, userdata)
 

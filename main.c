@@ -22,8 +22,9 @@ TASK(other_task, int a) {
 }
 
 TASK(task, int argc, char *argv[]) {
-    SPAWN(other_task, 1, 50);
-    
+    Pid pid = SPAWN(other_task, 1, 50);
+    printf("Spawned other_task with pid: %ld\n", pid);
+
     int i = 10;
     while (i-- > 0) {
         int *msg = RECEIVE(NULL, NULL);
@@ -35,7 +36,7 @@ TASK(task, int argc, char *argv[]) {
             printf("No message received in : %ld\n", self->pid);
         }
 
-        SEND(CHILD(0), &argc, sizeof(int));
+        SEND(pid, &argc, sizeof(int));
     }
 
     EXIT();

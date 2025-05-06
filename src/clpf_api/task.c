@@ -57,12 +57,15 @@ Pid __clpf_task_add(Funcall_t *fun, process_priority priority, Pid parent_pid)
     return process->pid;
 }
 
-Pid __clpf_request_task_add(Funcall_t *fun, process_priority priority, Pid parent_pid) {
+int __clpf_request_task_add(Process *self, bool need_reply, Funcall_t *fun, process_priority priority, Pid parent_pid) {
     CoreMessage *msg = malloc(sizeof(CoreMessage));
     if (!msg)
         return -1;
 
     msg->op = CORE_MESSAGE_TYPE_SPAWN;
+
+    msg->sender = self->pid;
+    msg->reply_to = need_reply ? self->pid : -1;
 
     msg->data.spawn.taskcall = malloc(sizeof(Funcall_t));
     if (!msg->data.spawn.taskcall)
