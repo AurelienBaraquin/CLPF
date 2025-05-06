@@ -7,7 +7,7 @@
 
 TASK(other_task, int a) {
     int i = 10;
-    while (i-- > 0) {
+    while (i --> 0) {
         SEND(PARENT(), &a, sizeof(int));
 
         char *msg = RECEIVE(NULL, NULL);
@@ -28,7 +28,7 @@ TASK(task, int argc, char *argv[]) {
     char *msg_ = "Hello from task!";
 
     int i = 10;
-    while (i-- > 0) {
+    while (i --> 0) {
         int *msg = RECEIVE(NULL, NULL);
 
         if (msg) {
