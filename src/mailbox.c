@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <memory/heap.h>
 
 void mailbox_init(Mailbox* mailbox) {
     mailbox->seen_head = NULL;
@@ -12,14 +13,19 @@ void mailbox_init(Mailbox* mailbox) {
     pthread_mutex_init(&mailbox->lock, NULL);
 }
 
-void mailbox_destroy(Mailbox* mbox) {
+void mailbox_destroy(Mailbox* mbox, heap_t *heap) {
     // Inbox : protégée
     pthread_mutex_lock(&mbox->lock);
     Message *msg = mbox->inbox_head;
     while (msg) {
         Message *next = msg->next;
-        free(msg->payload);
-        free(msg);
+        if (heap) {
+            heap_free(heap, msg->payload);
+            heap_free(heap, msg);
+        } else {
+            free(msg->payload);
+            free(msg);
+        }
         msg = next;
     }
     pthread_mutex_unlock(&mbox->lock);
@@ -28,20 +34,26 @@ void mailbox_destroy(Mailbox* mbox) {
     msg = mbox->seen_head;
     while (msg) {
         Message *next = msg->next;
-        free(msg->payload);
-        free(msg);
+        if (heap) {
+            heap_free(heap, msg->payload);
+            heap_free(heap, msg);
+        } else {
+            free(msg->payload);
+            free(msg);
+        }
         msg = next;
     }
 }
 
-void mailbox_send_message(Mailbox* dest, void* data, size_t size, Tag tag) {
-    Message* msg = malloc(sizeof(Message));
+void mailbox_send_message(Mailbox* dest, heap_t *dest_heap, void* data, size_t size, Tag tag) {
+    Message* msg = dest_heap == NULL ? malloc(sizeof(Message)) : heap_alloc(dest_heap, sizeof(Message));
     if (!msg) return;
 
-    msg->payload = malloc(size);
-    if (!msg->payload) { free(msg); return; }
+    msg->payload = dest_heap == NULL ? malloc(size) : heap_alloc(dest_heap, size);
+    if (!msg->payload) { heap_free(dest_heap, msg); return; }
 
     msg->tag = tag;
+    msg->heap = dest_heap;
 
     memcpy(msg->payload, data, size);
     msg->size = size;
@@ -105,12 +117,17 @@ Message* mailbox_peek_and_match_seen(Mailbox* mbox, MessageMatchFn match, void* 
     return NULL;
 }
 
-void mailbox_clear_seen(Mailbox* mbox) {
+void mailbox_clear_seen(Mailbox* mbox, heap_t *heap) {
     Message* msg = mbox->seen_head;
     while (msg) {
         Message* next = msg->next;
-        free(msg->payload);
-        free(msg);
+        if (heap) {
+            heap_free(heap, msg->payload);
+            heap_free(heap, msg);
+        } else {
+            free(msg->payload);
+            free(msg);
+        }
         msg = next;
     }
     mbox->seen_head = NULL;

@@ -15,7 +15,6 @@ TASK(other_task, int a) {
 
         if (msg) {
             printf("Pong: %s\n", msg);
-            free(msg);
         } else {
             printf("No message received\n");
         }
@@ -36,7 +35,6 @@ TASK(task, int argc, char *argv[]) {
 
         if (msg) {
             printf("Ping: %d\n", *msg);
-            free(msg);
         } else {
             printf("No message received in : %ld\n", self->pid);
         }

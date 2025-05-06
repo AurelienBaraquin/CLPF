@@ -14,7 +14,7 @@ void* receive(Process* self, MessageMatchFn match, void* userdata) {
 
         if (msg) {
             void *payload = msg->payload;
-            free(msg);
+            safe_heap_free((safe_heap_t *)msg->heap, msg);
             return payload;
         }
 
@@ -23,7 +23,7 @@ void* receive(Process* self, MessageMatchFn match, void* userdata) {
     }
 }
 
-void send(Pid pid, void* data, size_t size, Tag tag) {
+void send(Process *self, Pid pid, void* data, size_t size, Tag tag) {
     if (pid == -1) {
         fprintf(stderr, "Invalid PID: %ld\n", pid);
         return;
@@ -34,7 +34,12 @@ void send(Pid pid, void* data, size_t size, Tag tag) {
         fprintf(stderr, "Process %ld not found\n", pid);
         return;
     }
-    mailbox_send_message(&other_process->mailbox, data, size, tag);
+
+    if (other_process)
+        mailbox_send_message(&other_process->mailbox, (heap_t*)&other_process->heap, data, size, tag);
+    else
+        mailbox_send_message(&other_process->mailbox, NULL, data, size, tag);
+
     if (other_process->state == PROCESS_WAITING) {
         other_process->state = PROCESS_READY;
     }

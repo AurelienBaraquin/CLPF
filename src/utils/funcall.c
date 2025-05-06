@@ -1,11 +1,15 @@
 #include <utils/funcall.h>
-
-#define NULL ((void*)0)
+#include <stdio.h>
 
 void funcall_init(Funcall_t *args, void (*func)(), int argc, ...) {
-    if (!args || argc <= 0)
+    if (!args || !func)
         return;
-    
+
+    if (argc > 5) {
+        fprintf(stderr, "Warning: funcall_init: argc > 5, truncating to 5\n");
+        argc = 5;
+    }
+
     args->func = func;
 
     va_list ap;
@@ -30,7 +34,7 @@ void funcall_destroy(Funcall_t *args) {
 }
 
 void funcall_call(Funcall_t *args) {
-    if (!args || args->argc <= 0)
+    if (!args)
         return;
 
     call_raw_func(args->func, args->args, args->argc);

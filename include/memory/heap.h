@@ -13,7 +13,7 @@ typedef struct heap_pool_s {
     SLIST_ENTRY(heap_pool_s) next;
 } heap_pool_t;
 
-typedef struct {
+typedef struct heap_s {
     tlsf_t tlsf;
     SLIST_HEAD(pool_list_head, heap_pool_s) pools;
 } heap_t;

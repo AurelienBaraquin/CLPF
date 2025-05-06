@@ -40,7 +40,7 @@ int process_init(Process *process, Funcall_t *taskcall, process_priority priorit
     if (!process->coro)
         return -1;
 
-    if (heap_create(&process->heap, MINIMAL_HEAP_POOL_SIZE) != 0)
+    if (safe_heap_create(&process->heap, MINIMAL_HEAP_POOL_SIZE) != 0)
         return -1;
 
     links_init(&process->links);
@@ -61,12 +61,12 @@ void process_destroy(Process *process) {
     if (!process)
         return;
 
+    mailbox_destroy(&process->mailbox, (heap_t *)&process->heap);
     funcall_destroy(&process->taskcall);
-    heap_destroy(&process->heap);
+    safe_heap_destroy(&process->heap);
     co_delete(process->coro);
     links_clear(&process->links);
     mpscq_clear(&process->signal_queue, NULL);
-    mailbox_destroy(&process->mailbox);
 }
 
 Pid process_get_parent_pid(Process *self) {

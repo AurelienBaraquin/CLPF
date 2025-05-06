@@ -30,7 +30,7 @@ int __clpf_main_update()
             case CORE_MESSAGE_TYPE_SPAWN:
                 Pid new_pid = __clpf_task_add(msg->data.spawn.taskcall, msg->data.spawn.priority, msg->data.spawn.parent_pid);
                 if (msg->reply_to != -1)
-                    send(msg->reply_to, &new_pid, sizeof(Pid), CORE_MESSAGE_TYPE_SPAWN_TAG);
+                    send(NULL, msg->reply_to, &new_pid, sizeof(Pid), CORE_MESSAGE_TYPE_SPAWN_TAG);
                 break;
 
             case CORE_MESSAGE_TYPE_NAME_REGISTER:
@@ -45,7 +45,7 @@ int __clpf_main_update()
                     fprintf(stderr, "[ERROR] No reply_to for name lookup\n");
                     break;
                 }
-                send(msg->reply_to, &pid, sizeof(Pid), CORE_MESSAGE_TYPE_NAME_LOOKUP_TAG);
+                send(NULL, msg->reply_to, &pid, sizeof(Pid), CORE_MESSAGE_TYPE_NAME_LOOKUP_TAG);
                 break;
 
             default:

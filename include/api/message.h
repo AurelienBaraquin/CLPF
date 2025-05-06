@@ -10,12 +10,12 @@ bool MessageMatchFn_SameTag(Message *msg, void *userdata);
     receive(self, match, userdata)
 
 #define SEND(pid, data, size) \
-    send(pid, data, size, NO_TAG)
+    send(self, pid, data, size, NO_TAG)
 
 #define SEND_TAG(pid, data, size, tag) \
-    send(pid, data, size, tag)
+    send(self, pid, data, size, tag)
 
 void* receive(Process* self, MessageMatchFn match, void* userdata)
     __attribute__((warn_unused_result));
 
-void send(Pid pid, void* data, size_t size, Tag tag);
+void send(Process *self, Pid pid, void* data, size_t size, Tag tag);

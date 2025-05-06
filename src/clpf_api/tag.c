@@ -44,7 +44,7 @@ void __clpf_request_lookup(Process *self, const char* name)
     CoreMessage* msg = malloc(sizeof(CoreMessage));
     if (!msg) {
         fprintf(stderr, "Failed to allocate memory for message\n");
-        return -1;
+        return;
     }
 
     msg->op = CORE_MESSAGE_TYPE_NAME_LOOKUP;

@@ -2,7 +2,7 @@
 
 #define RUNNING_ON_VALGRIND
 
-#include <memory/heap.h>
+#include <memory/safe_heap.h>
 #include <memory/stack.h>
 #include <utils/mpscq.h>
 #include <utils/pid.h>
@@ -32,7 +32,7 @@ typedef struct process_s {
     Pid pid;
     Pid scheduler_pid;
 
-    heap_t heap;
+    safe_heap_t heap;
     cothread_t coro;
 
     process_state state;

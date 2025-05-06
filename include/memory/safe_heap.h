@@ -13,7 +13,7 @@ typedef struct safe_heap_pool_s {
     SLIST_ENTRY(safe_heap_pool_s) next;
 } safe_heap_pool_t;
 
-typedef struct {
+typedef struct safe_heap_s {
     tlsf_t tlsf;
     SLIST_HEAD(pool_list_head, safe_heap_pool_s) pools;
     spinlock_t lock; // Spinlock for thread-safe access
