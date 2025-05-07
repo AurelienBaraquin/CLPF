@@ -3,6 +3,7 @@
 #include <api/message.h>
 #include <api/base.h>
 #include <api/tag.h>
+#include <api/memory.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -10,7 +11,7 @@ TASK0(child) {
     int *msg = RECEIVE(NULL, NULL);
     if (msg) {
         printf("Child %ld received: %d\n", self->pid, *msg);
-        safe_heap_free(&self->heap, msg);
+        FREE(msg);
     }
     EXIT();
 }

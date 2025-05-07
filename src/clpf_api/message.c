@@ -44,6 +44,9 @@ void send(Process *self, Pid pid, void* data, size_t size, Tag tag) {
     if (other_process->state == PROCESS_WAITING) {
         other_process->state = PROCESS_READY;
     }
+
+    if (self)
+        yield(self);
 }
 
 
