@@ -9,7 +9,7 @@
 #include <signal.h>
 #include <links.h>
 #include <utils/funcall.h>
-#include <libco/libco.h>
+#include <libaco/aco.h>
 #include <mailbox.h>
 
 #define NAME_MAX_LENGTH 64
@@ -38,7 +38,7 @@ typedef struct process_s {
     char __name[NAME_MAX_LENGTH]; // Name of the process used only in Core
 
     safe_heap_t heap;
-    cothread_t coro;
+    aco_t *acoro;
 
     process_state state;
     process_priority priority;

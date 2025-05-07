@@ -13,9 +13,9 @@ add_compile_options(-g3 -O0)
 add_library(tlsf STATIC external/tlsf/tlsf.c)
 target_include_directories(tlsf PUBLIC external/)
 
-# Add libco (coroutines)
-add_library(libco STATIC external/libco/libco.c)
-target_include_directories(libco PUBLIC external/libco)
+# Add libaco (coroutines)
+add_library(libaco STATIC external/libaco/aco.c external/libaco/acosw.S)
+target_include_directories(libaco PUBLIC external/libaco)
 
 
 
@@ -31,7 +31,7 @@ file(GLOB_RECURSE CBEAM_SOURCES
 file(GLOB_RECURSE ASM_SOURCES src/**/*.S)
 
 add_library(cbeam STATIC ${CBEAM_SOURCES} ${ASM_SOURCES} ${EXTERNAL_SOURCES})
-target_link_libraries(cbeam tlsf libco)
+target_link_libraries(cbeam tlsf libaco)
 
 # Optional main binary
 add_executable(cbeam_main main.c)

@@ -36,7 +36,7 @@ int process_init(Process *process, Funcall_t *taskcall, process_priority priorit
 
     process->taskcall = funcall;
 
-    process->coro = NULL;
+    process->acoro = NULL;
 
     if (safe_heap_create(&process->heap, MINIMAL_HEAP_POOL_SIZE) != 0)
         return -1;
@@ -62,8 +62,8 @@ void process_destroy(Process *process) {
     mailbox_destroy(&process->mailbox, (heap_t *)&process->heap);
     funcall_destroy(&process->taskcall);
     safe_heap_destroy(&process->heap);
-    if (process->coro)
-        co_delete(process->coro);
+    if (process->acoro)
+        aco_destroy(process->acoro);
     links_clear(&process->links);
     mpscq_clear(&process->signal_queue, NULL);
 }

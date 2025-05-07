@@ -5,34 +5,37 @@
 #include <clpf_internal.h>
 #include <assert.h>
 
-__thread Process *__proc;
-__thread cothread_t *__sch_co;
-
 void co_entrypoint() {
-    if (!__proc || !__sch_co)
+    Process* proc = (Process*)aco_get_arg();
+
+    if (!proc)
         return;
 
-    Process* proc = __proc;
-    cothread_t* sch_co = __sch_co;
-
     funcall_call(&proc->taskcall);
-    co_switch(sch_co);
+
+    if (proc->state == PROCESS_EXITING)
+        aco_exit();
+    aco_yield();
 }
 
 process_state execute_process(Scheduler *scheduler, Process* process) {
     if (!process)
         return PROCESS_EXITING;
 
-    __proc = process;
-    __sch_co = scheduler->scheduler_coro;
 
-    if (!process->coro && process->state == PROCESS_INIT) {
-        process->coro = co_create(STACK_SIZE, &co_entrypoint);
-        assert(process->coro);
+    if (!process->acoro && process->state == PROCESS_INIT) {
+        process->acoro = aco_create(scheduler->scheduler_acoro, scheduler->share_stack, 16 * 1024, co_entrypoint, process);
+        aco_assertptr(process->acoro);
+    }
+
+    if (process->acoro->is_end == 1) {
+        process->state = PROCESS_EXITING;
+        return process->state;
     }
 
     process->state = PROCESS_RUNNING;
-    co_switch(process->coro);
+    assert(process->acoro);
+    aco_resume(process->acoro);
 
     return process->state;
 }
@@ -53,6 +56,10 @@ void request_process_exit(Process* process) {
 void scheduler_loop(Scheduler* scheduler) {
     if (!scheduler)
         return;
+    
+    aco_thread_init(NULL);
+    scheduler->scheduler_acoro = aco_create(NULL, NULL, 0, NULL, NULL);
+    scheduler->share_stack = aco_share_stack_new(0);
 
     while (1) {
         #ifdef RUNNING_ON_VALGRIND
@@ -104,7 +111,6 @@ void scheduler_loop(Scheduler* scheduler) {
             case PROCESS_EXITING:
                 atomic_fetch_sub(&scheduler->process_count, 1);
                 request_process_exit(process);
-
                 break;
             default:
                 break;

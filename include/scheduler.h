@@ -36,7 +36,8 @@ typedef struct scheduler_s {
     pthread_mutex_t mutex;
     pthread_cond_t cond;
 
-    cothread_t* scheduler_coro;
+    aco_t* scheduler_acoro;
+    aco_share_stack_t *share_stack;
 } Scheduler;
 
 #define LOCK_UNTIL(predicate, cond, mutex) \

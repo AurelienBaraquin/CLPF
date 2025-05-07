@@ -21,7 +21,8 @@ int scheduler_init(Scheduler* scheduler, Pid pid) {
     pthread_mutex_init(&scheduler->mutex, NULL);
     pthread_cond_init(&scheduler->cond, NULL);
 
-    scheduler->scheduler_coro = co_active();
+    scheduler->scheduler_acoro = NULL;
+    scheduler->share_stack = NULL;
 
     return 0;
 }
@@ -39,6 +40,11 @@ void scheduler_destroy(Scheduler* scheduler) {
 
     pthread_mutex_destroy(&scheduler->mutex);
     pthread_cond_destroy(&scheduler->cond);
+
+    if (scheduler->scheduler_acoro)
+        aco_destroy(scheduler->scheduler_acoro);
+    if (scheduler->share_stack)
+        aco_share_stack_destroy(scheduler->share_stack);
 }
 
 void scheduler_push_shared(Scheduler* scheduler, Process* process) {
