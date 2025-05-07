@@ -49,8 +49,13 @@ void mailbox_send_message(Mailbox* dest, heap_t *dest_heap, void* data, size_t s
     Message* msg = dest_heap == NULL ? malloc(sizeof(Message)) : heap_alloc(dest_heap, sizeof(Message));
     if (!msg) return;
 
-    msg->payload = dest_heap == NULL ? malloc(size) : heap_alloc(dest_heap, size);
-    if (!msg->payload) { heap_free(dest_heap, msg); return; }
+    if (!data || size == 0) {
+        msg->payload = NULL;
+        msg->size = 0;
+    } else {
+        msg->payload = dest_heap == NULL ? malloc(size) : heap_alloc(dest_heap, size);
+        if (!msg->payload) { heap_free(dest_heap, msg); return; }
+    }
 
     msg->tag = tag;
     msg->heap = dest_heap;

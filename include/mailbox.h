@@ -15,11 +15,13 @@ typedef enum {
     // Possibility to add some other types
 } TagKind;
 
-#define MAKE_INTERNAL_TAG(code) ((Tag){ .kind = TAG_KIND_INTERNAL, .internal_code = (code) })
-#define MAKE_INT_TAG(val)       ((Tag){ .kind = TAG_KIND_INTEGER, .int_value = (val) })
-#define MAKE_STR_TAG(str)       ((Tag){ .kind = TAG_KIND_STRING,  .str_value = (str) })
+#define MAKE_INTERNAL_TAG(code)     ((Tag){ .kind = TAG_KIND_INTERNAL, .internal_code = (code) })
+#define MAKE_INT_TAG(val)           ((Tag){ .kind = TAG_KIND_INTEGER, .int_value = (val) })
+#define MAKE_RANGE_TAG(min, max)    MAKE_INT_TAG(((int64_t)min << 32) | max);
+#define MAKE_STR_TAG(str)           ((Tag){ .kind = TAG_KIND_STRING,  .str_value = (str) })
+#define MAKE_TAG_KIND(k)            ((Tag){ .kind = (k) })
 
-#define NO_TAG MAKE_INTERNAL_TAG(0)
+#define NO_TAG                      MAKE_INTERNAL_TAG(0)
 
 typedef struct Tag_s {
     TagKind kind;

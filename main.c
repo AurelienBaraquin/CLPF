@@ -8,7 +8,7 @@
 #include <string.h>
 
 TASK0(child) {
-    int *msg = RECEIVE(NULL, NO_TAG);
+    int *msg = RECEIVE(MessageMatchFn_SameTag, MAKE_INT_TAG(self->pid));
     if (msg) {
         printf("Child %ld received: %d\n", self->pid, *msg);
         FREE(msg);
@@ -25,7 +25,7 @@ TASK(task, int argc, char *argv[]) {
     }
 
     for (int i = 0; i < count; ++i) {
-        SEND(children[i], &i, sizeof(int));
+        SEND_TAG(children[i], &i, sizeof(int), MAKE_INT_TAG(children[i]));
     }
 
     EXIT();
