@@ -17,8 +17,7 @@
 #define EXIT() \
     do { \
         self->state = PROCESS_EXITING; \
-        co_switch(clpf.scheduler_table[self->scheduler_pid].scheduler_coro); \
-        __builtin_unreachable(); \
+        return; \
     } while (0)
 
 #define PARENT() \

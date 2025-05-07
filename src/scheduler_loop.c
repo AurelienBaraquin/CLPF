@@ -15,9 +15,7 @@ void co_entrypoint() {
     Process* proc = __proc;
     cothread_t* sch_co = __sch_co;
 
-    printf("Process %ld started\n", proc->pid);
     funcall_call(&proc->taskcall);
-    printf("Process %ld finished\n", proc->pid);
     co_switch(sch_co);
 }
 
