@@ -3,6 +3,7 @@
 #include <utils/ox.h>
 #include <stdio.h>
 #include <clpf_internal.h>
+#include <assert.h>
 
 __thread Process *__proc;
 __thread cothread_t *__sch_co;
@@ -14,8 +15,28 @@ void co_entrypoint() {
     Process* proc = __proc;
     cothread_t* sch_co = __sch_co;
 
+    printf("Process %ld started\n", proc->pid);
     funcall_call(&proc->taskcall);
+    printf("Process %ld finished\n", proc->pid);
     co_switch(sch_co);
+}
+
+process_state execute_process(Scheduler *scheduler, Process* process) {
+    if (!process)
+        return PROCESS_EXITING;
+
+    __proc = process;
+    __sch_co = scheduler->scheduler_coro;
+
+    if (!process->coro && process->state == PROCESS_INIT) {
+        process->coro = co_create(STACK_SIZE, &co_entrypoint);
+        assert(process->coro);
+    }
+
+    process->state = PROCESS_RUNNING;
+    co_switch(process->coro);
+
+    return process->state;
 }
 
 void request_process_exit(Process* process) {
@@ -65,16 +86,16 @@ void scheduler_loop(Scheduler* scheduler) {
 
         Process* process = pick_process(scheduler);
 
-        if (!process)
+        if (!process) {
+            // printf("No process to execute in scheduler %ld\n", scheduler->pid);
             continue;
+        }
 
-        __proc = process;
-        __sch_co = scheduler->scheduler_coro;
-
-        process->state = PROCESS_RUNNING;
-        co_switch(process->coro);
+        int a = execute_process(scheduler, process);
+        process->state = a;
 
         switch (process->state) {
+            case PROCESS_READY:
             case PROCESS_RUNNING:
                 process->state = PROCESS_READY;
                 scheduler_push(scheduler, process);
@@ -82,8 +103,6 @@ void scheduler_loop(Scheduler* scheduler) {
             case PROCESS_WAITING:
                 scheduler_push(scheduler, process);
                 break;
-            case PROCESS_READY:
-                fprintf(stderr, "Process shouldn't be ready here\n");
             case PROCESS_EXITING:
                 atomic_fetch_sub(&scheduler->process_count, 1);
                 request_process_exit(process);

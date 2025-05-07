@@ -6,37 +6,26 @@
 #include <stdio.h>
 #include <string.h>
 
-TASK0(named) {
-    REGISTER("named_proc", self->pid);
-    printf("Registered under 'named_proc'\n");
-
-    NOTIFY(PARENT(), "ready");
-
+TASK0(child) {
     int *msg = RECEIVE(NULL, NULL);
-    printf("Named received: %d\n", *msg);
-    safe_heap_free(&self->heap, msg);
-
-    UNREGISTER("named_proc");
-    printf("Unregistered 'named_proc'\n");
+    if (msg) {
+        printf("Child %ld received: %d\n", self->pid, *msg);
+        safe_heap_free(&self->heap, msg);
+    }
     EXIT();
 }
 
 TASK(task, int argc, char *argv[]) {
-    SPAWN0(named);
+    const int count = 10;
+    Pid children[count];
 
-    WAIT_NOTIF("ready");
-
-    Pid target = WHEREIS("named_proc");
-    printf("Found 'named_proc' with pid: %ld\n", target);
-    int x = 42;
-    SEND(target, &x, sizeof(int));
-
-    while (WHEREIS("named_proc") != -1) {
-        yield(self);  // ou sleep court
+    for (int i = 0; i < count; ++i) {
+        children[i] = SPAWN0(child);
     }
 
-    Pid res = WHEREIS("named_proc");
-    printf("Should not find anymore: %ld\n", res);
+    for (int i = 0; i < count; ++i) {
+        SEND(children[i], &i, sizeof(int));
+    }
 
     EXIT();
 }

@@ -1,4 +1,5 @@
 #include <utils/run_queue.h>
+#include <stdio.h>
 
 // Initialisation
 void runq_init(RunQueue *rq) {
@@ -8,6 +9,9 @@ void runq_init(RunQueue *rq) {
 
 // Ajout en fin
 void runq_push(RunQueue *rq, Process *p) {
+    if (!p)
+        return;
+
     p->next = NULL;
     if (rq->tail)
         rq->tail->next = p;
@@ -26,6 +30,11 @@ Process *runq_pop(RunQueue *rq) {
         rq->tail = NULL;
     p->next = NULL;
     return p;
+}
+
+// Extraction en tête sans suppression (Read-only)
+Process *runq_peek(RunQueue *rq) {
+    return rq->head;
 }
 
 // Remettre un élément en fin (ex: si on veut le relancer plus tard)

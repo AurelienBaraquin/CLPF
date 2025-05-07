@@ -113,8 +113,6 @@ void update_waiting_processes(Scheduler* scheduler) {
     RunQueue temp_rq = {0};
     runq_init(&temp_rq);
 
-    if (runq_empty(&scheduler->rq[3]))
-        return;
 
     Process* process;
     while ((process = runq_pop(&scheduler->rq[3])) != NULL) {
@@ -131,47 +129,41 @@ void update_waiting_processes(Scheduler* scheduler) {
     }
 }
 
-Process* get_process_by_priority(Scheduler* scheduler) {
-    if (!scheduler)
-        return NULL;
-
-    Process* process = NULL;
-
-    for (int i = 0; i < NB_RQ - 1; i++) { // -1 to avoid checking rq[3] (waiting)
-        if (!runq_empty(&scheduler->rq[i])) {
-            process = runq_pop(&scheduler->rq[i]);
-            break;
-        }
-    }
-
-    return process;
-}
-
 Process* pick_process(Scheduler* scheduler) {
     if (!scheduler)
         return NULL;
 
     update_waiting_processes(scheduler);
+    scheduler_drain(scheduler);
 
-    Process* process = get_process_by_priority(scheduler);
+    for (int i = 0; i < NB_RQ - 1; ++i) {
+        RunQueue* rq = &scheduler->rq[i];
 
-    if (!process) {
-        scheduler_drain(scheduler);
-        process = get_process_by_priority(scheduler);
+        size_t n = runq_size(rq);
+        for (size_t j = 0; j < n; ++j) {
+            Process* process = runq_pop(rq); // on consomme ici
+
+            if (!process) continue;
+
+            if (process->schedule_count > 0) {
+                process->schedule_count--;
+                scheduler_push(scheduler, process); // on le remet
+                continue;
+            }
+
+            // Reset pour la prochaine fois
+            switch (process->priority) {
+                case PROCESS_PRIORITY_LOW:
+                    process->schedule_count = 8;
+                    break;
+                default:
+                    process->schedule_count = 1;
+                    break;
+            }
+
+            return process;
+        }
     }
 
-    if (!process) {
-        return NULL;
-    }
-
-    if (process->schedule_count > 0)
-        process->schedule_count--;
-
-    if (process->schedule_count == 0) {
-        return process;
-    }
-
-    scheduler_push(scheduler, process);
-
-    return pick_process(scheduler);
+    return NULL;
 }

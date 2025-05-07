@@ -18,6 +18,9 @@ void runq_push(RunQueue *rq, Process *p);
 // Extraction en tête
 Process *runq_pop(RunQueue *rq);
 
+// Extraction en tête sans suppression (Read-only)
+Process *runq_peek(RunQueue *rq);
+
 // Remettre un élément en fin (ex: si on veut le relancer plus tard)
 void runq_requeue(RunQueue *rq, Process *p);
 

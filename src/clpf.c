@@ -55,13 +55,13 @@ void __clpf_main(Task entry_point, int argc, char *argv[])
 
     clpf_init();
 
-    int cpus = nb_cpu();
-    if (cpus < 0) {
+    int cpus = nb_cpu() - 1;
+    if (cpus <= 0) {
         perror("Failed to get number of CPUs");
         return;
     }
 
-    for (int i = 0; i < MAX_SCHEDULERS && i < cpus; i++) {
+    for (int i = 0; i < MAX_SCHEDULERS && i < cpus - 1; i++) {
         if (scheduler_init(&clpf.scheduler_table[i], i) != 0) {
             fprintf(stderr, "Failed to initialize scheduler %d\n", i);
             return;

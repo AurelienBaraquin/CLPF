@@ -17,6 +17,7 @@
 typedef void (*Task)();
 
 typedef enum process_state_e {
+    PROCESS_INIT,
     PROCESS_RUNNING,
     PROCESS_READY,
     PROCESS_WAITING,

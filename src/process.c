@@ -11,8 +11,8 @@ int process_init(Process *process, Funcall_t *taskcall, process_priority priorit
         return -1;
 
     process->pid = pid;
-    process->scheduler_pid = ~0;
-    process->state = PROCESS_READY;
+    process->scheduler_pid = -1;
+    process->state = PROCESS_INIT,
     process->priority = priority;
 
     switch (priority) {
@@ -36,9 +36,7 @@ int process_init(Process *process, Funcall_t *taskcall, process_priority priorit
 
     process->taskcall = funcall;
 
-    process->coro = co_create(STACK_SIZE, co_entrypoint);
-    if (!process->coro)
-        return -1;
+    process->coro = NULL;
 
     if (safe_heap_create(&process->heap, MINIMAL_HEAP_POOL_SIZE) != 0)
         return -1;
@@ -64,7 +62,8 @@ void process_destroy(Process *process) {
     mailbox_destroy(&process->mailbox, (heap_t *)&process->heap);
     funcall_destroy(&process->taskcall);
     safe_heap_destroy(&process->heap);
-    co_delete(process->coro);
+    if (process->coro)
+        co_delete(process->coro);
     links_clear(&process->links);
     mpscq_clear(&process->signal_queue, NULL);
 }
