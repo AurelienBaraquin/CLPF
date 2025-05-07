@@ -4,9 +4,7 @@
 
 #define INCLUDE_CLPF_MESSAGE
 
-bool MessageMatchFn_SameTag(Message *msg, void *userdata);
-bool MessageMatchFn_SameDataString(Message *msg, void *userdata);
-
+bool MessageMatchFn_SameTag(Message *msg, Tag userdata);
 
 #define RECEIVE(match, userdata) \
     receive(self, match, userdata)
@@ -27,5 +25,5 @@ bool MessageMatchFn_SameDataString(Message *msg, void *userdata);
 
 
 
-void* receive(Process* self, MessageMatchFn match, void* userdata);
+void* receive(Process* self, MessageMatchFn match, Tag userdata);
 void send(Process *self, Pid pid, void* data, size_t size, Tag tag);

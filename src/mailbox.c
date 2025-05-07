@@ -97,7 +97,7 @@ Message* mailbox_receive_seen(Mailbox* mbox) {
     return msg;
 }
 
-Message* mailbox_peek_and_match_seen(Mailbox* mbox, MessageMatchFn match, void* userdata) {
+Message* mailbox_peek_and_match_seen(Mailbox* mbox, MessageMatchFn match, Tag userdata) {
     Message* prev = NULL;
     Message* msg = mbox->seen_head;
 

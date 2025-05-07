@@ -7,8 +7,29 @@
 
 typedef struct heap_s heap_t;
 
-typedef uintptr_t Tag;
-#define NO_TAG 0
+typedef enum {
+    TAG_KIND_NONE,
+    TAG_KIND_INTEGER,
+    TAG_KIND_STRING,
+    TAG_KIND_INTERNAL,
+    // Possibility to add some other types
+} TagKind;
+
+#define MAKE_INTERNAL_TAG(code) ((Tag){ .kind = TAG_KIND_INTERNAL, .internal_code = (code) })
+#define MAKE_INT_TAG(val)       ((Tag){ .kind = TAG_KIND_INTEGER, .int_value = (val) })
+#define MAKE_STR_TAG(str)       ((Tag){ .kind = TAG_KIND_STRING,  .str_value = (str) })
+
+#define NO_TAG MAKE_INTERNAL_TAG(0)
+
+typedef struct Tag_s {
+    TagKind kind;
+    union {
+        int64_t int_value;
+        const char* str_value;
+        uint64_t internal_code;
+        void* custom;
+    };
+} Tag;
 
 #pragma pack(push, 1)
 typedef struct Message {
@@ -20,7 +41,7 @@ typedef struct Message {
 } Message;
 #pragma pack(pop)
 
-typedef bool (*MessageMatchFn)(Message *msg, void *userdata);
+typedef bool (*MessageMatchFn)(Message *msg, Tag userdata);
 
 typedef struct Mailbox {
     // Pour lecture locale sans lock
@@ -40,5 +61,5 @@ void mailbox_destroy(Mailbox* mailbox, heap_t* heap);
 void mailbox_send_message(Mailbox* dest, heap_t *heap, void* data, size_t size, Tag tag);
 void mailbox_transfer_inbox_to_seen(Mailbox* mbox);
 Message* mailbox_receive_seen(Mailbox* mbox);
-Message* mailbox_peek_and_match_seen(Mailbox* mbox, MessageMatchFn match, void* userdata);
+Message* mailbox_peek_and_match_seen(Mailbox* mbox, MessageMatchFn match, Tag userdata);
 void mailbox_clear_seen(Mailbox* mbox, heap_t *heap);

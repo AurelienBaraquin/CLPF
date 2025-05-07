@@ -1,2 +1,4 @@
-int core_message_type_spawn_tag = 0xDEADBEEF;
-int core_message_type_name_lookup_tag = 0xDEADBEEF;
+#include <mailbox.h>
+
+Tag CORE_MESSAGE_TYPE_SPAWN_TAG = MAKE_STR_TAG("core::event::spawn");
+Tag CORE_MESSAGE_TYPE_NAME_LOOKUP_TAG = MAKE_STR_TAG("core::event::name_lookup");

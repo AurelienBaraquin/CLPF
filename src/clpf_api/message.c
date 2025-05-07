@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 
-void* receive(Process* self, MessageMatchFn match, void* userdata) {
+void* receive(Process* self, MessageMatchFn match, Tag userdata) {
     while (1) {
         mailbox_transfer_inbox_to_seen(&self->mailbox);
 
@@ -56,15 +56,21 @@ void send(Process *self, Pid pid, void* data, size_t size, Tag tag) {
 */
 
 // This function matches messages with the same tag
-bool MessageMatchFn_SameTag(Message *msg, void *userdata) {
-    Tag tag = (Tag)(uintptr_t)userdata;
-    return msg->tag == tag;
-}
+bool MessageMatchFn_SameTag(Message *msg, Tag expected) {
+    if (!msg) return false;
 
-// This function matches messages with the same data string
-bool MessageMatchFn_SameDataString(Message *msg, void *userdata) {
-    if (!msg || !userdata)
-        return false;
+    if (msg->tag.kind != expected.kind) return false;
 
-    return strcmp((char *)msg->payload, (char *)userdata) == 0;
+    switch (msg->tag.kind) {
+        case TAG_KIND_INTEGER:
+            return msg->tag.int_value == expected.int_value;
+        case TAG_KIND_STRING:
+            return strcmp(msg->tag.str_value, expected.str_value) == 0;
+        case TAG_KIND_INTERNAL:
+            return msg->tag.internal_code == expected.internal_code;
+        case TAG_KIND_NONE:
+            return true;
+        default:
+            return false;
+    }
 }

@@ -8,7 +8,7 @@
 #include <string.h>
 
 TASK0(child) {
-    int *msg = RECEIVE(NULL, NULL);
+    int *msg = RECEIVE(NULL, NO_TAG);
     if (msg) {
         printf("Child %ld received: %d\n", self->pid, *msg);
         FREE(msg);
