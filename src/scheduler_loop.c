@@ -22,9 +22,9 @@ process_state execute_process(Scheduler *scheduler, Process* process) {
     if (!process)
         return PROCESS_EXITING;
 
-
     if (!process->acoro && process->state == PROCESS_INIT) {
-        process->acoro = aco_create(scheduler->scheduler_acoro, scheduler->share_stack, 16 * 1024, co_entrypoint, process);
+        process->share_stack = aco_share_stack_new(STACK_SIZE);
+        process->acoro = aco_create(scheduler->scheduler_acoro, process->share_stack, 0, &co_entrypoint, process);
         aco_assertptr(process->acoro);
     }
 
@@ -35,6 +35,7 @@ process_state execute_process(Scheduler *scheduler, Process* process) {
 
     process->state = PROCESS_RUNNING;
     assert(process->acoro);
+    assert(process->acoro->is_end == 0);
     aco_resume(process->acoro);
 
     return process->state;
@@ -56,10 +57,10 @@ void request_process_exit(Process* process) {
 void scheduler_loop(Scheduler* scheduler) {
     if (!scheduler)
         return;
-    
+
+    scheduler->system_thread_id = pthread_self();
     aco_thread_init(NULL);
     scheduler->scheduler_acoro = aco_create(NULL, NULL, 0, NULL, NULL);
-    scheduler->share_stack = aco_share_stack_new(0);
 
     while (1) {
         #ifdef RUNNING_ON_VALGRIND

@@ -1,6 +1,7 @@
 #include <memory/heap.h>
 #include <stdlib.h>
 #include <sys/mman.h>
+#include <assert.h>
 
 int heap_create(heap_t* heap, size_t size) {
     SLIST_INIT(&heap->pools);
@@ -70,7 +71,6 @@ int heap_grow(heap_t* heap, size_t size) {
     if (base == MAP_FAILED)
         return -1;
     
-
     void* ref = tlsf_add_pool(heap->tlsf, base, size);
     if (!ref) {
         munmap(base, size);
@@ -100,10 +100,11 @@ void* heap_alloc(heap_t* heap, size_t size) {
     
     void* ptr = tlsf_malloc(heap->tlsf, size);
 
-    if (!ptr)
+    if (!ptr) {
         heap_grow(heap, size);
-
-    ptr = tlsf_malloc(heap->tlsf, size);
+        ptr = tlsf_malloc(heap->tlsf, size);
+        assert(ptr != NULL);
+    }
 
     return ptr;
 }

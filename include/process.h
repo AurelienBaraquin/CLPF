@@ -39,6 +39,7 @@ typedef struct process_s {
 
     safe_heap_t heap;
     aco_t *acoro;
+    aco_share_stack_t *share_stack;
 
     process_state state;
     process_priority priority;

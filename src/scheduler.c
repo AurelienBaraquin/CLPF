@@ -16,13 +16,12 @@ int scheduler_init(Scheduler* scheduler, Pid pid) {
         runq_init(&scheduler->rq[i]);
     }
 
-    scheduler->system_thread_id = pthread_self();
+    scheduler->system_thread_id = -1;
 
     pthread_mutex_init(&scheduler->mutex, NULL);
     pthread_cond_init(&scheduler->cond, NULL);
 
     scheduler->scheduler_acoro = NULL;
-    scheduler->share_stack = NULL;
 
     return 0;
 }
@@ -43,8 +42,6 @@ void scheduler_destroy(Scheduler* scheduler) {
 
     if (scheduler->scheduler_acoro)
         aco_destroy(scheduler->scheduler_acoro);
-    if (scheduler->share_stack)
-        aco_share_stack_destroy(scheduler->share_stack);
 }
 
 void scheduler_push_shared(Scheduler* scheduler, Process* process) {

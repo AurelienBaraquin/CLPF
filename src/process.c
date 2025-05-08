@@ -37,6 +37,7 @@ int process_init(Process *process, Funcall_t *taskcall, process_priority priorit
     process->taskcall = funcall;
 
     process->acoro = NULL;
+    process->share_stack = NULL;
 
     if (safe_heap_create(&process->heap, MINIMAL_HEAP_POOL_SIZE) != 0)
         return -1;
@@ -64,6 +65,8 @@ void process_destroy(Process *process) {
     safe_heap_destroy(&process->heap);
     if (process->acoro)
         aco_destroy(process->acoro);
+    if (process->share_stack)
+        aco_share_stack_destroy(process->share_stack);
     links_clear(&process->links);
     mpscq_clear(&process->signal_queue, NULL);
 }

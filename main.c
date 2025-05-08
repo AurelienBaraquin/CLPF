@@ -6,12 +6,18 @@
 #include <api/memory.h>
 #include <stdio.h>
 #include <string.h>
+#include <assert.h>
+#include <stb_sprintf/stb_sprintf.h>
 
 TASK0(child) {
     int *msg = RECEIVE(MessageMatchFn_SameTag, MAKE_INT_TAG(self->pid));
     if (msg) {
-        printf("Child %ld received: %d\n", self->pid, *msg);
-        FREE(msg);
+        // printf("Child %ld received: %d\n", self->pid, *msg);
+        // write(1, msg, sizeof(int));
+        char buffer[64];
+        stbsp_sprintf(buffer, "Child %ld received: %d\n", self->pid, *msg);
+        write(1, buffer, strlen(buffer));
+        // FREE(msg);
     }
     EXIT();
 }
