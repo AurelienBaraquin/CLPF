@@ -1,28 +1,37 @@
 #include <api/message.h>
 #include <stdio.h>
 #include <string.h>
+#include <assert.h>
 
-void* receive(Process* self, MessageMatchFn match, Tag userdata) {
+Message* __receive_internal(Process *self, Tag userdata) {
+    Message* msg;
+
     while (1) {
         mailbox_transfer_inbox_to_seen(&self->mailbox);
 
-        Message* msg;
-
-        if (match)
-            msg = mailbox_peek_and_match_seen(&self->mailbox, match, userdata);
-        else
+        if (userdata.kind != TAG_KIND_NONE)
+            msg = mailbox_peek_and_match_seen(&self->mailbox, userdata);
+        else {
             msg = mailbox_receive_seen(&self->mailbox);
-
-        if (msg) {
-            void *payload = msg->payload;
-            if (payload)
-                safe_heap_free((safe_heap_t *)msg->heap, msg);
-            return payload;
         }
+
+        if (msg)
+            return msg;
 
         self->state = PROCESS_WAITING;
         yield(self);
     }
+}
+
+void* receive(Process* self, Tag userdata) {
+    Message *msg = __receive_internal(self, userdata);
+    assert(msg);
+
+    void *payload = msg->payload;
+    if (payload)
+        safe_heap_free((safe_heap_t *)msg->heap, msg);
+
+    return payload;
 }
 
 void send(Process *self, Pid pid, void* data, size_t size, Tag tag) {
@@ -73,35 +82,4 @@ bool MessageMatchFn_SameTag(Message *msg, Tag expected) {
         default:
             return false;
     }
-}
-
-bool MessageMatchFn_StringPrefix(Message *msg, Tag expected) {
-    if (!msg || msg->tag.kind != TAG_KIND_STRING || expected.kind != TAG_KIND_STRING)
-        return false;
-    return strncmp(msg->tag.str_value, expected.str_value, strlen(expected.str_value)) == 0;
-}
-
-bool MessageMatchFn_IntGTE(Message *msg, Tag expected) {
-    if (!msg || msg->tag.kind != TAG_KIND_INTEGER || expected.kind != TAG_KIND_INTEGER)
-        return false;
-    return msg->tag.int_value >= expected.int_value;
-}
-
-bool MessageMatchFn_IntLTE(Message *msg, Tag expected) {
-    if (!msg || msg->tag.kind != TAG_KIND_INTEGER || expected.kind != TAG_KIND_INTEGER)
-        return false;
-    return msg->tag.int_value <= expected.int_value;
-}
-
-bool MessageMatchFn_IntInRange(Message *msg, Tag expected) {
-    if (!msg || msg->tag.kind != TAG_KIND_INTEGER || expected.kind != TAG_KIND_INTEGER)
-        return false;
-    int32_t min = (expected.int_value >> 32) & 0xFFFFFFFF;
-    int32_t max = expected.int_value & 0xFFFFFFFF;
-    return msg->tag.int_value >= min && msg->tag.int_value <= max;
-}
-
-bool MessageMatchFn_ByKind(Message *msg, Tag expected) {
-    if (!msg) return false;
-    return msg->tag.kind == expected.kind;
 }

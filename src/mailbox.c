@@ -102,12 +102,14 @@ Message* mailbox_receive_seen(Mailbox* mbox) {
     return msg;
 }
 
-Message* mailbox_peek_and_match_seen(Mailbox* mbox, MessageMatchFn match, Tag userdata) {
+bool MessageMatchFn_SameTag(Message *msg, Tag expected);
+
+Message* mailbox_peek_and_match_seen(Mailbox* mbox, Tag userdata) {
     Message* prev = NULL;
     Message* msg = mbox->seen_head;
 
     while (msg) {
-        if (!match || match(msg, userdata)) {
+        if (MessageMatchFn_SameTag(msg, userdata)) {
             if (prev)
                 prev->next = msg->next;
             else

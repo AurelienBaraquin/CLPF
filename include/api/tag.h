@@ -11,7 +11,7 @@
 #define WHEREIS(name) \
     ({ \
         __clpf_request_lookup(self, name); \
-        Pid *__pid_ptr = (Pid*)RECEIVE(MessageMatchFn_SameTag, CORE_MESSAGE_TYPE_NAME_LOOKUP_TAG); \
+        Pid *__pid_ptr = (Pid*)RECEIVE(CORE_MESSAGE_TYPE_NAME_LOOKUP_TAG); \
         Pid __pid = *__pid_ptr; \
         safe_heap_free(&self->heap, __pid_ptr); \
         __pid; \

@@ -24,8 +24,8 @@ bool MessageMatchFn_ByKind(Message *msg, Tag userdata);
 #define TM_KIND \
     MessageMatchFn_ByKind
 
-#define RECEIVE(match, userdata) \
-    receive(self, match, userdata)
+#define RECEIVE(userdata) \
+    receive(self, userdata)
 
 #define SEND(pid, data, size) \
     send(self, pid, data, size, NO_TAG)
@@ -39,9 +39,11 @@ bool MessageMatchFn_ByKind(Message *msg, Tag userdata);
     send(self, pid, NULL, 0, MAKE_STR_TAG("notify::"data))
 
 #define WAIT_NOTIF(data) \
-    receive(self, TM_SAME, MAKE_STR_TAG("notify::"data))
+    receive(self, MAKE_STR_TAG("notify::"data))
 
 
 
-void* receive(Process* self, MessageMatchFn match, Tag userdata);
+Message* __receive_internal(Process *self, Tag userdata);
+
+void* receive(Process* self, Tag userdata);
 void send(Process *self, Pid pid, void* data, size_t size, Tag tag);

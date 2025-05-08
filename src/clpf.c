@@ -4,6 +4,8 @@
 #include <utils/cpu.h>
 #include <flags_internal.h>
 
+void init_task(Task entry, int argc, char *argv[]);
+
 CLPF clpf = {0};
 
 void clpf_init()
@@ -78,13 +80,7 @@ void __clpf_main(Task entry_point, int argc, char *argv[])
         }
     }
 
-    Funcall_t funcall;
-    funcall_init(&funcall, entry_point, 2, argc, argv);
-    Pid pid = __clpf_task_add(&funcall, PROCESS_PRIORITY_VERY_HIGH, -1);
-    if (pid == -1) {
-        fprintf(stderr, "Failed to add first task\n");
-        exit_in_progress = 1;
-    }
+    init_task(entry_point, argc, argv);
 
     while (exit_in_progress == 0) {
         usleep(1000); // Sleep for 1ms to avoid busy waiting

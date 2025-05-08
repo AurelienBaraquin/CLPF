@@ -21,7 +21,7 @@ typedef enum {
 #define MAKE_STR_TAG(str)           ((Tag){ .kind = TAG_KIND_STRING,  .str_value = (str) })
 #define MAKE_TAG_KIND(k)            ((Tag){ .kind = (k) })
 
-#define NO_TAG                      MAKE_INTERNAL_TAG(0)
+#define NO_TAG                      ((Tag){ .kind = TAG_KIND_NONE })
 
 typedef struct Tag_s {
     TagKind kind;
@@ -43,8 +43,6 @@ typedef struct Message {
 } Message;
 #pragma pack(pop)
 
-typedef bool (*MessageMatchFn)(Message *msg, Tag userdata);
-
 typedef struct Mailbox {
     // Pour lecture locale sans lock
     Message *seen_head;
@@ -63,5 +61,5 @@ void mailbox_destroy(Mailbox* mailbox, heap_t* heap);
 void mailbox_send_message(Mailbox* dest, heap_t *heap, void* data, size_t size, Tag tag);
 void mailbox_transfer_inbox_to_seen(Mailbox* mbox);
 Message* mailbox_receive_seen(Mailbox* mbox);
-Message* mailbox_peek_and_match_seen(Mailbox* mbox, MessageMatchFn match, Tag userdata);
+Message* mailbox_peek_and_match_seen(Mailbox* mbox, Tag userdata);
 void mailbox_clear_seen(Mailbox* mbox, heap_t *heap);

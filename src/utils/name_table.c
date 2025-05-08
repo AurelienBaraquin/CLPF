@@ -18,6 +18,7 @@ static int char_to_index(char c) {
     if (c >= 'A' && c <= 'Z') return 26 + (c - 'A');
     if (c >= '0' && c <= '9') return 52 + (c - '0');
     if (c == '_') return 62;
+    if (c == ':') return 58;
     return -1;
 }
 
