@@ -77,3 +77,9 @@ int __clpf_request_task_add(Process *self, bool need_reply, Funcall_t *fun, proc
 
 // Yield
 void yield(Process *self);
+
+// Message
+Message* __receive_internal(Process *self, Tag userdata);
+
+void* receive(Process* self, Tag userdata);
+void send(Process *self, Pid pid, void* data, size_t size, Tag tag);

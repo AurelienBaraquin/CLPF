@@ -94,12 +94,20 @@ void __clpf_main(Task entry_point, int argc, char *argv[])
         int updated = __clpf_main_update();
 
         // Check if all processes are finished
-        if (total_process_count == 0 && mpscq_empty(&clpf.message_queue) && updated == 0) {
+        if (total_process_count <= 0 && mpscq_empty(&clpf.message_queue) && updated == 0) {
             break;
         }
     }
 
     exit_in_progress = 1;
+
+    for (int i = 0; i < clpf.process_count; ++i) {
+        Process* process = &clpf.process_table[i];
+        if (process->pid != -1) {
+            send(NULL, process->pid, NULL, 0, ((Tag){ .kind = TAG_KIND_STRING, .str_value = ("core::event::stop") }));
+        }
+    }
+
     for (int i = 0; i < clpf.scheduler_count; ++i) {
         Scheduler* scheduler = &clpf.scheduler_table[i];
         pthread_mutex_lock(&scheduler->mutex);

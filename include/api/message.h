@@ -40,10 +40,3 @@ bool MessageMatchFn_ByKind(Message *msg, Tag userdata);
 
 #define WAIT_NOTIF(data) \
     receive(self, MAKE_STR_TAG("notify::"data))
-
-
-
-Message* __receive_internal(Process *self, Tag userdata);
-
-void* receive(Process* self, Tag userdata);
-void send(Process *self, Pid pid, void* data, size_t size, Tag tag);

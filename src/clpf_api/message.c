@@ -46,10 +46,12 @@ void send(Process *self, Pid pid, void* data, size_t size, Tag tag) {
         return;
     }
 
+    Pid sender_pid = self ? self->pid : -1;
+
     if (other_process)
-        mailbox_send_message(&other_process->mailbox, (heap_t*)&other_process->heap, data, size, tag);
+        mailbox_send_message(&other_process->mailbox, (heap_t*)&other_process->heap, data, size, sender_pid, tag);
     else
-        mailbox_send_message(&other_process->mailbox, NULL, data, size, tag);
+        mailbox_send_message(&other_process->mailbox, NULL, data, size, sender_pid, tag);
 
     if (other_process->state == PROCESS_WAITING) {
         other_process->state = PROCESS_READY;

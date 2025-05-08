@@ -45,7 +45,7 @@ void mailbox_destroy(Mailbox* mbox, heap_t *heap) {
     }
 }
 
-void mailbox_send_message(Mailbox* dest, heap_t *dest_heap, void* data, size_t size, Tag tag) {
+void mailbox_send_message(Mailbox* dest, heap_t *dest_heap, void* data, size_t size, Pid sender, Tag tag) {
     Message* msg = dest_heap == NULL ? malloc(sizeof(Message)) : heap_alloc(dest_heap, sizeof(Message));
     if (!msg) return;
 
@@ -57,6 +57,7 @@ void mailbox_send_message(Mailbox* dest, heap_t *dest_heap, void* data, size_t s
         if (!msg->payload) { heap_free(dest_heap, msg); return; }
     }
 
+    msg->sender_pid = sender;
     msg->tag = tag;
     msg->heap = dest_heap;
 

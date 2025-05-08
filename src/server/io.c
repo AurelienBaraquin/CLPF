@@ -9,13 +9,29 @@ typedef enum __server_io__e {
     S_IO_SUCCESS,
 } S_IO;
 
-static S_IO server_io_compute_message(Message *msg) {
+static S_IO server_io_compute_message(Process *self, Message *msg) {
     if (!msg)
         return S_IO_NOTHING;
 
     if (MessageMatchFn_SameTag(msg, MAKE_STR_TAG("server::io::print"))) {
         write(STDOUT_FILENO, msg->payload, msg->size);
         return S_IO_SUCCESS;
+    }
+
+    if (MessageMatchFn_SameTag(msg, MAKE_STR_TAG("server::io::getline"))) {
+        Pid dest = msg->sender_pid;
+        if (dest == -1) {
+            fprintf(stderr, "[IO SERVER] Invalid PID: %ld\n", dest);
+            return S_IO_NOTHING;
+        }
+        char *buffer = NULL;
+        size_t size = 0;
+        ssize_t len = getline(&buffer, &size, stdin);
+        if (len < 0) {
+            perror("getline");
+            return S_IO_NOTHING;
+        }
+        SEND_TAG(dest, buffer, len, MAKE_STR_TAG("server::io::getline"));
     }
 
     if (MessageMatchFn_SameTag(msg, MAKE_STR_TAG("core::event::stop"))) {
@@ -30,7 +46,7 @@ TASK0(__server_io__) {
     while (running) {
         msg = __receive_internal(self, NO_TAG);
 
-        S_IO r = server_io_compute_message(msg);
+        S_IO r = server_io_compute_message(self, msg);
 
         switch (r) {
             case S_IO_NOTHING:
