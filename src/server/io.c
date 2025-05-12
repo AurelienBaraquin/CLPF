@@ -31,7 +31,7 @@ static S_IO server_io_compute_message(Process *self, Message *msg) {
             perror("getline");
             return S_IO_NOTHING;
         }
-        SEND_TAG(dest, buffer, len, MAKE_STR_TAG("server::io::getline"));
+        SEND(dest, buffer, len, MAKE_STR_TAG("server::io::getline"));
     }
 
     if (MessageMatchFn_SameTag(msg, MAKE_STR_TAG("core::event::stop"))) {

@@ -4,12 +4,12 @@
 
 #define INCLUDE_CLPF_MESSAGE
 
-bool MessageMatchFn_SameTag(Message *msg, Tag userdata);
-bool MessageMatchFn_StringPrefix(Message *msg, Tag userdata);
-bool MessageMatchFn_IntGTE(Message *msg, Tag userdata);
-bool MessageMatchFn_IntLTE(Message *msg, Tag userdata);
-bool MessageMatchFn_IntInRange(Message *msg, Tag userdata);
-bool MessageMatchFn_ByKind(Message *msg, Tag userdata);
+bool MessageMatchFn_SameTag(Message *msg, Tag tag);
+bool MessageMatchFn_StringPrefix(Message *msg, Tag tag);
+bool MessageMatchFn_IntGTE(Message *msg, Tag tag);
+bool MessageMatchFn_IntLTE(Message *msg, Tag tag);
+bool MessageMatchFn_IntInRange(Message *msg, Tag tag);
+bool MessageMatchFn_ByKind(Message *msg, Tag tag);
 
 #define TM_SAME \
     MessageMatchFn_SameTag
@@ -24,13 +24,10 @@ bool MessageMatchFn_ByKind(Message *msg, Tag userdata);
 #define TM_KIND \
     MessageMatchFn_ByKind
 
-#define RECEIVE(userdata) \
-    receive(self, userdata)
+#define RECEIVE(tag) \
+    receive(self, tag)
 
-#define SEND(pid, data, size) \
-    send(self, pid, data, size, NO_TAG)
-
-#define SEND_TAG(pid, data, size, tag) \
+#define SEND(pid, data, size, tag) \
     send(self, pid, data, size, tag)
 
 
