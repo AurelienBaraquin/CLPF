@@ -60,7 +60,6 @@ void runq_clear(RunQueue *rq, void (*destroy)(Process *)) {
         Process *next = p->next;
         if (destroy)
             destroy(p);
-        free(p);
         p = next;
     }
     rq->head = NULL;

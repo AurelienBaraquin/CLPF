@@ -57,8 +57,10 @@ int process_init(Process *process, Funcall_t *taskcall, process_priority priorit
 }
 
 void process_destroy(Process *process) {
-    if (!process)
+    if (!process || process->pid == -1)
         return;
+
+    printf("Destroying process %ld, %s\n", process->pid, process->__name);
 
     mailbox_destroy(&process->mailbox, (heap_t *)&process->heap);
     funcall_destroy(&process->taskcall);

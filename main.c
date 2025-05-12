@@ -7,6 +7,8 @@
 #include <api/io.h>
 #include <assert.h>
 
+#include <flags_internal.h>
+
 TASK0(child) {
     int *msg = RECEIVE(NO_TAG);
     if (msg) {
@@ -39,6 +41,13 @@ TASK(task, int argc, char *argv[]) {
     for (int i = 0; i < count; ++i) {
         SEND(children[i], &i, sizeof(int), NO_TAG);
     }
+
+    int i = 100;
+    while (i --> 0) {
+        YIELD();
+    }
+
+    exit_in_progress = true;
 
     EXIT();
 }
