@@ -23,7 +23,7 @@ TASK0(child) {
     EXIT();
 }
 
-void on_signal_down(Process *self, Pid from, unsigned int reason) {
+void DEF(on_signal_down, Pid from, unsigned int reason) {
     PRINT("Process %ld received signal down from %ld with reason %u\n", self->pid, from, reason);
 }
 

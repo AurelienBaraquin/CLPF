@@ -31,3 +31,17 @@ void monitored_by_add(Monitor *monitor, Pid target) {
 
     add_to_list(&monitor->monitored_by, target);
 }
+
+void monitor_remove(Monitor *monitor, Pid target) {
+    if (!monitor || target == -1)
+        return;
+
+    remove_from_list(&monitor->monitors, target);
+}
+
+void monitored_by_remove(Monitor *monitor, Pid target) {
+    if (!monitor || target == -1)
+        return;
+
+    remove_from_list(&monitor->monitored_by, target);
+}

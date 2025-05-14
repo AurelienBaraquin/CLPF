@@ -32,6 +32,22 @@ void add_to_list(links_t **list, Pid pid) {
     *list = new;
 }
 
+void remove_from_list(links_t **list, Pid pid) {
+    links_t *prev = NULL, *cur = *list;
+    while (cur) {
+        if (cur->pid == pid) {
+            if (prev)
+                prev->next = cur->next;
+            else
+                *list = cur->next;
+            free(cur);
+            return;
+        }
+        prev = cur;
+        cur = cur->next;
+    }
+}
+
 void link_add_child(ProcessLinks *links, Pid child) {
     add_to_list(&links->children, child);
 }
@@ -45,19 +61,7 @@ int link_has_child(ProcessLinks *links, Pid child) {
 }
 
 void link_remove_child(ProcessLinks *links, Pid child) {
-    links_t *prev = NULL, *cur = links->children;
-    while (cur) {
-        if (cur->pid == child) {
-            if (prev)
-                prev->next = cur->next;
-            else
-                links->children = cur->next;
-            free(cur);
-            return;
-        }
-        prev = cur;
-        cur = cur->next;
-    }
+    remove_from_list(&links->children, child);
 }
 
 size_t link_count(links_t *list) {

@@ -16,6 +16,7 @@ typedef struct {
 // Utils
 void free_link_list(links_t *l);
 void add_to_list(links_t **list, Pid pid);
+void remove_from_list(links_t **list, Pid pid);
 
 void links_init(ProcessLinks *links);
 void links_clear(ProcessLinks *links);
