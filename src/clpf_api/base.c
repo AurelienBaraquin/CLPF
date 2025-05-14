@@ -10,3 +10,11 @@ void yield(Process *self) {
 
     handle_callbacks(self);
 }
+
+void exiting(Process *self) {
+    for (links_t *l = self->monitor.monitored_by; l; l = l->next) {
+        signal_send(self, l->pid, SIGNAL_DOWN, 43);
+    }
+
+    self->state = PROCESS_EXITING;
+}

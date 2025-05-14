@@ -19,14 +19,11 @@ TASK0(child) {
         PRINT("Child %d: Hello from child process %d\n", CALL(add, 10, *msg), self->pid);
         FREE(msg);
     }
-    for (links_t *l = self->monitor.monitored_by; l; l = l->next) {
-        signal_send(self, l->pid, SIGNAL_DOWN, 43);
-    }
+
     EXIT();
 }
 
 void on_signal_down(Process *self, Pid from, unsigned int reason) {
-    write(STDERR_FILENO, "Signal down received\n", 22);
     PRINT("Process %ld received signal down from %ld with reason %u\n", self->pid, from, reason);
 }
 
