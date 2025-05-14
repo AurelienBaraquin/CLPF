@@ -4,6 +4,7 @@
 #include <api/tag.h>
 #include <api/memory.h>
 #include <api/io.h>
+#include <api/monitor.h>
 #include <assert.h>
 #include <msignal.h>
 
@@ -28,6 +29,7 @@ void DEF(on_signal_down, Pid from, unsigned int reason) {
 }
 
 TASK(task, int argc, char *argv[]) {
+    MONITOR_INIT(on_signal_down);
     int count = 0;
     Pid children[100];
 
@@ -38,12 +40,9 @@ TASK(task, int argc, char *argv[]) {
 
     FREE(r);
 
-    self->monitor.on_process_down = &on_signal_down;
-
     for (int i = 0; i < count; ++i) {
         children[i] = SPAWN0(child);
-        monitor_add(&self->monitor, children[i]);
-        monitored_by_add(&clpf.process_table[children[i]].monitor, self->pid);
+        MONITOR_ADD(children[i]);
     }
 
     for (int i = 0; i < count; ++i) {
