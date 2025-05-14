@@ -78,8 +78,21 @@ int __clpf_request_task_add(Process *self, bool need_reply, Funcall_t *fun, proc
 // Yield
 void yield(Process *self);
 
-// Message
-Message* __receive_internal(Process *self, Tag userdata);
 
+// Message
+
+// Loop until a valid message is received (blocking)
+Message* __receive_internal(Process *self, Tag userdata);
+// Look for a valid message in the mailbox and return it, if not found return NULL (non-blocking)
+Message* __receive_internal_fetch(Process *self, Tag userdata);
+// Loop until a valid message is received (blocking)
 void* receive(Process* self, Tag userdata);
+// Look for a valid message in the mailbox and return it, if not found return NULL (non-blocking)
+void *fetch(Process* self, Tag userdata);
+
+// Send a message to a process
 void send(Process *self, Pid pid, void* data, size_t size, Tag tag);
+
+
+// Process callbacks
+void handle_callbacks(Process *self);

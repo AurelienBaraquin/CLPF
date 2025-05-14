@@ -8,6 +8,12 @@
 #define TASK(_name, ...) \
     void _name(Process *self, __VA_ARGS__) \
 
+#define DEF(name, ...) \
+    name(Process *self, __VA_ARGS__) \
+
+#define CALL(name, ...) \
+    name(self, __VA_ARGS__)
+
 #define CLPF_ENTRY(task) \
     int main(int argc, char *argv[]) { \
         __clpf_main(task, argc, argv); \
@@ -28,3 +34,6 @@
 
 #define NB_CHILDREN() \
     process_get_child_count(self)
+
+#define YIELD() \
+    yield(self);

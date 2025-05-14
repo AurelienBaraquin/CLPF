@@ -27,6 +27,9 @@ bool MessageMatchFn_ByKind(Message *msg, Tag tag);
 #define RECEIVE(tag) \
     receive(self, tag)
 
+#define FETCH(tag) \
+    fetch(self, tag)
+
 #define SEND(pid, data, size, tag) \
     send(self, pid, data, size, tag)
 

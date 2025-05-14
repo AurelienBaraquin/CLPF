@@ -2,6 +2,20 @@
 
 #include <clpf_internal.h>
 
+#define SPAWN_PRIO_NORET(func, prio, argc, ...) \
+    do { \
+        Funcall_t funcall; \
+        funcall_init(&funcall, func, argc, __VA_ARGS__); \
+        __clpf_request_task_add(self, false, &funcall, prio, self->pid); \
+    } while (0)
+
+#define SPAWN_PRIO_NORET0(func, prio) \
+    do { \
+        Funcall_t funcall; \
+        funcall_init(&funcall, func, 0); \
+        __clpf_request_task_add(self, false, &funcall, prio, self->pid); \
+    } while (0)
+
 #define SPAWN_NORET(func, argc, ...) \
     do { \
         Funcall_t funcall; \
@@ -19,9 +33,34 @@
 #ifdef INCLUDE_CLPF_MESSAGE
 #define SPAWN SPAWN_NORET
 #define SPAWN0 SPAWN_NORET0
+
+#define SPAWN_PRIO SPAWN_PRIO_NORET
+#define SPAWN0_PRIO SPAWN_PRIO_NORET0
 #else
 #include <api/message.h>
 #include <clpf_const.h>
+
+#define SPAWN_PRIO(func, prio, argc, ...) \
+    ({ \
+        Funcall_t funcall; \
+        funcall_init(&funcall, func, argc, __VA_ARGS__); \
+        __clpf_request_task_add(self, true, &funcall, prio, self->pid); \
+        Pid *__pid_ptr = (Pid *)RECEIVE(CORE_MESSAGE_TYPE_SPAWN_TAG); \
+        Pid __pid = *__pid_ptr; \
+        safe_heap_free(&self->heap, __pid_ptr); \
+        __pid; \
+    })
+
+    #define SPAWN0_PRIO(func, prio) \
+    ({ \
+        Funcall_t funcall; \
+        funcall_init(&funcall, func, 0); \
+        __clpf_request_task_add(self, true, &funcall, prio, self->pid); \
+        Pid *__pid_ptr = (Pid *)RECEIVE(CORE_MESSAGE_TYPE_SPAWN_TAG); \
+        Pid __pid = *__pid_ptr; \
+        safe_heap_free(&self->heap, __pid_ptr); \
+        __pid; \
+    })
 
 #define SPAWN(func, argc, ...) \
     ({ \
@@ -34,7 +73,7 @@
         __pid; \
     })
 
-    #define SPAWN0(func) \
+#define SPAWN0(func) \
     ({ \
         Funcall_t funcall; \
         funcall_init(&funcall, func, 0); \

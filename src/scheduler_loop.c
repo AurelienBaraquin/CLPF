@@ -18,6 +18,25 @@ void co_entrypoint() {
     aco_yield();
 }
 
+void handle_signals(Process* process) {
+    if (!process)
+        return;
+
+    MPSCQNode *node = signal_drain(process);
+    while (node) {
+        Signal *signal = (Signal *)node->data;
+        if (!signal)
+            break;
+        if (signal->type == SIGNAL_DOWN) {
+            send(NULL, process->pid, signal, sizeof(Signal), MAKE_STR_TAG("scheduler::event::signal"));
+        }
+        MPSCQNode *next_node = node->next;
+        safe_heap_free(&process->heap, signal);
+        free(node);
+        node = next_node;
+    }
+}
+
 process_state execute_process(Scheduler *scheduler, Process* process) {
     if (!process)
         return PROCESS_EXITING;
@@ -86,20 +105,22 @@ void scheduler_loop(Scheduler* scheduler) {
         // 5. Do auxiliary scheduler work
         // 6. If needed check IO and update time
         // 7. While needed pick a port task to execute
+        
         // 8. Pick a process to execute
-        // 9. Handle signals of the process (exemple : EXIT, DOWN, MONITOR, UNLINK ect...)
-        // 10. Execute the process
-
         Process* process = pick_process(scheduler);
-
+        
         if (!process) {
             // printf("No process to execute in scheduler %ld\n", scheduler->pid);
             continue;
         }
 
-        int a = execute_process(scheduler, process);
-        process->state = a;
+        // 9. Handle signals of the process (exemple : EXIT, DOWN, MONITOR, UNLINK ect...)
+        handle_signals(process);
 
+        // 10. Execute the process
+        process->state = execute_process(scheduler, process);
+
+        // 11. Handle the process state
         switch (process->state) {
             case PROCESS_READY:
             case PROCESS_RUNNING:

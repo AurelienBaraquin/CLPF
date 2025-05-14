@@ -4,7 +4,9 @@
 #include <assert.h>
 
 TASK(__server_launcher__, Task entry, int argc, char *argv[]) {
-    Pid io = SPAWN0(__server_io__);
+    REGISTER("server::launcher", self->pid);
+
+    Pid io = SPAWN0_PRIO(__server_io__, PROCESS_PRIORITY_HIGH);
     REGISTER("server::io", io);
 
     Pid pid = ({
@@ -16,6 +18,7 @@ TASK(__server_launcher__, Task entry, int argc, char *argv[]) {
         safe_heap_free(&self->heap, __pid_ptr);
         __pid;
     });
+    REGISTER("clpf::entry", pid);
 
     EXIT();
 }

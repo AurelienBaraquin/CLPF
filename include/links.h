@@ -11,16 +11,16 @@ typedef struct links_s {
 typedef struct {
     Pid parent;
     links_t *children;
-    links_t *monitors;
-    links_t *monitored_by;
 } ProcessLinks;
+
+// Utils
+void free_link_list(links_t *l);
+void add_to_list(links_t **list, Pid pid);
 
 void links_init(ProcessLinks *links);
 void links_clear(ProcessLinks *links);
 
 void link_add_child(ProcessLinks *links, Pid child);
-void link_add_monitor(ProcessLinks *links, Pid monitor);
-void link_add_monitored_by(ProcessLinks *links, Pid target);
 
 int link_has_child(ProcessLinks *links, Pid child);
 void link_remove_child(ProcessLinks *links, Pid child);

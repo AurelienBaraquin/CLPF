@@ -6,8 +6,8 @@
 #include <memory/stack.h>
 #include <utils/mpscq.h>
 #include <utils/pid.h>
-#include <signal.h>
-#include <links.h>
+#include <msignal.h>
+#include <monitor.h>
 #include <utils/funcall.h>
 #include <libaco/aco.h>
 #include <mailbox.h>
@@ -50,6 +50,7 @@ typedef struct process_s {
     Funcall_t taskcall;
 
     ProcessLinks links;
+    Monitor monitor;
 
     MPSCQ signal_queue;
     Mailbox mailbox;

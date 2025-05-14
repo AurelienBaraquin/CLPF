@@ -57,7 +57,6 @@ int __clpf_main_update()
             case CORE_MESSAGE_TYPE_PROCESS_EXIT:
                 if (msg->data.process_exit.pid != -1) {
                     name_table_remove(clpf.name_table, clpf.process_table[msg->data.process_exit.pid].__name);
-                    memset(clpf.process_table[msg->data.process_exit.pid].__name, 0, NAME_MAX_LENGTH);
                     process_destroy(&clpf.process_table[msg->data.process_exit.pid]);
                     clpf.process_table[msg->data.process_exit.pid].pid = -1;
                     clpf.process_count--;

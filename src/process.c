@@ -11,6 +11,8 @@ int process_init(Process *process, Funcall_t *taskcall, process_priority priorit
         return -1;
 
     process->pid = pid;
+    memset(process->__name, 0, NAME_MAX_LENGTH);
+
     process->scheduler_pid = -1;
     process->state = PROCESS_INIT,
     process->priority = priority;
@@ -43,6 +45,7 @@ int process_init(Process *process, Funcall_t *taskcall, process_priority priorit
         return -1;
 
     links_init(&process->links);
+    monitor_init(&process->monitor);
 
     if (parent_pid != -1) {
         process->links.parent = parent_pid;
@@ -60,8 +63,6 @@ void process_destroy(Process *process) {
     if (!process || process->pid == -1)
         return;
 
-    printf("Destroying process %ld, %s\n", process->pid, process->__name);
-
     mailbox_destroy(&process->mailbox, (heap_t *)&process->heap);
     funcall_destroy(&process->taskcall);
     safe_heap_destroy(&process->heap);
@@ -70,6 +71,7 @@ void process_destroy(Process *process) {
     if (process->share_stack)
         aco_share_stack_destroy(process->share_stack);
     links_clear(&process->links);
+    monitor_clear(&process->monitor);
     mpscq_clear(&process->signal_queue, NULL);
 }
 

@@ -3,17 +3,25 @@
 #include <string.h>
 #include <assert.h>
 
+Message* __receive_internal_fetch(Process *self, Tag userdata) {
+    Message* msg;
+
+    mailbox_transfer_inbox_to_seen(&self->mailbox);
+
+    if (userdata.kind != TAG_KIND_NONE)
+        msg = mailbox_peek_and_match_seen(&self->mailbox, userdata);
+    else {
+        msg = mailbox_receive_seen(&self->mailbox);
+    }
+
+    return msg;
+}
+
 Message* __receive_internal(Process *self, Tag userdata) {
     Message* msg;
 
     while (1) {
-        mailbox_transfer_inbox_to_seen(&self->mailbox);
-
-        if (userdata.kind != TAG_KIND_NONE)
-            msg = mailbox_peek_and_match_seen(&self->mailbox, userdata);
-        else {
-            msg = mailbox_receive_seen(&self->mailbox);
-        }
+        msg = __receive_internal_fetch(self, userdata);
 
         if (msg)
             return msg;
@@ -26,6 +34,18 @@ Message* __receive_internal(Process *self, Tag userdata) {
 void* receive(Process* self, Tag userdata) {
     Message *msg = __receive_internal(self, userdata);
     assert(msg);
+
+    void *payload = msg->payload;
+    if (payload)
+        safe_heap_free((safe_heap_t *)msg->heap, msg);
+
+    return payload;
+}
+
+void *fetch(Process* self, Tag userdata) {
+    Message *msg = __receive_internal_fetch(self, userdata);
+    if (!msg)
+        return NULL;
 
     void *payload = msg->payload;
     if (payload)
