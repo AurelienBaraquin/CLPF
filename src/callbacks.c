@@ -13,6 +13,8 @@ void handle_signals_callbacks(Process *self) {
         default:
             break;
     }
+
+    safe_heap_free(&self->heap, sig);
 }
 
 void handle_callbacks(Process *self) {
