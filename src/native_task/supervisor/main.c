@@ -16,7 +16,7 @@ TASK(__supervisor__, SUP_STRAT strategy) {
     sv.strategy = strategy;
     sv.period_ms = DEFAULT_PERIOD;
     sv.max_restarts = DEFAULT_MAX_RESTARTS;
-
+    sv.child_count = 0;
     TAILQ_INIT(&sv.sup_childs);
 
     MONITOR_INIT(on_signal_down, &sv);

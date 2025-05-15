@@ -31,6 +31,7 @@ SUP_ST DEF(__sup_handler_spawn, Message *msg, __supervisor_t *sup) {
         fprintf(stderr, "[SUPERVISOR] Failed to spawn child process\n");
         return SUP_NOTHING;
     }
+    sup->child_count++;
     MONITOR_ADD(child->pid);
     SEND(msg->sender_pid, &child->pid, sizeof(Pid), MAKE_STR_TAG("supervisor::spawn"));
     return SUP_SUCCESS;
@@ -43,6 +44,7 @@ SUP_ST DEF(__sup_handler_remove, Message *msg, __supervisor_t *sup) {
         return SUP_NOTHING;
     }
     CALL(__sup_child_list_remove, &sup->sup_childs, pid);
+    sup->child_count--;
     MONITOR_REMOVE(pid);
     return SUP_SUCCESS;
 }

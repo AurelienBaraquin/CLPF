@@ -16,7 +16,7 @@ static bool should_restart_child(SupChildSlot *child, unsigned int reason) {
     }
 }
 
-bool DEF(restart_child, __supervisor_t *sv, SupChildSlot *child) {
+static bool DEF(restart_child_impl, __supervisor_t *sv, SupChildSlot *child) {
     uint64_t now = now_ms();
 
     // Insert the timestamp in a circular manner
@@ -51,6 +51,14 @@ bool DEF(restart_child, __supervisor_t *sv, SupChildSlot *child) {
     return true;
 }
 
+static void DEF(restart_child, __supervisor_t *sv, SupChildSlot *child) {
+    if (CALL(restart_child_impl, sv, child) == false) {
+        monitor_remove(&self->monitor, child->pid);
+        CALL(__sup_child_list_remove, &sv->sup_childs, child->pid);
+        sv->child_count--;
+    }
+}
+
 void DEF(on_signal_down, Pid from, unsigned int reason, __supervisor_t *sv) {
     SupChildSlot *child = CALL(__sup_child_find_by_pid, sv, from);
     if (!child) return;
@@ -65,13 +73,21 @@ void DEF(on_signal_down, Pid from, unsigned int reason, __supervisor_t *sv) {
             CALL(restart_child, sv, child);
             break;
         case SUP_ONE_FOR_ALL:
-            // for (int i = 0; i < sv->child_count; ++i)
-            //     restart_child(&sv->children[i]);
+            child = NULL;
+            TAILQ_FOREACH(child, &sv->sup_childs, entry) {
+                if (child->pid != from) {
+                    CALL(restart_child, sv, child);
+                }
+            }
             break;
         case SUP_REST_FOR_ONE: {
-            // int idx = find_child_index(sv, from);
-            // for (int i = idx; i < sv->child_count; ++i)
-            //     restart_child(&sv->children[i]);
+            SupChildSlot *current_child = child;
+            while (current_child != NULL) {
+                if (current_child->pid != from) {
+                    CALL(restart_child, sv, current_child);
+                }
+                current_child = TAILQ_NEXT(current_child, entry);
+            }
             break;
         }
     }

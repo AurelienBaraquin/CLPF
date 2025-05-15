@@ -16,6 +16,8 @@ int DEF(add, int a, int b) {
 }
 
 TASK0(child) {
+    YIELD();
+    YIELD();
     int a = 10;
     int *msg = &a;
     if (msg) {

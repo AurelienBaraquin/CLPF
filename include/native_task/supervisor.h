@@ -44,6 +44,7 @@ typedef TAILQ_HEAD(SupChildList, SupChildSlot) SupChildList;
 typedef struct __supervisor_s {
     SUP_STRAT strategy;
     SupChildList sup_childs;
+    int child_count;
 
     uint64_t period_ms;
     int max_restarts;
