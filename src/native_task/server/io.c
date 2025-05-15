@@ -64,5 +64,5 @@ TASK0(__server_io__) {
             FREE(msg->payload);
         FREE(msg);
     }
-    EXIT();
+    EXIT_NORMAL();
 }

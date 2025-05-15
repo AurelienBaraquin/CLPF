@@ -20,8 +20,18 @@
         return 0; \
     }
 
-#define EXIT() \
-    exiting(self); \
+typedef enum exit_reason_e {
+    EXIT_REASON_NORMAL,
+    EXIT_REASON_ERROR,
+} exit_reason;
+
+#define EXIT(reason) \
+    exiting(self, reason)
+
+#define EXIT_NORMAL() \
+    exiting(self, EXIT_REASON_NORMAL)
+#define EXIT_ERROR() \
+    exiting(self, EXIT_REASON_ERROR)
 
 #define PARENT() \
     process_get_parent_pid(self)

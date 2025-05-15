@@ -17,13 +17,13 @@ int DEF(add, int a, int b) {
 
 TASK0(child) {
     write(STDOUT_FILENO, "Child process started\n", 22);
-    int *msg = RECEIVE(NO_TAG);
+    int a = 10;
+    int *msg = &a;
     if (msg) {
         PRINT("Child %d: Hello from child process %d\n", CALL(add, 10, *msg), self->pid);
-        FREE(msg);
     }
 
-    EXIT();
+    EXIT_ERROR();
 }
 
 TASK(task, int argc, char *argv[]) {
@@ -41,21 +41,13 @@ TASK(task, int argc, char *argv[]) {
         }
     }
 
-    for (int i = 0; i < count; ++i) {
-        if (children[i] == -1) {
-            PRINT("Child %d not spawned\n", i);
-            continue;
-        }
-        SEND(children[i], &i, sizeof(int), NO_TAG);
-    }
-
     for (int i = 0; i < count * 3; ++i) {
         YIELD();
     }
 
     exit_in_progress = true;
 
-    EXIT();
+    EXIT_NORMAL();
 }
 
 CLPF_ENTRY(task)

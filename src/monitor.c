@@ -45,3 +45,12 @@ void monitored_by_remove(Monitor *monitor, Pid target) {
 
     remove_from_list(&monitor->monitored_by, target);
 }
+
+void monitor_run(Monitor *monitor, Process *self, Pid from, unsigned int reason) {
+    if (!monitor)
+        return;
+
+    if (monitor->on_process_down)
+        monitor->on_process_down(self, from, reason, monitor->arg);
+    monitor_remove(monitor, from);
+}

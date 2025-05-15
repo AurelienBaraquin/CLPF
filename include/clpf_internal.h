@@ -75,10 +75,11 @@ Pid __clpf_task_add(Funcall_t *fun, process_priority priority, Pid parent_pid);
 // Thread-safe task creation
 int __clpf_request_task_add(Process *self, bool need_reply, Funcall_t *fun, process_priority priority, Pid parent_pid);
 
+typedef enum exit_reason_e exit_reason;
 
 // Base
 void yield(Process *self);
-void exiting(Process *self);
+void exiting(Process *self, exit_reason reason);
 
 
 // Message

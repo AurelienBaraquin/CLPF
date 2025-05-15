@@ -7,9 +7,7 @@ void handle_signals_callbacks(Process *self) {
 
     switch (sig->type) {
         case SIGNAL_DOWN:
-            if (self->monitor.on_process_down)
-                self->monitor.on_process_down(self, sig->from, sig->reason);
-            monitor_remove(&self->monitor, sig->from);
+            monitor_run(&self->monitor, self, sig->from, sig->reason);
             break;
         default:
             break;

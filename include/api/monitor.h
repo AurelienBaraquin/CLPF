@@ -2,8 +2,9 @@
 
 #include <clpf_internal.h>
 
-#define MONITOR_INIT(callback) \
-    self->monitor.on_process_down = callback;
+#define MONITOR_INIT(callback, _arg) \
+    self->monitor.on_process_down = (ProcessDownCallback)callback; \
+    self->monitor.arg = _arg;
 
 #define MONITOR_ADD(target) \
     monitor_add(&self->monitor, target); \

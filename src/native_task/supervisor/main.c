@@ -3,19 +3,20 @@
 #include <api/io.h>
 #include <api/monitor.h>
 
-void DEF(on_signal_down, Pid from, unsigned int reason) {
-    PRINT("Process %ld received signal down from %ld with reason %u\n", self->pid, from, reason);
+void DEF(on_signal_down, Pid from, unsigned int reason, __supervisor_t *sv) {
+    PRINT("Strat: %d - Process %ld received signal down from %ld with reason %u\n", sv->strategy, self->pid, from, reason);
 }
 
 TASK(__supervisor__, SUP_STRAT strategy) {
-    MONITOR_INIT(on_signal_down);
     Message *msg = NULL;
     bool running = true;
-
+    
     __supervisor_t sv;
     sv.strategy = strategy;
-
+    
     TAILQ_INIT(&sv.sup_childs);
+    
+    MONITOR_INIT(on_signal_down, &sv);
 
     while (running) {
         msg = RECEIVE_RAW(NO_TAG);
@@ -38,5 +39,5 @@ TASK(__supervisor__, SUP_STRAT strategy) {
             FREE(msg->payload);
         FREE(msg);
     }
-    EXIT();
+    EXIT_NORMAL();
 }

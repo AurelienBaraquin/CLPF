@@ -17,5 +17,5 @@ TASK(__server_launcher__, Task entry, int argc, char *argv[]) {
 
     REGISTER("clpf::entry", pid);
 
-    EXIT();
+    EXIT_NORMAL();
 }
