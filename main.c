@@ -27,7 +27,7 @@ TASK0(child) {
 }
 
 TASK(task, int argc, char *argv[]) {
-    Pid sup = SPAWN0_PRIO(__supervisor__, PROCESS_PRIORITY_MEDIUM);
+    Pid sup = SPAWN_PRIO(__supervisor__, PROCESS_PRIORITY_MEDIUM, 1, SUP_ONE_FOR_ONE);
     int count = 3;
     Pid children[3] = {-1, -1, -1};
 
@@ -40,21 +40,21 @@ TASK(task, int argc, char *argv[]) {
             .magic = MAGIC_SUP_CHILD,
             .taskcall = &taskcall,
             .priority = PROCESS_PRIORITY_MEDIUM,
-            .restart = RES_ONE_FOR_ONE,
+            .restart = RES_PERMANENT
         };
         Pid *pid = REQUEST(sup, &spec, sizeof(SupChildSpec), MAKE_STR_TAG("supervisor::spawn"));
         if (pid) {
             children[i] = *pid;
             FREE(pid);
         } else {
-            PRINT("Failed to spawn child process\n");
+            PRINT("Failed to spawn child process %d\n", i);
             return;
         }
     }
 
     for (int i = 0; i < count; ++i) {
         if (children[i] == -1) {
-            PRINT("Child %d: Failed to spawn\n", i);
+            PRINT("Child %d not spawned\n", i);
             continue;
         }
         SEND(children[i], &i, sizeof(int), NO_TAG);

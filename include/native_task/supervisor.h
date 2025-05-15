@@ -2,10 +2,16 @@
 #include <utils/magic.h>
 
 typedef enum restart_type_e {
-    RES_ONE_FOR_ONE,    // If a child die restart it
-    RES_ONE_FOR_ALL,    // If a child die everyone die and restart
-    RES_REST_FOR_ONE,   // If a child die restart him and all the others created after him
+    RES_PERMANENT, // Always restart the child (even in normal exit)
+    RES_TRANSIENT, // Restart the child only if it crash
+    RES_TEMPORARY, // Never restart the child
 } RestartType;
+
+typedef enum sup_strat_e {
+    SUP_ONE_FOR_ONE,    // If a child die restart it
+    SUP_ONE_FOR_ALL,    // If a child die everyone die and restart
+    SUP_REST_FOR_ONE,   // If a child die restart him and all the others created after him
+} SUP_STRAT;
 
 #define MAGIC_SUP_CHILD 0xC5C1D4C1
 
@@ -16,4 +22,30 @@ typedef struct sup_child_spec_s {
     RestartType restart;
 } SupChildSpec;
 
-TASK0(__supervisor__);
+typedef enum __supervisor_state__e {
+    SUP_NOTHING,
+    SUP_STOP,
+    SUP_SUCCESS,
+} SUP_ST;
+
+typedef struct SupChildSlot {
+    Pid pid;
+    SupChildSpec spec;
+    int restart_count;
+
+    TAILQ_ENTRY(SupChildSlot) entry;
+} SupChildSlot;
+
+typedef TAILQ_HEAD(SupChildList, SupChildSlot) SupChildList;
+
+typedef struct __supervisor_s {
+    SUP_STRAT strategy;
+    SupChildList sup_childs;
+} __supervisor_t;
+
+TASK(__supervisor__, SUP_STRAT strategy);
+
+SupChildSlot* DEF(__sup_child_list_insert, SupChildList *list, SupChildSpec *child);
+void DEF(__sup_child_list_remove, SupChildList *list, Pid pid);
+
+SUP_ST DEF(__supervisor_handler, Message *msg, __supervisor_t *sup);

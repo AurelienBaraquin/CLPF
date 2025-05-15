@@ -5,7 +5,7 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
 # Add -g3 flag for debugging
-add_compile_options(-g3 -O0)
+add_compile_options(-g3 -O0 -fno-omit-frame-pointer)
 
 
 
