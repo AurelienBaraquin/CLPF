@@ -54,16 +54,16 @@ void *fetch(Process* self, Tag userdata) {
     return payload;
 }
 
-void send(Process *self, Pid pid, void* data, size_t size, Tag tag) {
+int send(Process *self, Pid pid, void* data, size_t size, Tag tag) {
     if (pid == -1) {
         fprintf(stderr, "Invalid PID: %ld\n", pid);
-        return;
+        return -1;
     }
 
     Process* other_process = &clpf.process_table[pid];
     if (!other_process) {
         fprintf(stderr, "Process %ld not found\n", pid);
-        return;
+        return -1;
     }
 
     Pid sender_pid = self ? self->pid : -1;
@@ -79,6 +79,14 @@ void send(Process *self, Pid pid, void* data, size_t size, Tag tag) {
 
     if (self)
         yield(self);
+}
+
+void* request(Process *self, pid_t pid, void* data, size_t size, Tag tag) {
+    if (send(self, pid, data, size, tag) != -1) {
+        return receive(self, tag);
+    } else {
+        return NULL;
+    }
 }
 
 

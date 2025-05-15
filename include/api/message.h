@@ -1,6 +1,6 @@
 #pragma once
 
-#include <clpf_internal.h>
+#include <api/memory.h>
 
 #define INCLUDE_CLPF_MESSAGE
 
@@ -27,12 +27,17 @@ bool MessageMatchFn_ByKind(Message *msg, Tag tag);
 #define RECEIVE(tag) \
     receive(self, tag)
 
+#define RECEIVE_RAW(tag) \
+    __receive_internal(self, tag);
+
 #define FETCH(tag) \
     fetch(self, tag)
 
 #define SEND(pid, data, size, tag) \
     send(self, pid, data, size, tag)
 
+#define REQUEST(pid, data, size, tag) \
+    request(self, pid, data, size, tag)
 
 // ONLY STATIC STRING ARE ALLOWED DO NOT PUT DYNAMIC STRING !!!!!
 #define NOTIFY(pid, data) \

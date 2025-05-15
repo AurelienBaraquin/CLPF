@@ -93,7 +93,11 @@ void* receive(Process* self, Tag userdata);
 void *fetch(Process* self, Tag userdata);
 
 // Send a message to a process
-void send(Process *self, Pid pid, void* data, size_t size, Tag tag);
+int send(Process *self, Pid pid, void* data, size_t size, Tag tag);
+
+// Request (send + receive with the same tag)
+void* request(Process *self, pid_t pid, void* data, size_t size, Tag tag);
+
 
 
 // Process callbacks
