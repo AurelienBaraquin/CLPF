@@ -16,7 +16,6 @@ int DEF(add, int a, int b) {
 }
 
 TASK0(child) {
-    write(STDOUT_FILENO, "Child process started\n", 22);
     int a = 10;
     int *msg = &a;
     if (msg) {
@@ -41,7 +40,7 @@ TASK(task, int argc, char *argv[]) {
         }
     }
 
-    for (int i = 0; i < count * 3; ++i) {
+    for (int i = 0; i < count * 100; ++i) {
         YIELD();
     }
 

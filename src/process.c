@@ -34,6 +34,11 @@ int process_init(Process *process, Funcall_t *taskcall, process_priority priorit
     funcall.func = taskcall->func;
     funcall.argc = taskcall->argc + 1;
     funcall.args[0] = (uintptr_t)process;
+
+    if (taskcall->argc >= 6) {
+        fprintf(stderr, "[process_init] Too many arguments (%d), max is 5\n", taskcall->argc);
+        return -1;
+    }    
     memcpy(&funcall.args[1], taskcall->args, sizeof(uintptr_t) * (taskcall->argc));
 
     process->taskcall = funcall;

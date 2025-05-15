@@ -14,12 +14,11 @@ Pid __sup_add_child(Process *self, Pid sup, SUP_STRAT strat, void (*func)(), int
         return -1;
     }
 
-    SupChildSpec spec = {
-        .magic = MAGIC_SUP_CHILD,
-        .taskcall = &taskcall,
-        .priority = PROCESS_PRIORITY_MEDIUM,
-        .restart = RES_PERMANENT
-    };
+    SupChildSpec spec;
+    spec.magic = MAGIC_SUP_CHILD;
+    spec.taskcall = taskcall;
+    spec.priority = PROCESS_PRIORITY_MEDIUM;
+    spec.restart = RES_PERMANENT;
 
     Pid *pid = REQUEST(sup, &spec, sizeof(SupChildSpec), MAKE_STR_TAG("supervisor::spawn"));
     if (pid) {
