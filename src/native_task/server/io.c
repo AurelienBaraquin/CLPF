@@ -50,19 +50,19 @@ TASK0(__server_io__) {
 
         switch (r) {
             case S_IO_NOTHING:
+            case S_IO_SUCCESS:
                 break;
             case S_IO_STOP:
                 running = false;
-                break;
-            case S_IO_SUCCESS:
-                if (msg->payload)
-                    FREE(msg->payload);
-                FREE(msg);
                 break;
 
             default:
                 break;
         }
+
+        if (msg->payload)
+            FREE(msg->payload);
+        FREE(msg);
     }
     EXIT();
 }

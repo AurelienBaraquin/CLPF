@@ -4,8 +4,7 @@
 #include <api/monitor.h>
 
 void DEF(on_signal_down, Pid from, unsigned int reason) {
-    write(STDOUT_FILENO, "down\n", 5);
-    // PRINT("Process %ld received signal down from %ld with reason %u\n", self->pid, from, reason);
+    PRINT("Process %ld received signal down from %ld with reason %u\n", self->pid, from, reason);
 }
 
 TASK(__supervisor__, SUP_STRAT strategy) {
@@ -25,19 +24,19 @@ TASK(__supervisor__, SUP_STRAT strategy) {
 
         switch (r) {
             case SUP_NOTHING:
+            case SUP_SUCCESS:
                 break;
             case SUP_STOP:
                 running = false;
-                break;
-            case SUP_SUCCESS:
-                if (msg->payload)
-                    FREE(msg->payload);
-                FREE(msg);
                 break;
             
             default:
                 break;
         }
+
+        if (msg->payload)
+            FREE(msg->payload);
+        FREE(msg);
     }
     EXIT();
 }

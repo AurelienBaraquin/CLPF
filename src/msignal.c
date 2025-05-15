@@ -19,6 +19,13 @@ void signal_send(Process *self, Pid to, SignalType type, unsigned int reason) {
     signal->reason = reason;
 
     mpscq_push(&target_process->signal_queue, signal);
+
+    if (target_process->state == PROCESS_WAITING) {
+        target_process->state = PROCESS_READY;
+    }
+
+    if (self && type != SIGNAL_DOWN)
+        yield(self);
 }
 
 MPSCQNode *signal_drain(Process *self) {

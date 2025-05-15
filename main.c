@@ -27,7 +27,7 @@ TASK0(child) {
 }
 
 TASK(task, int argc, char *argv[]) {
-    Pid sup = SPAWN_PRIO(__supervisor__, PROCESS_PRIORITY_MEDIUM, 1, SUP_ONE_FOR_ONE);
+    Pid sup = SPAWN(__supervisor__, 1, SUP_ONE_FOR_ONE);
     int count = 3;
     Pid children[3] = {-1, -1, -1};
 
@@ -60,7 +60,7 @@ TASK(task, int argc, char *argv[]) {
         SEND(children[i], &i, sizeof(int), NO_TAG);
     }
 
-    for (int i = 0; i < count; ++i) {
+    for (int i = 0; i < count * 3; ++i) {
         YIELD();
     }
 
