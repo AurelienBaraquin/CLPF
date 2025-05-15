@@ -7,7 +7,7 @@
 #include <api/monitor.h>
 #include <assert.h>
 #include <msignal.h>
-#include <native_task/supervisor.h>
+#include <api/supervisor.h>
 
 #include <flags_internal.h>
 
@@ -27,25 +27,14 @@ TASK0(child) {
 }
 
 TASK(task, int argc, char *argv[]) {
-    Pid sup = SPAWN(__supervisor__, 1, SUP_ONE_FOR_ONE);
+    Pid sup = SPAWN_SUPERVISOR(SUP_ONE_FOR_ONE);
     int count = 3;
     Pid children[3] = {-1, -1, -1};
 
     for (int i = 0; i < count; ++i) {
-        Funcall_t taskcall;
-        taskcall.func = child;
-        taskcall.argc = 1;
-        taskcall.args[0] = (uintptr_t)i;
-        SupChildSpec spec = {
-            .magic = MAGIC_SUP_CHILD,
-            .taskcall = &taskcall,
-            .priority = PROCESS_PRIORITY_MEDIUM,
-            .restart = RES_PERMANENT
-        };
-        Pid *pid = REQUEST(sup, &spec, sizeof(SupChildSpec), MAKE_STR_TAG("supervisor::spawn"));
+        Pid pid = SUP_ADD_CHILD0(sup, RES_PERMANENT, child);
         if (pid) {
-            children[i] = *pid;
-            FREE(pid);
+            children[i] = pid;
         } else {
             PRINT("Failed to spawn child process %d\n", i);
             return;

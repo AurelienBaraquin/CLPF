@@ -1,25 +1,30 @@
 #include <utils/funcall.h>
 #include <stdio.h>
 
-void funcall_init(Funcall_t *args, void (*func)(), int argc, ...) {
+void funcall_init_vargs(Funcall_t *args, void (*func)(), int argc, va_list ap) {
     if (!args || !func)
         return;
 
     if (argc > 5) {
-        fprintf(stderr, "Warning: funcall_init: argc > 5, truncating to 5\n");
+        fprintf(stderr, "Warning: funcall_init_vargs: argc > 5, truncating to 5\n");
         argc = 5;
     }
 
     args->func = func;
 
-    va_list ap;
-    va_start(ap, argc);
-
     for (int i = 0; i < argc; i++)
         args->args[i] = va_arg(ap, uintptr_t);
 
-    va_end(ap);
     args->argc = argc;
+}
+
+void funcall_init(Funcall_t *args, void (*func)(), int argc, ...) {
+    va_list ap;
+    va_start(ap, argc);
+
+    funcall_init_vargs(args, func, argc, ap);
+
+    va_end(ap);
 }
 
 void funcall_destroy(Funcall_t *args) {
