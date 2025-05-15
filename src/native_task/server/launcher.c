@@ -4,18 +4,13 @@
 #include <assert.h>
 
 TASK(__server_launcher__, Task entry, int argc, char *argv[]) {
-    REGISTER("server::launcher", self->pid);
-
-    Pid io = SPAWN0_PRIO(__server_io__, PROCESS_PRIORITY_HIGH);
-    REGISTER("server::io", io);
+    Pid io = SPAWN0_PRIO_NAMED(__server_io__, "server::io", PROCESS_PRIORITY_HIGH);
 
     Pid pid = ({
         Funcall_t funcall;
         funcall_init(&funcall, entry, 2, argc, argv);
-        Pid pid = VSPAWN_PRIO(&funcall, PROCESS_PRIORITY_MEDIUM);
+        Pid pid = VSPAWN_NAMED(&funcall, "clpf::entry", PROCESS_PRIORITY_MEDIUM);
         pid; });
-
-    REGISTER("clpf::entry", pid);
 
     EXIT_NORMAL();
 }

@@ -1,7 +1,7 @@
 #include <native_task/supervisor.h>
 #include <api/message.h>
 
-Pid __sup_add_child(Process *self, Pid sup, SUP_STRAT strat, void (*func)(), int argc, ...) {
+Pid __sup_add_child(Process *self, ProcessName name, Pid sup, SUP_STRAT strat, void (*func)(), int argc, ...) {
     Funcall_t taskcall;
 
     va_list ap;
@@ -14,8 +14,9 @@ Pid __sup_add_child(Process *self, Pid sup, SUP_STRAT strat, void (*func)(), int
         return -1;
     }
 
-    SupChildSpec spec;
+    SupChildSpec spec = {0};
     spec.magic = MAGIC_SUP_CHILD;
+    strncpy(spec.name, name, NAME_MAX_LENGTH);
     spec.taskcall = taskcall;
     spec.priority = PROCESS_PRIORITY_MEDIUM;
     spec.restart = RES_PERMANENT;

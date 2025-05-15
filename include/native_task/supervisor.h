@@ -17,6 +17,7 @@ typedef enum sup_strat_e {
 
 typedef struct sup_child_spec_s {
     magic_number magic;
+    ProcessName name;
     Funcall_t taskcall;
     process_priority priority;
     RestartType restart;
@@ -50,7 +51,7 @@ typedef struct __supervisor_s {
     int max_restarts;
 } __supervisor_t;
 
-TASK(__supervisor__, SUP_STRAT strategy);
+TASK(__supervisor__, SUP_STRAT strategy, uint64_t period_ms, int max_restarts);
 
 SupChildSlot* DEF(__sup_child_list_insert, SupChildList *list, SupChildSpec *child);
 void DEF(__sup_child_list_remove, SupChildList *list, Pid pid);

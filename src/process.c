@@ -4,7 +4,7 @@
 #include <string.h>
 #include <stdio.h>
 
-int process_init(Process *process, Funcall_t *taskcall, process_priority priority, Pid pid, Pid parent_pid) {
+int process_init(Process *process, char *name, Funcall_t *taskcall, process_priority priority, Pid pid, Pid parent_pid) {
     if (!taskcall || !process)
         return -1;
     if (priority < PROCESS_PRIORITY_LOW || priority > PROCESS_PRIORITY_VERY_HIGH)
@@ -12,6 +12,7 @@ int process_init(Process *process, Funcall_t *taskcall, process_priority priorit
 
     process->pid = pid;
     memset(process->__name, 0, NAME_MAX_LENGTH);
+    strncpy(process->__name, name, NAME_MAX_LENGTH - 1);
 
     process->scheduler_pid = -1;
     process->state = PROCESS_INIT,
@@ -61,12 +62,16 @@ int process_init(Process *process, Funcall_t *taskcall, process_priority priorit
     mpscq_init(&process->signal_queue);
     mailbox_init(&process->mailbox);
 
+    printf("[%ld] %s created\n", process->pid, process->__name);
+
     return 0;
 }
 
 void process_destroy(Process *process) {
     if (!process || process->pid == -1)
         return;
+    
+    printf("[%ld] %s destroyed\n", process->pid, process->__name);
 
     mailbox_destroy(&process->mailbox, (heap_t *)&process->heap);
     funcall_destroy(&process->taskcall);

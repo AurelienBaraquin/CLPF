@@ -8,11 +8,11 @@
 #define TASK(_name, ...) \
     void _name(Process *self, __VA_ARGS__) \
 
-#define DEF(name, ...) \
-    name(Process *self, __VA_ARGS__) \
+#define DEF(_name, ...) \
+    _name(Process *self, __VA_ARGS__) \
 
-#define CALL(name, ...) \
-    name(self, __VA_ARGS__)
+#define CALL(_name, ...) \
+    _name(self, __VA_ARGS__)
 
 #define CLPF_ENTRY(task) \
     int main(int argc, char *argv[]) { \

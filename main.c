@@ -8,32 +8,25 @@
 #include <assert.h>
 #include <msignal.h>
 #include <api/supervisor.h>
+#include <stb_sprintf/stb_sprintf.h>
 
 #include <flags_internal.h>
 
-int DEF(add, int a, int b) {
-    return a + b;
-}
-
 TASK0(child) {
-    YIELD();
-    YIELD();
-    int a = 10;
-    int *msg = &a;
-    if (msg) {
-        PRINT("Child %d: Hello from child process %d\n", CALL(add, 10, *msg), self->pid);
-    }
+    PRINT("Hello from %s\n", self->__name);
 
     EXIT_ERROR();
 }
 
 TASK(task, int argc, char *argv[]) {
-    Pid sup = SPAWN_SUPERVISOR(SUP_ONE_FOR_ONE);
+    Pid sup = SPAWN_SUPERVISOR(SUP_ONE_FOR_ONE, 0, 0);
     int count = 3;
     Pid children[3] = {-1, -1, -1};
 
     for (int i = 0; i < count; ++i) {
-        Pid pid = SUP_ADD_CHILD0(sup, RES_PERMANENT, child);
+        char buffer[64] = {0};
+        stbsp_sprintf(buffer, "my_child_%d", i);
+        Pid pid = SUP_ADD_CHILD0(sup, buffer, RES_PERMANENT, child);
         if (pid) {
             children[i] = pid;
         } else {

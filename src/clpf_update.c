@@ -30,7 +30,7 @@ int __clpf_main_update()
         CoreMessage* msg = (CoreMessage*)n->data;
         switch (msg->op) {
             case CORE_MESSAGE_TYPE_SPAWN:
-                Pid new_pid = __clpf_task_add(msg->data.spawn.taskcall, msg->data.spawn.priority, msg->data.spawn.parent_pid);
+                Pid new_pid = __clpf_task_add(msg->data.spawn.name, msg->data.spawn.taskcall, msg->data.spawn.priority, msg->data.spawn.parent_pid);
                 if (msg->reply_to != -1)
                     send(NULL, msg->reply_to, &new_pid, sizeof(Pid), CORE_MESSAGE_TYPE_SPAWN_TAG);
                 break;

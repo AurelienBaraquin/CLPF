@@ -23,6 +23,7 @@ typedef struct {
 
     union {
         struct {
+            char name[NAME_MAX_LENGTH];
             Funcall_t *taskcall;
             process_priority priority;
             Pid parent_pid;
@@ -70,10 +71,10 @@ void __clpf_main(Task entry_point, int argc, char *argv[]);
 int __clpf_main_update();
 
 // This function is not thread-safe and should be used with caution only in the main thread (use __clpf_request_task_add for thread-safe task creation)
-Pid __clpf_task_add(Funcall_t *fun, process_priority priority, Pid parent_pid);
+Pid __clpf_task_add(char *name, Funcall_t *fun, process_priority priority, Pid parent_pid);
 
 // Thread-safe task creation
-int __clpf_request_task_add(Process *self, bool need_reply, Funcall_t *fun, process_priority priority, Pid parent_pid);
+int __clpf_request_task_add(Process *self, char *name, bool need_reply, Funcall_t *fun, process_priority priority, Pid parent_pid);
 
 typedef enum exit_reason_e exit_reason;
 

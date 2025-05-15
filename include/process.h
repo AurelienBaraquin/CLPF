@@ -31,11 +31,16 @@ typedef enum process_priority_e {
     PROCESS_PRIORITY_VERY_HIGH,
 } process_priority;
 
+typedef char ProcessName[NAME_MAX_LENGTH];
+static inline bool name_empty(ProcessName name) {
+    return name[0] == '\0';
+}
+
 typedef struct process_s {
     Pid pid;
     Pid scheduler_pid;
 
-    char __name[NAME_MAX_LENGTH]; // Name of the process used only in Core
+    ProcessName __name;
 
     safe_heap_t heap;
     aco_t *acoro;
@@ -58,7 +63,7 @@ typedef struct process_s {
     struct process_s *next; // For Queues
 } Process;
 
-int process_init(Process *process, Funcall_t *taskcall, process_priority priority, Pid pid, Pid parent_pid);
+int process_init(Process *process, char *name, Funcall_t *taskcall, process_priority priority, Pid pid, Pid parent_pid);
 void process_destroy(Process *process);
 
 void co_entrypoint();

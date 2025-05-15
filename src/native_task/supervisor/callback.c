@@ -4,6 +4,7 @@
 #include <api/monitor.h>
 #include <utils/time.h>
 #include <api/task.h>
+#include <api/tag.h>
 
 static bool should_restart_child(SupChildSlot *child, unsigned int reason) {
     switch (child->spec.restart) {
@@ -39,7 +40,7 @@ static bool DEF(restart_child_impl, __supervisor_t *sv, SupChildSlot *child) {
         return false;
     }
 
-    Pid new_pid = VSPAWN_PRIO(&child->spec.taskcall, child->spec.priority);
+    Pid new_pid = VSPAWN_NAMED(&child->spec.taskcall, child->spec.name, child->spec.priority);
     if (new_pid == INVALID_PID) {
         PRINT("Failed to restart child '%s'\n", child->pid);
         return false;

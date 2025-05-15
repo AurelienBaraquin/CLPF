@@ -8,14 +8,14 @@
 
 void DEF(on_signal_down, Pid from, unsigned int reason, __supervisor_t *sv);
 
-TASK(__supervisor__, SUP_STRAT strategy) {
+TASK(__supervisor__, SUP_STRAT strategy, uint64_t period_ms, int max_restarts) {
     Message *msg = NULL;
     bool running = true;
 
     __supervisor_t sv;
     sv.strategy = strategy;
-    sv.period_ms = DEFAULT_PERIOD;
-    sv.max_restarts = DEFAULT_MAX_RESTARTS;
+    sv.period_ms = period_ms > 0 ? period_ms : DEFAULT_PERIOD;
+    sv.max_restarts = max_restarts > 0 ? max_restarts : DEFAULT_MAX_RESTARTS;
     sv.child_count = 0;
     TAILQ_INIT(&sv.sup_childs);
 
