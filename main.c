@@ -19,7 +19,7 @@ TASK0(child) {
 }
 
 TASK(task, int argc, char *argv[]) {
-    Pid sup = SPAWN_SUPERVISOR(SUP_ONE_FOR_ONE, 0, 0);
+    Pid sup = SPAWN_SUPERVISOR("sup", SUP_ONE_FOR_ONE, 0, 1);
     int count = 3;
     Pid children[3] = {-1, -1, -1};
 
@@ -35,7 +35,7 @@ TASK(task, int argc, char *argv[]) {
         }
     }
 
-    for (int i = 0; i < count * 100; ++i) {
+    for (int i = 0; i < 100; ++i) {
         YIELD();
     }
 

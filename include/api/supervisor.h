@@ -17,8 +17,8 @@
  * @param period The monitoring period in milliseconds. (default: 1000ms)
  * @param max_restart The maximum number of restart attempts allowed. (default: 5)
  */
-#define SPAWN_SUPERVISOR(strat, period, max_restart) \
-    SPAWN(__supervisor__, 3, strat, period, max_restart); \
+#define SPAWN_SUPERVISOR(name, strat, period, max_restart) \
+    SPAWN_NAMED(__supervisor__, name, 3, strat, period, max_restart); \
 
 Pid __sup_add_child(Process *self, char *name, Pid sup, SUP_STRAT strat, void (*func)(), int argc, ...);
 
