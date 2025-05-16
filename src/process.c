@@ -62,7 +62,7 @@ int process_init(Process *process, char *name, Funcall_t *taskcall, process_prio
     mpscq_init(&process->signal_queue);
     mailbox_init(&process->mailbox);
 
-    printf("[%ld] %s created\n", process->pid, process->__name);
+    printf("[%s (%ld)] created\n", process->__name, process->pid);
 
     return 0;
 }
@@ -71,7 +71,7 @@ void process_destroy(Process *process) {
     if (!process || process->pid == -1)
         return;
     
-    printf("[%ld] %s destroyed\n", process->pid, process->__name);
+    printf("[%s (%ld)] destroyed\n", process->__name, process->pid);
 
     mailbox_destroy(&process->mailbox, (heap_t *)&process->heap);
     funcall_destroy(&process->taskcall);

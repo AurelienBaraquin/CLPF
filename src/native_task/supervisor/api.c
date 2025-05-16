@@ -1,7 +1,7 @@
 #include <native_task/supervisor.h>
 #include <api/message.h>
 
-Pid __sup_add_child(Process *self, ProcessName name, Pid sup, SUP_STRAT strat, void (*func)(), int argc, ...) {
+Pid __sup_add_child(Process *self, ProcessName name, Pid sup, SUP_STRAT strat, process_priority prio, void (*func)(), int argc, ...) {
     Funcall_t taskcall;
 
     va_list ap;
@@ -18,7 +18,7 @@ Pid __sup_add_child(Process *self, ProcessName name, Pid sup, SUP_STRAT strat, v
     spec.magic = MAGIC_SUP_CHILD;
     strncpy(spec.name, name, NAME_MAX_LENGTH);
     spec.taskcall = taskcall;
-    spec.priority = PROCESS_PRIORITY_MEDIUM;
+    spec.priority = prio;
     spec.restart = RES_PERMANENT;
 
     Pid *pid = REQUEST(sup, &spec, sizeof(SupChildSpec), MAKE_STR_TAG("supervisor::spawn"));

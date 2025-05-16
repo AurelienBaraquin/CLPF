@@ -20,13 +20,13 @@ TASK0(child) {
 
 TASK(task, int argc, char *argv[]) {
     Pid sup = SPAWN_SUPERVISOR("sup", SUP_ONE_FOR_ONE, 0, 1);
-    int count = 3;
+    int count = 1;
     Pid children[3] = {-1, -1, -1};
 
     for (int i = 0; i < count; ++i) {
         char buffer[64] = {0};
         stbsp_sprintf(buffer, "my_child_%d", i);
-        Pid pid = SUP_ADD_CHILD0(sup, buffer, RES_PERMANENT, child);
+        Pid pid = SUP_ADD_CHILD0(sup, RES_PERMANENT, child, buffer);
         if (pid) {
             children[i] = pid;
         } else {

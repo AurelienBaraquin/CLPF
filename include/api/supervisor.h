@@ -20,13 +20,19 @@
 #define SPAWN_SUPERVISOR(name, strat, period, max_restart) \
     SPAWN_NAMED(__supervisor__, name, 3, strat, period, max_restart); \
 
-Pid __sup_add_child(Process *self, char *name, Pid sup, SUP_STRAT strat, void (*func)(), int argc, ...);
+Pid __sup_add_child(Process *self, char *name, Pid sup, SUP_STRAT strat, process_priority prio, void (*func)(), int argc, ...);
 
-#define SUP_ADD_CHILD(sup, name, strat, func, argc, ...) \
-    __sup_add_child(self, name, sup, strat, func, argc, __VA_ARGS__)
+#define SUP_ADD_CHILD_PRIO(sup, strat, func, name, prio, argc, ...) \
+    __sup_add_child(self, name, sup, strat, prio, func, argc, __VA_ARGS__)
 
-#define SUP_ADD_CHILD0(sup, name, strat, func) \
-    __sup_add_child(self, name, sup, strat, func, 0)
+#define SUP_ADD_CHILD_PRIO0(sup, strat, func, name, prio) \
+    __sup_add_child(self, name, sup, strat, prio, func, 0)
+
+#define SUP_ADD_CHILD(sup, strat, func, name, argc, ...) \
+    __sup_add_child(self, name, sup, strat, PROCESS_PRIORITY_MEDIUM, func, argc, __VA_ARGS__)
+
+#define SUP_ADD_CHILD0(sup, strat, func, name) \
+    __sup_add_child(self, name, sup, strat, PROCESS_PRIORITY_MEDIUM, func, 0)
 
 #define SUP_REMOVE_CHILD(sup, pid) \
     REQUEST(sup, &pid, sizeof(Pid), MAKE_STR_TAG("supervisor::remove"))

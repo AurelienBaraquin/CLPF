@@ -1,0 +1,6 @@
+Faire les autres strategie de superviseur (actuellement seulement ONE_FOR_ONE fonctionne)
+
+Ressource optimisation -> migration / stealing
+ + Creation de process trouver best spot
+
+Ajouter superviseur dans le launcher pour les servers (exemple : IO doit toujours etre actif)
