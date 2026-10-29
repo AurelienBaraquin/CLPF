@@ -53,7 +53,11 @@ void clpf_destroy()
 
     name_table_free(clpf.name_table);
 
-    mpscq_clear(&clpf.message_queue, free);
+    for (MPSCQNode *n = mpscq_drain(&clpf.message_queue); n != NULL; ) {
+        MPSCQNode *next = n->next;
+        __clpf_message_destroy(container_of(n, CoreMessage, node));
+        n = next;
+    }
 }
 
 void __clpf_main(Task entry_point, int argc, char *argv[])

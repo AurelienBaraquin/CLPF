@@ -87,7 +87,7 @@ int __clpf_request_task_add(Process *self, char *name, bool need_reply, bool mon
     msg->data.spawn.parent_pid = parent_pid;
     msg->data.spawn.monitor = monitor;
 
-    mpscq_push(&clpf.message_queue, msg);
+    mpscq_push(&clpf.message_queue, &msg->node);
 
     return 0;
 }

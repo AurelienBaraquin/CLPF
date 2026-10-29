@@ -67,7 +67,8 @@ typedef struct process_s {
     MPSCQ signal_queue;
     Mailbox mailbox;
 
-    struct process_s *next; // For Queues
+    struct process_s *next; // For the scheduler's private run queues
+    MPSCQNode shared_node;  // For the scheduler's shared run queues
 } Process;
 
 int process_init(Process *process, char *name, Funcall_t *taskcall, process_priority priority, Pid pid, Pid parent_pid);

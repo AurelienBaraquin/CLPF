@@ -27,7 +27,7 @@ int __clpf_main_update()
     int count = 0;
 
     for (MPSCQNode* n = node; n != NULL; n = n->next) {
-        CoreMessage* msg = (CoreMessage*)n->data;
+        CoreMessage* msg = container_of(n, CoreMessage, node);
         switch (msg->op) {
             case CORE_MESSAGE_TYPE_SPAWN:
                 Pid new_pid = __clpf_task_add(msg->data.spawn.name, msg->data.spawn.taskcall, msg->data.spawn.priority, msg->data.spawn.parent_pid,
@@ -84,8 +84,7 @@ int __clpf_main_update()
 
     for (MPSCQNode* n = node; n != NULL; ) {
         MPSCQNode* next = n->next;
-        __clpf_message_destroy((CoreMessage*)n->data);
-        free(n);
+        __clpf_message_destroy(container_of(n, CoreMessage, node));
         n = next;
     }
 

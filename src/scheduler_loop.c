@@ -22,18 +22,14 @@ void handle_signals(Process* process) {
     if (!process)
         return;
 
-    MPSCQNode *node = signal_drain(process);
+    MPSCQNode *node = mpscq_drain(&process->signal_queue);
     while (node) {
-        Signal *signal = (Signal *)node->data;
-        if (!signal)
-            break;
+        Signal *signal = container_of(node, Signal, node);
+        node = node->next;
         if (signal->type == SIGNAL_DOWN) {
             send(NULL, process->pid, signal, sizeof(Signal), MAKE_STR_TAG("scheduler::event::signal"));
         }
-        MPSCQNode *next_node = node->next;
         safe_heap_free(&process->heap, signal);
-        free(node);
-        node = next_node;
     }
 }
 
@@ -70,7 +66,7 @@ void request_process_exit(Process* process) {
     msg->reply_to = -1;
     msg->data.process_exit.pid = process->pid;
 
-    mpscq_push(&clpf.message_queue, msg);
+    mpscq_push(&clpf.message_queue, &msg->node);
 }
 
 void scheduler_loop(Scheduler* scheduler) {

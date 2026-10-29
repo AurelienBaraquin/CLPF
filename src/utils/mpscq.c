@@ -1,18 +1,12 @@
 #include <utils/mpscq.h>
-#include <stdlib.h>
-#include <stdbool.h>
 
 void mpscq_init(MPSCQ *q) {
     atomic_store(&q->head, NULL);
 }
 
-void mpscq_push(MPSCQ *q, void *ptr) {
-    MPSCQNode *node = malloc(sizeof(MPSCQNode));
-    node->data = ptr;
-
-    MPSCQNode *old_head;
+void mpscq_push(MPSCQ *q, MPSCQNode *node) {
+    MPSCQNode *old_head = atomic_load(&q->head);
     do {
-        old_head = atomic_load(&q->head);
         node->next = old_head;
     } while (!atomic_compare_exchange_weak(&q->head, &old_head, node));
 }
@@ -21,40 +15,16 @@ bool mpscq_empty(MPSCQ *q) {
     return atomic_load(&q->head) == NULL;
 }
 
-void *mpscq_drain(MPSCQ *q) {
+MPSCQNode *mpscq_drain(MPSCQ *q) {
     MPSCQNode *list = atomic_exchange(&q->head, NULL);
 
-    // Inverse la liste pour garantir FIFO
-    MPSCQNode *prev = NULL, *curr = list, *next;
-    while (curr) {
-        next = curr->next;
-        curr->next = prev;
-        prev = curr;
-        curr = next;
+    // Pushes stack up in LIFO order: reverse to restore FIFO
+    MPSCQNode *prev = NULL;
+    while (list) {
+        MPSCQNode *next = list->next;
+        list->next = prev;
+        prev = list;
+        list = next;
     }
-
-    // Retourne la tête de la liste
     return prev;
-}
-
-void mpscq_clear(MPSCQ *q, void (*destroy)(void *)) {
-    MPSCQNode *node = atomic_exchange(&q->head, NULL);
-
-    // Inverse la liste pour FIFO
-    MPSCQNode *prev = NULL, *curr = node, *next;
-    while (curr) {
-        next = curr->next;
-        curr->next = prev;
-        prev = curr;
-        curr = next;
-    }
-
-    node = prev;
-    while (node) {
-        MPSCQNode *next = node->next;
-        if (destroy)
-            destroy(node->data);
-        free(node);
-        node = next;
-    }
 }

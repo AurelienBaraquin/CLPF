@@ -17,10 +17,6 @@ void signal_send(Pid to, Pid from, SignalType type, unsigned int reason) {
     signal->from = from;
     signal->reason = reason;
 
-    mpscq_push(&target_process->signal_queue, signal);
+    mpscq_push(&target_process->signal_queue, &signal->node);
     process_unlock(target_process);
-}
-
-MPSCQNode *signal_drain(Process *self) {
-    return mpscq_drain(&self->signal_queue);
 }

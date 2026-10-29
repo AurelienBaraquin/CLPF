@@ -26,9 +26,6 @@ void scheduler_destroy(Scheduler* scheduler) {
         return;
 
     for (int i = 0; i < NB_RQ; i++) {
-        mpscq_clear(&scheduler->shared_rq[i], NULL);
-    }
-    for (int i = 0; i < NB_RQ; i++) {
         runq_clear(&scheduler->rq[i], NULL);
     }
 
@@ -43,13 +40,13 @@ void scheduler_push_shared(Scheduler* scheduler, Process* process) {
     switch (process->priority) {
         case PROCESS_PRIORITY_LOW:
         case PROCESS_PRIORITY_MEDIUM:
-            mpscq_push(&scheduler->shared_rq[2], process);
+            mpscq_push(&scheduler->shared_rq[2], &process->shared_node);
             break;
         case PROCESS_PRIORITY_HIGH:
-            mpscq_push(&scheduler->shared_rq[1], process);
+            mpscq_push(&scheduler->shared_rq[1], &process->shared_node);
             break;
         case PROCESS_PRIORITY_VERY_HIGH:
-            mpscq_push(&scheduler->shared_rq[0], process);
+            mpscq_push(&scheduler->shared_rq[0], &process->shared_node);
             break;
         default:
             break;
@@ -88,11 +85,9 @@ void scheduler_drain(Scheduler* scheduler) {
     for (int i = 0; i < NB_RQ; i++) {
         MPSCQNode* node = mpscq_drain(&scheduler->shared_rq[i]);
         while (node) {
-            Process* process = (Process*)node->data;
+            Process* process = container_of(node, Process, shared_node);
+            node = node->next;
             runq_push(&scheduler->rq[i], process);
-            MPSCQNode* next = node->next;
-            free(node);
-            node = next;
         }
     }
 }

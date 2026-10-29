@@ -21,6 +21,7 @@ typedef enum core_message_type_e {
 } CoreMessageType;
 
 typedef struct {
+    MPSCQNode node;
     CoreMessageType op;
 
     Pid sender; // Sender of the message
@@ -78,6 +79,8 @@ void process_unlock(Process *process);
 
 void __clpf_main(Task entry_point, int argc, char *argv[]);
 int __clpf_main_update();
+// Frees a core message and what it owns
+void __clpf_message_destroy(CoreMessage* msg);
 
 // This function is not thread-safe and should be used with caution only in the main thread (use __clpf_request_task_add for thread-safe task creation)
 // monitored_by (or INVALID_PID) gets a DOWN signal when the new process exits, even if it exits right away

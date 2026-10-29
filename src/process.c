@@ -78,7 +78,7 @@ void process_destroy(Process *process) {
         aco_share_stack_destroy(process->share_stack);
     links_clear(&process->links);
     monitor_clear(&process->monitor);
-    mpscq_clear(&process->signal_queue, NULL);
+    mpscq_init(&process->signal_queue); // pending signals live in the unmapped heap
 }
 
 Process *process_get(Pid pid) {
