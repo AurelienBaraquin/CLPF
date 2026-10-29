@@ -4,7 +4,7 @@
 #include <api/monitor.h>
 #include <utils/time.h>
 #include <api/task.h>
-#include <api/tag.h>
+#include <api/registry.h>
 
 static bool should_restart_child(SupChildSlot *child, unsigned int reason) {
     switch (child->spec.restart) {

@@ -16,6 +16,7 @@ int process_init(Process *process, const char *name, Funcall_t *taskcall, proces
     process->pid = pid;
     memset(process->name, 0, NAME_MAX_LENGTH);
     strncpy(process->name, name, NAME_MAX_LENGTH - 1);
+    memset(process->registered_name, 0, NAME_MAX_LENGTH);
 
     process->scheduler_pid = -1;
     process->state = PROCESS_INIT,

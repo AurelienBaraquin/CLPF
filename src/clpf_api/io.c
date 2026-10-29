@@ -1,8 +1,7 @@
 #include <stb_sprintf/stb_sprintf.h>
 #include <api/io.h>
 #include <api/message.h>
-#include <api/tag.h>
-#include <clpf_const.h>
+#include <api/registry.h>
 
 char *clpf_vformat(Process *self, const char *fmt, va_list ap) {
     char tmp[128];

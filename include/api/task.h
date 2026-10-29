@@ -1,7 +1,6 @@
 #pragma once
 
 #include <api/message.h>
-#include <clpf_const.h>
 
 // Spawning is synchronous and does not yield: the pid is known before the
 // new process can run, exit or send anything

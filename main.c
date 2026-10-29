@@ -16,7 +16,7 @@
 #include <api/message.h>
 #include <api/memory.h>
 #include <api/io.h>
-#include <api/tag.h>
+#include <api/registry.h>
 #include <api/monitor.h>
 #include <api/supervisor.h>
 #include <flags_internal.h>

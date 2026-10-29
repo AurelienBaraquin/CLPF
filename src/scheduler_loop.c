@@ -46,8 +46,6 @@ void request_process_exit(Process* process) {
         return;
     
     msg->op = CORE_MESSAGE_TYPE_PROCESS_EXIT;
-    msg->sender = process->pid;
-    msg->reply_to = -1;
     msg->data.process_exit.pid = process->pid;
 
     clpf_post(msg);

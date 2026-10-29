@@ -47,7 +47,6 @@ Pid clpf_task_add(const char *name, Funcall_t *fun, process_priority priority, P
 
     pthread_mutex_lock(&clpf.table_lock);
     clpf.process_count++;
-    name_table_insert(clpf.name_table, name, pid);
     pthread_mutex_unlock(&clpf.table_lock);
 
     atomic_fetch_add(&scheduler->process_count, 1);

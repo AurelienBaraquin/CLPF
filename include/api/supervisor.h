@@ -3,7 +3,7 @@
 #include <native_task/supervisor.h>
 #include <api/task.h>
 #include <api/message.h>
-#include <api/tag.h>
+#include <api/registry.h>
 
 /**
  * @brief Macro to spawn a supervisor process with specified parameters.

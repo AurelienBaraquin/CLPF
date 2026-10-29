@@ -1,5 +1,6 @@
 #include <native_task/server/io.h>
 #include <api/message.h>
+#include <api/registry.h>
 
 #include <stb_sprintf/stb_sprintf.h>
 
@@ -47,6 +48,11 @@ static S_IO DEF(server_io_compute_message, Message *msg) {
 TASK0(clpf_server_io) {
     bool running = true;
     Message *msg = NULL;
+
+    // PRINT and GETLINE find the server by name: the launcher registers the first
+    // server before anything can print, a restarted one takes the name back
+    if (WHEREIS("server::io") != self->pid && REGISTER("server::io", self->pid) != 0)
+        EXIT_ERROR();
 
     while (running) {
         msg = RECEIVE(NO_TAG);

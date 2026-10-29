@@ -42,7 +42,8 @@ typedef struct process_s {
     unsigned long generation; // Incremented each time the slot is reused, kept across reuses
     Pid scheduler_pid;
 
-    ProcessName name;
+    ProcessName name; // Label given at spawn, for logs only
+    ProcessName registered_name; // Name in the registry, empty if none (guarded by clpf.table_lock)
 
     safe_heap_t heap;
     aco_t *acoro;

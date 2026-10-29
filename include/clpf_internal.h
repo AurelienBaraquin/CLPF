@@ -13,33 +13,15 @@
 #define PID_INDEX(pid) ((pid) & (MAX_PROCESSES - 1))
 
 typedef enum core_message_type_e {
-    CORE_MESSAGE_TYPE_NAME_REGISTER,
-    CORE_MESSAGE_TYPE_NAME_UNREGISTER,
-    CORE_MESSAGE_TYPE_NAME_LOOKUP,
     CORE_MESSAGE_TYPE_PROCESS_EXIT,
 } CoreMessageType;
 
+// Requests handled by the main thread
 typedef struct {
     MPSCQNode node;
     CoreMessageType op;
 
-    Pid sender; // Sender of the message
-    Pid reply_to; // Reply to this process (can be -1 if no reply is needed)
-
     union {
-        struct {
-            char name[NAME_MAX_LENGTH];
-            Pid pid;
-        } name_register;
-
-        struct {
-            char name[NAME_MAX_LENGTH];
-        } name_unregister;
-
-        struct {
-            char name[NAME_MAX_LENGTH];
-        } name_lookup;
-
         struct {
             Pid pid;
         } process_exit;
@@ -59,8 +41,9 @@ typedef struct {
 
     TrieNode *name_table;
 
-    // Guards the free slot stack, process_count and the name table: processes
-    // are created from any thread, destroyed by the main thread
+    // Guards the free slot stack, process_count, the name table and every
+    // Process.registered_name: processes are created and registered from any
+    // thread, destroyed by the main thread
     pthread_mutex_t table_lock;
 
     MPSCQ message_queue;

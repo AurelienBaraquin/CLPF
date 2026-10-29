@@ -1,7 +1,7 @@
 #include <native_task/supervisor.h>
 #include <api/task.h>
 #include <api/message.h>
-#include <api/tag.h>
+#include <api/registry.h>
 #include <api/monitor.h>
 
 typedef SUP_ST (*supervisor_handler_t)(Process *self, Message *msg, supervisor_t *sup);
