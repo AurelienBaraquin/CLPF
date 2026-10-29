@@ -17,3 +17,10 @@ clpf_add_test(test_supervisor_restart)
 clpf_add_test(test_monitor)
 clpf_add_test(test_exit_semantics)
 clpf_add_test(test_supervisor_policies)
+
+# The runtime must still start a scheduler when only one CPU is usable
+find_program(TASKSET taskset)
+if(TASKSET)
+    add_test(NAME test_single_cpu COMMAND ${TASKSET} -c 0 $<TARGET_FILE:test_smoke>)
+    set_tests_properties(test_single_cpu PROPERTIES TIMEOUT 20)
+endif()

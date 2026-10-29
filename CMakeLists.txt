@@ -33,6 +33,7 @@ file(GLOB_RECURSE CBEAM_SOURCES src/*.c src/*.S)
 add_library(cbeam STATIC ${CBEAM_SOURCES})
 target_include_directories(cbeam PUBLIC include external)
 target_compile_options(cbeam PRIVATE -Wall -Wextra)
+target_compile_definitions(cbeam PRIVATE _GNU_SOURCE)
 target_link_libraries(cbeam PUBLIC tlsf libaco stb_sprintf pthread)
 
 # Optional main binary

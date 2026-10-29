@@ -1,10 +1,13 @@
 #include <clpf_internal.h>
 #include <stdio.h>
 #include <pthread.h>
+#include <unistd.h>
 #include <utils/cpu.h>
 #include <flags_internal.h>
 
 void init_task(Task entry, int argc, char *argv[]);
+
+#define RESERVED_CPUS 2
 
 CLPF clpf = {0};
 
@@ -45,7 +48,7 @@ void clpf_destroy()
         scheduler_destroy(&clpf.scheduler_table[i]);
     }
 
-    for (int i = 0; i < clpf.process_count; i++) {
+    for (int i = 0; i < MAX_PROCESSES; i++) {
         process_destroy(&clpf.process_table[i]);
     }
 
@@ -69,13 +72,16 @@ void __clpf_main(Task entry_point, int argc, char *argv[])
 
     clpf_init();
 
-    int cpus = nb_cpu() - 1;
+    int cpus = nb_cpu();
     if (cpus <= 0) {
         perror("Failed to get number of CPUs");
         return;
     }
 
-    for (int i = 0; i < MAX_SCHEDULERS && i < cpus - 1; i++) {
+    // Two cores are left to the main thread and the system, but there is always one scheduler
+    int schedulers = cpus > RESERVED_CPUS ? cpus - RESERVED_CPUS : 1;
+
+    for (int i = 0; i < MAX_SCHEDULERS && i < schedulers; i++) {
         if (scheduler_init(&clpf.scheduler_table[i], i) != 0) {
             fprintf(stderr, "Failed to initialize scheduler %d\n", i);
             return;
@@ -113,9 +119,9 @@ void __clpf_main(Task entry_point, int argc, char *argv[])
 
     exit_in_progress = 1;
 
-    for (int i = 0; i < clpf.process_count; ++i) {
+    for (int i = 0; i < MAX_PROCESSES; ++i) {
         Process* process = &clpf.process_table[i];
-        if (process->pid != -1) {
+        if (process->pid != INVALID_PID) {
             send(NULL, process->pid, NULL, 0, ((Tag){ .kind = TAG_KIND_STRING, .str_value = ("core::event::stop") }));
         }
     }
