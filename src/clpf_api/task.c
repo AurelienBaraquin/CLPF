@@ -6,15 +6,7 @@
 
 Pid __clpf_task_add(char *name, Funcall_t *fun, process_priority priority, Pid parent_pid, Pid monitored_by)
 {
-    // find a free slot
-    int index = -1;
-    for (int i = 0; i < MAX_PROCESSES; i++) {
-        if (clpf.process_table[i].pid == INVALID_PID) {
-            index = i;
-            break;
-        }
-    }
-
+    int index = clpf_slot_alloc();
     if (index == -1) {
         fprintf(stderr, "No empty process available\n");
         return -1;
@@ -34,6 +26,7 @@ Pid __clpf_task_add(char *name, Funcall_t *fun, process_priority priority, Pid p
     pthread_mutex_unlock(&process->lock);
 
     if (init_status != 0) {
+        clpf_slot_release(index);
         fprintf(stderr, "Failed to initialize process %ld\n", pid);
         return -1;
     }
@@ -51,6 +44,7 @@ Pid __clpf_task_add(char *name, Funcall_t *fun, process_priority priority, Pid p
         if (less_process_scheduler == -1) {
             fprintf(stderr, "No scheduler available\n");
             process_destroy(process);
+            clpf_slot_release(index);
             return -1;
         }
         scheduler = &clpf.scheduler_table[less_process_scheduler];

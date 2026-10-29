@@ -72,7 +72,9 @@ int __clpf_main_update()
                     link_remove_child(&parent->links, process->pid);
                     process_unlock(parent);
                 }
+                int index = PID_INDEX(process->pid);
                 process_destroy(process);
+                clpf_slot_release(index);
                 clpf.process_count--;
                 break;
             }

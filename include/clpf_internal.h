@@ -56,8 +56,12 @@ typedef struct {
 } CoreMessage;
 
 typedef struct {
-    Process process_table[MAX_PROCESSES];
+    Process *process_table; // MAX_PROCESSES slots, allocated by clpf_init
     int process_count;
+
+    // Stack of free process table indices
+    int *free_slots;
+    int free_slot_count;
 
     Scheduler scheduler_table[MAX_SCHEDULERS];
     int scheduler_count;
@@ -82,6 +86,11 @@ void process_notify_locked(Process *process);
 
 void __clpf_main(Task entry_point, int argc, char *argv[]);
 int __clpf_main_update();
+// Takes a free process table index, or returns -1 if the table is full
+int clpf_slot_alloc(void);
+// Gives back the index of a destroyed process
+void clpf_slot_release(int index);
+
 // Thread-safe: queues a core message for the main thread and wakes it
 void clpf_post(CoreMessage *msg);
 // Wakes the main thread and every scheduler, so they notice exit_in_progress

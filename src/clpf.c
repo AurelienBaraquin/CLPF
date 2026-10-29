@@ -16,28 +16,51 @@ static void *scheduler_thread(void *arg)
     return NULL;
 }
 
-void clpf_init()
+static int clpf_init(void)
 {
+    clpf.process_table = calloc(MAX_PROCESSES, sizeof(Process));
+    clpf.free_slots = malloc(MAX_PROCESSES * sizeof(int));
+    clpf.name_table = name_table_init();
+    if (!clpf.process_table || !clpf.free_slots || !clpf.name_table) {
+        fprintf(stderr, "Failed to allocate the runtime tables\n");
+        free(clpf.process_table);
+        free(clpf.free_slots);
+        name_table_free(clpf.name_table);
+        return -1;
+    }
+
     for (int i = 0; i < MAX_PROCESSES; i++) {
         pthread_mutex_init(&clpf.process_table[i].lock, NULL);
         clpf.process_table[i].pid = INVALID_PID;
         clpf.process_table[i].generation = 0;
     }
 
+    // Lowest indices on top, so the first processes get the smallest pids
+    clpf.free_slot_count = MAX_PROCESSES;
+    for (int i = 0; i < MAX_PROCESSES; i++)
+        clpf.free_slots[i] = MAX_PROCESSES - 1 - i;
+
     clpf.process_count = 0;
     clpf.scheduler_count = 0;
 
-    clpf.name_table = name_table_init();
-    if (!clpf.name_table) {
-        fprintf(stderr, "Failed to initialize name table\n");
-        return;
-    }
-
     mpscq_init(&clpf.message_queue);
     idle_init(&clpf.main_idle);
+    return 0;
 }
 
-void clpf_destroy()
+int clpf_slot_alloc(void)
+{
+    if (clpf.free_slot_count == 0)
+        return -1;
+    return clpf.free_slots[--clpf.free_slot_count];
+}
+
+void clpf_slot_release(int index)
+{
+    clpf.free_slots[clpf.free_slot_count++] = index;
+}
+
+static void clpf_destroy(void)
 {
     for (int i = 0; i < clpf.scheduler_count; i++) {
         scheduler_destroy(&clpf.scheduler_table[i]);
@@ -50,6 +73,8 @@ void clpf_destroy()
     for (int i = 0; i < MAX_PROCESSES; i++) {
         pthread_mutex_destroy(&clpf.process_table[i].lock);
     }
+    free(clpf.process_table);
+    free(clpf.free_slots);
 
     name_table_free(clpf.name_table);
 
@@ -88,7 +113,8 @@ void __clpf_main(Task entry_point, int argc, char *argv[])
         return;
     }
 
-    clpf_init();
+    if (clpf_init() != 0)
+        return;
 
     int cpus = nb_cpu();
     if (cpus <= 0) {
