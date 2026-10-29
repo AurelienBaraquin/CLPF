@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <api/base.h>
 #include <assert.h>
+#include <utils/stack_guard.h>
 
 void co_entrypoint() {
     Process* proc = (Process*)aco_get_arg();
@@ -22,7 +23,7 @@ process_state execute_process(Scheduler *scheduler, Process* process) {
         return PROCESS_EXITING;
 
     if (!process->acoro && process->state == PROCESS_INIT) {
-        process->share_stack = aco_share_stack_new(STACK_SIZE);
+        process->share_stack = aco_share_stack_new(process->stack_size);
         process->acoro = aco_create(scheduler->scheduler_acoro, process->share_stack, 0, &co_entrypoint, process);
         aco_assertptr(process->acoro);
     }
@@ -35,7 +36,9 @@ process_state execute_process(Scheduler *scheduler, Process* process) {
     process->state = PROCESS_RUNNING;
     assert(process->acoro);
     assert(process->acoro->is_end == 0);
+    stack_guard_set_running(process);
     aco_resume(process->acoro);
+    stack_guard_set_running(NULL);
 
     return process->state;
 }
@@ -68,6 +71,7 @@ void scheduler_loop(Scheduler* scheduler) {
         return;
 
     aco_thread_init(NULL);
+    stack_guard_thread_init();
     scheduler->scheduler_acoro = aco_create(NULL, NULL, 0, NULL, NULL);
 
     while (1) {

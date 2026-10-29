@@ -49,6 +49,7 @@ typedef struct process_s {
     safe_heap_t heap;
     aco_t *acoro;
     aco_share_stack_t *share_stack;
+    size_t stack_size;
 
     process_state state;
     process_priority priority;
@@ -77,6 +78,7 @@ typedef struct {
     bool monitor;                // the spawner monitors the new process from its very start
     const void *arg_block;       // copied into the new process heap and passed as its argument
     size_t arg_block_size;
+    size_t stack_size;           // CLPF_DEFAULT_STACK_SIZE by default
 } SpawnOptions;
 
 int process_init(Process *process, Funcall_t *taskcall, const SpawnOptions *options, Pid pid, Pid parent_pid);

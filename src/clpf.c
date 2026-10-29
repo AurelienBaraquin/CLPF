@@ -3,6 +3,7 @@
 #include <pthread.h>
 #include <utils/cpu.h>
 #include <flags_internal.h>
+#include <utils/stack_guard.h>
 
 void init_task(Task entry, int argc, char *argv[]);
 
@@ -123,6 +124,7 @@ void clpf_main(Task entry_point, int argc, char *argv[])
 
     if (clpf_init() != 0)
         return;
+    stack_guard_install();
 
     int cpus = nb_cpu();
     if (cpus <= 0) {
