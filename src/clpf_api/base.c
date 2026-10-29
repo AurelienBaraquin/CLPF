@@ -12,7 +12,7 @@ void yield(Process *self) {
     handle_callbacks(self);
 }
 
-_Noreturn void exiting(Process *self, exit_reason reason) {
+void exiting(Process *self, exit_reason reason) {
     // Detach the watchers under the lock, notify them without holding it
     pthread_mutex_lock(&self->lock);
     links_t *watchers = self->monitor.monitored_by;

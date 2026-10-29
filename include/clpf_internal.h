@@ -90,8 +90,9 @@ typedef enum exit_reason_e exit_reason;
 
 // Base
 void yield(Process *self);
-// Notifies the monitors and terminates the calling process: never returns
-_Noreturn void exiting(Process *self, exit_reason reason);
+// Notifies the monitors and terminates the calling process: never returns.
+// Not declared _Noreturn: AddressSanitizer mishandles noreturn calls made on coroutine stacks.
+void exiting(Process *self, exit_reason reason);
 
 
 // Message
