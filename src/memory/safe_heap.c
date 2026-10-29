@@ -6,7 +6,7 @@
 #include <errno.h>
 #include <assert.h>
 
-#define ALIGN_UP(x, align) (((x) + ((align)-1)) & ~((align)-1))
+#define ALIGN_UP(x, align) (((x) + ((align) - 1)) & ~((align) - 1))
 
 static void *safe_mmap(size_t size) {
     void *base = mmap(NULL, ALIGN_UP(size, 4096), PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
