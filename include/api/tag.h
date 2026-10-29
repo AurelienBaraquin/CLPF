@@ -11,9 +11,9 @@
 #define WHEREIS(name) \
     ({ \
         clpf_request_lookup(self, name); \
-        Pid *clpf_pid_ptr = (Pid*)RECEIVE(CORE_MESSAGE_TYPE_NAME_LOOKUP_TAG); \
-        Pid clpf_pid = *clpf_pid_ptr; \
-        safe_heap_free(&self->heap, clpf_pid_ptr); \
+        Message *clpf_reply = RECEIVE(CORE_MESSAGE_TYPE_NAME_LOOKUP_TAG); \
+        Pid clpf_pid = *(Pid *)clpf_reply->payload; \
+        MSG_FREE(clpf_reply); \
         clpf_pid; \
     })
 

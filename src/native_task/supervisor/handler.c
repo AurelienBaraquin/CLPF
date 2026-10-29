@@ -69,7 +69,7 @@ SUP_ST DEF(supervisor_handler, Message *msg, supervisor_t *sup) {
         return SUP_NOTHING;
 
     for (size_t i = 0; i < sizeof(sv_handlers) / sizeof(sv_handlers[0]); i++) {
-        if (MessageMatchFn_SameTag(msg, MAKE_STR_TAG(sv_handlers[i].tag))) {
+        if (MSG_IS(msg, MAKE_STR_TAG(sv_handlers[i].tag))) {
             return sv_handlers[i].handler(self, msg, sup);
         }
     }

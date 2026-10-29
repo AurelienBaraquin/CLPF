@@ -19,7 +19,7 @@ static void on_down(Process *self, Pid from, unsigned int reason, DownLog *log) 
 
 // EXIT_ERROR must stop the process: the second message is never sent
 TASK(exit_early, Pid parent) {
-    RECEIVE(MAKE_STR_TAG("go"));
+    MSG_FREE(RECEIVE(MAKE_STR_TAG("go")));
     SEND(parent, NULL, 0, MAKE_STR_TAG("before"));
     EXIT_ERROR();
     SEND(parent, NULL, 0, MAKE_STR_TAG("after"));
@@ -27,7 +27,7 @@ TASK(exit_early, Pid parent) {
 
 // Returning without EXIT is a normal exit
 TASK0(just_return) {
-    RECEIVE(MAKE_STR_TAG("go"));
+    MSG_FREE(RECEIVE(MAKE_STR_TAG("go")));
 }
 
 static void wait_for_downs(Process *self, DownLog *log, int expected) {
@@ -45,7 +45,7 @@ TASK(entry, int argc, char *argv[]) {
     Pid early = SPAWN(exit_early, 1, self->pid);
     MONITOR_ADD(early);
     SEND(early, NULL, 0, MAKE_STR_TAG("go"));
-    RECEIVE(MAKE_STR_TAG("before"));
+    MSG_FREE(RECEIVE(MAKE_STR_TAG("before")));
     wait_for_downs(self, &log, 1);
     TEST_ASSERT(log.downs == 1);
     TEST_ASSERT(log.reason == EXIT_REASON_ERROR);

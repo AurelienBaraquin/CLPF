@@ -1,31 +1,19 @@
 #include <api/message.h>
 #include <stdio.h>
 #include <string.h>
-#include <assert.h>
 
-Message* clpf_receive_internal_fetch(Process *self, Tag userdata) {
-    Message* msg;
-
+static Message *take_matching(Process *self, MessageMatch match, Tag pattern) {
     pthread_mutex_lock(&self->lock);
     mailbox_transfer_inbox_to_seen(&self->mailbox);
     pthread_mutex_unlock(&self->lock);
 
-    if (userdata.kind != TAG_KIND_NONE)
-        msg = mailbox_peek_and_match_seen(&self->mailbox, userdata);
-    else {
-        msg = mailbox_receive_seen(&self->mailbox);
-    }
-
-    return msg;
+    return mailbox_take_matching(&self->mailbox, match, pattern);
 }
 
-Message* clpf_receive_internal(Process *self, Tag userdata) {
-    Message* msg;
-
+Message *clpf_receive(Process *self, MessageMatch match, Tag pattern) {
     while (1) {
         handle_callbacks(self);
-        msg = clpf_receive_internal_fetch(self, userdata);
-
+        Message *msg = take_matching(self, match, pattern);
         if (msg)
             return msg;
 
@@ -34,35 +22,18 @@ Message* clpf_receive_internal(Process *self, Tag userdata) {
     }
 }
 
-void* receive(Process* self, Tag userdata) {
-    Message *msg = clpf_receive_internal(self, userdata);
-    assert(msg);
-
-    void *payload = msg->payload;
-    safe_heap_free(&self->heap, msg);
-
-    return payload;
-}
-
-void *fetch(Process* self, Tag userdata) {
+Message *clpf_fetch(Process *self, MessageMatch match, Tag pattern) {
     handle_callbacks(self);
-    Message *msg = clpf_receive_internal_fetch(self, userdata);
-    if (!msg)
-        return NULL;
-
-    void *payload = msg->payload;
-    safe_heap_free(&self->heap, msg);
-
-    return payload;
+    return take_matching(self, match, pattern);
 }
 
-int send(Process *self, Pid pid, void* data, size_t size, Tag tag) {
+int clpf_send(Process *self, Pid pid, void *data, size_t size, Tag tag) {
     // Sending to a process that no longer exists is not an error for the runtime
-    Process* other_process = process_lock(pid);
+    Process *other_process = process_lock(pid);
     if (!other_process)
         return -1;
 
-    Pid sender_pid = self ? self->pid : -1;
+    Pid sender_pid = self ? self->pid : INVALID_PID;
 
     int delivered = mailbox_send_message(&other_process->mailbox, &other_process->heap, data, size, sender_pid, tag);
     if (delivered == 0)
@@ -79,35 +50,63 @@ int send(Process *self, Pid pid, void* data, size_t size, Tag tag) {
     return 0;
 }
 
-void* request(Process *self, Pid pid, void* data, size_t size, Tag tag) {
-    if (send(self, pid, data, size, tag) != -1) {
-        return receive(self, tag);
-    } else {
+Message *clpf_request(Process *self, Pid pid, void *data, size_t size, Tag tag) {
+    if (clpf_send(self, pid, data, size, tag) != 0)
         return NULL;
-    }
+    return clpf_receive(self, TM_SAME, tag);
 }
 
-
+void clpf_msg_free(Process *self, Message *msg) {
+    safe_heap_free(&self->heap, msg);
+}
 
 /*
-    Some matching functions for the messages
+    Matchers
 */
 
-bool MessageMatchFn_SameTag(Message *msg, Tag expected) {
-    if (!msg) return false;
+bool clpf_match_same(const Message *msg, Tag pattern) {
+    if (pattern.kind == TAG_KIND_NONE)
+        return true;
+    if (msg->tag.kind != pattern.kind)
+        return false;
 
-    if (msg->tag.kind != expected.kind) return false;
-
-    switch (msg->tag.kind) {
+    switch (pattern.kind) {
         case TAG_KIND_INTEGER:
-            return msg->tag.int_value == expected.int_value;
+            return msg->tag.int_value == pattern.int_value;
         case TAG_KIND_STRING:
-            return strcmp(msg->tag.str_value, expected.str_value) == 0;
+            return strcmp(msg->tag.str_value, pattern.str_value) == 0;
         case TAG_KIND_INTERNAL:
-            return msg->tag.internal_code == expected.internal_code;
-        case TAG_KIND_NONE:
-            return true;
+            return msg->tag.internal_code == pattern.internal_code;
         default:
             return false;
     }
+}
+
+bool clpf_match_prefix(const Message *msg, Tag pattern) {
+    return msg->tag.kind == TAG_KIND_STRING && pattern.kind == TAG_KIND_STRING
+        && strncmp(msg->tag.str_value, pattern.str_value, strlen(pattern.str_value)) == 0;
+}
+
+bool clpf_match_gte(const Message *msg, Tag pattern) {
+    return msg->tag.kind == TAG_KIND_INTEGER && pattern.kind == TAG_KIND_INTEGER
+        && msg->tag.int_value >= pattern.int_value;
+}
+
+bool clpf_match_lte(const Message *msg, Tag pattern) {
+    return msg->tag.kind == TAG_KIND_INTEGER && pattern.kind == TAG_KIND_INTEGER
+        && msg->tag.int_value <= pattern.int_value;
+}
+
+bool clpf_match_in_range(const Message *msg, Tag pattern) {
+    if (msg->tag.kind != TAG_KIND_INTEGER || pattern.kind != TAG_KIND_INTEGER)
+        return false;
+
+    // See MAKE_RANGE_TAG
+    int32_t min = (int32_t)((uint64_t)pattern.int_value >> 32);
+    int32_t max = (int32_t)((uint64_t)pattern.int_value & 0xffffffffu);
+    return msg->tag.int_value >= min && msg->tag.int_value <= max;
+}
+
+bool clpf_match_kind(const Message *msg, Tag pattern) {
+    return msg->tag.kind == pattern.kind;
 }

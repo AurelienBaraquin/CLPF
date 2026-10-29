@@ -55,16 +55,22 @@ int clpf_print(Process *self, const char *fmt, ...) {
 }
 
 char* clpf_getline(Process *self) {
-    char *line = NULL;
-
     Pid io = WHEREIS("server::io");
     if (io == -1) {
         fprintf(stderr, "IO server not found\n");
         return NULL;
     }
 
-    SEND(io, NULL, 0, MAKE_STR_TAG("server::io::getline"));
-    line = RECEIVE(MAKE_STR_TAG("server::io::getline"));
+    // The reply carries the line without its terminating NUL
+    Message *reply = REQUEST(io, NULL, 0, MAKE_STR_TAG("server::io::getline"));
+    if (!reply)
+        return NULL;
 
+    char *line = ALLOC(reply->size + 1);
+    if (line) {
+        memcpy(line, reply->payload, reply->size);
+        line[reply->size] = '\0';
+    }
+    MSG_FREE(reply);
     return line;
 }

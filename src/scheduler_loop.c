@@ -26,7 +26,7 @@ void handle_signals(Process* process) {
         Signal *signal = container_of(node, Signal, node);
         node = node->next;
         if (signal->type == SIGNAL_DOWN) {
-            send(NULL, process->pid, signal, sizeof(Signal), MAKE_STR_TAG("scheduler::event::signal"));
+            clpf_send(NULL, process->pid, signal, sizeof(Signal), MAKE_STR_TAG("scheduler::event::signal"));
         }
         safe_heap_free(&process->heap, signal);
     }

@@ -176,7 +176,7 @@ void clpf_main(Task entry_point, int argc, char *argv[])
     for (int i = 0; i < MAX_PROCESSES; ++i) {
         Process* process = &clpf.process_table[i];
         if (process->pid != INVALID_PID) {
-            send(NULL, process->pid, NULL, 0, ((Tag){ .kind = TAG_KIND_STRING, .str_value = ("core::event::stop") }));
+            clpf_send(NULL, process->pid, NULL, 0, MAKE_STR_TAG("core::event::stop"));
         }
     }
 

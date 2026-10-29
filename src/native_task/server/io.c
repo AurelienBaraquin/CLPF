@@ -13,12 +13,12 @@ static S_IO DEF(server_io_compute_message, Message *msg) {
     if (!msg)
         return S_IO_NOTHING;
 
-    if (MessageMatchFn_SameTag(msg, MAKE_STR_TAG("server::io::print"))) {
+    if (MSG_IS(msg, MAKE_STR_TAG("server::io::print"))) {
         write(STDOUT_FILENO, msg->payload, msg->size);
         return S_IO_SUCCESS;
     }
 
-    if (MessageMatchFn_SameTag(msg, MAKE_STR_TAG("server::io::getline"))) {
+    if (MSG_IS(msg, MAKE_STR_TAG("server::io::getline"))) {
         Pid dest = msg->sender_pid;
         if (dest == -1) {
             fprintf(stderr, "[IO SERVER] Invalid PID: %ld\n", dest);
@@ -37,7 +37,7 @@ static S_IO DEF(server_io_compute_message, Message *msg) {
         return S_IO_SUCCESS;
     }
 
-    if (MessageMatchFn_SameTag(msg, MAKE_STR_TAG("core::event::stop"))) {
+    if (MSG_IS(msg, MAKE_STR_TAG("core::event::stop"))) {
         return S_IO_STOP;
     }
 
@@ -49,7 +49,7 @@ TASK0(clpf_server_io) {
     Message *msg = NULL;
 
     while (running) {
-        msg = RECEIVE_RAW(NO_TAG);
+        msg = RECEIVE(NO_TAG);
 
         S_IO r = CALL(server_io_compute_message, msg);
 
@@ -65,9 +65,7 @@ TASK0(clpf_server_io) {
                 break;
         }
 
-        if (msg->payload)
-            FREE(msg->payload);
-        FREE(msg);
+        MSG_FREE(msg);
     }
     EXIT_NORMAL();
 }

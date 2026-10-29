@@ -31,7 +31,7 @@ TASK(clpf_supervisor, SUP_STRAT strategy, uint64_t period_ms, int max_restarts) 
     MONITOR_INIT(on_signal_down, &sv);
 
     while (running) {
-        msg = RECEIVE_RAW(NO_TAG);
+        msg = RECEIVE(NO_TAG);
 
         SUP_ST r = CALL(supervisor_handler, msg, &sv);
 
@@ -47,9 +47,7 @@ TASK(clpf_supervisor, SUP_STRAT strategy, uint64_t period_ms, int max_restarts) 
                 break;
         }
 
-        if (msg->payload)
-            FREE(msg->payload);
-        FREE(msg);
+        MSG_FREE(msg);
     }
     EXIT_NORMAL();
 }

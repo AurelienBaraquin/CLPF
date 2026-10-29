@@ -11,10 +11,9 @@
 // test hits its timeout.
 TASK0(echo) {
     for (int i = 0; i < ROUND_TRIPS; ++i) {
-        Message *msg = RECEIVE_RAW(MAKE_STR_TAG("ping"));
+        Message *msg = RECEIVE(MAKE_STR_TAG("ping"));
         SEND(msg->sender_pid, msg->payload, msg->size, MAKE_STR_TAG("pong"));
-        FREE(msg->payload);
-        FREE(msg);
+        MSG_FREE(msg);
     }
     EXIT_NORMAL();
 }
@@ -23,9 +22,9 @@ TASK(pinger, Pid echo_pid, Pid report_to) {
     int ok = 1;
     for (int i = 0; i < ROUND_TRIPS; ++i) {
         SEND(echo_pid, &i, sizeof i, MAKE_STR_TAG("ping"));
-        int *r = RECEIVE(MAKE_STR_TAG("pong"));
-        ok &= *r == i;
-        FREE(r);
+        Message *reply = RECEIVE(MAKE_STR_TAG("pong"));
+        ok &= *(int *)reply->payload == i;
+        MSG_FREE(reply);
     }
     SEND(report_to, &ok, sizeof ok, MAKE_STR_TAG("done"));
     EXIT_NORMAL();
@@ -42,9 +41,9 @@ TASK(entry, int argc, char *argv[]) {
     }
 
     for (int i = 0; i < PAIRS; ++i) {
-        int *ok = RECEIVE(MAKE_STR_TAG("done"));
-        TEST_ASSERT(*ok == 1);
-        FREE(ok);
+        Message *done = RECEIVE(MAKE_STR_TAG("done"));
+        TEST_ASSERT(*(int *)done->payload == 1);
+        MSG_FREE(done);
     }
 
     TEST_PASS();

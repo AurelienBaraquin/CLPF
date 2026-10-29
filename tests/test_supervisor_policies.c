@@ -22,7 +22,7 @@ TASK(crash_temporary, Pid report_to) {
 }
 
 TASK0(idle) {
-    RECEIVE(MAKE_STR_TAG("never"));
+    MSG_FREE(RECEIVE(MAKE_STR_TAG("never")));
 }
 
 static void settle(Process *self) {
@@ -39,16 +39,16 @@ TASK(entry, int argc, char *argv[]) {
 
     // A transient child that exits normally is not restarted
     TEST_ASSERT(SUP_ADD_CHILD(sup, RES_TRANSIENT, exit_normally, "transient_ok", 1, self->pid) != INVALID_PID);
-    RECEIVE(MAKE_STR_TAG("normal"));
+    MSG_FREE(RECEIVE(MAKE_STR_TAG("normal")));
 
     // A transient child that crashes is restarted
     TEST_ASSERT(SUP_ADD_CHILD(sup, RES_TRANSIENT, crash_once, "transient_crash", 1, self->pid) != INVALID_PID);
     for (int i = 0; i < 1 + MAX_RESTARTS; ++i)
-        RECEIVE(MAKE_STR_TAG("crash"));
+        MSG_FREE(RECEIVE(MAKE_STR_TAG("crash")));
 
     // A temporary child is never restarted
     TEST_ASSERT(SUP_ADD_CHILD(sup, RES_TEMPORARY, crash_temporary, "temporary", 1, self->pid) != INVALID_PID);
-    RECEIVE(MAKE_STR_TAG("temporary"));
+    MSG_FREE(RECEIVE(MAKE_STR_TAG("temporary")));
 
     settle(self);
     TEST_ASSERT(FETCH(MAKE_STR_TAG("normal")) == NULL);

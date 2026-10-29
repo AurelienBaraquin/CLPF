@@ -19,7 +19,7 @@ static void on_down(Process *self, Pid from, unsigned int reason, DownLog *log) 
 }
 
 TASK0(wait_then_exit) {
-    RECEIVE(MAKE_STR_TAG("go"));
+    MSG_FREE(RECEIVE(MAKE_STR_TAG("go")));
     EXIT_NORMAL();
 }
 

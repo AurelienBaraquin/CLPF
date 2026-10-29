@@ -108,22 +108,12 @@ void exiting(Process *self, exit_reason reason);
 
 // Message
 
-// Loop until a valid message is received (blocking)
-Message* clpf_receive_internal(Process *self, Tag userdata);
-// Look for a valid message in the mailbox and return it, if not found return NULL (non-blocking)
-Message* clpf_receive_internal_fetch(Process *self, Tag userdata);
-// Loop until a valid message is received (blocking)
-void* receive(Process* self, Tag userdata);
-// Look for a valid message in the mailbox and return it, if not found return NULL (non-blocking)
-void *fetch(Process* self, Tag userdata);
-
-// Send a message to a process
-int send(Process *self, Pid pid, void* data, size_t size, Tag tag);
-
-// Request (send + receive with the same tag)
-void* request(Process *self, Pid pid, void* data, size_t size, Tag tag);
-
-
+Message *clpf_receive(Process *self, MessageMatch match, Tag pattern);
+Message *clpf_fetch(Process *self, MessageMatch match, Tag pattern);
+// self may be NULL when the runtime itself sends
+int clpf_send(Process *self, Pid pid, void *data, size_t size, Tag tag);
+Message *clpf_request(Process *self, Pid pid, void *data, size_t size, Tag tag);
+void clpf_msg_free(Process *self, Message *msg);
 
 // Runs the monitor callbacks of pending signals, unless callbacks_blocked is set
 void handle_callbacks(Process *self);

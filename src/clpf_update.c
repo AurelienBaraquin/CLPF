@@ -56,7 +56,7 @@ int clpf_main_update()
                     fprintf(stderr, "[ERROR] No reply_to for name lookup\n");
                     break;
                 }
-                send(NULL, msg->reply_to, &pid, sizeof(Pid), CORE_MESSAGE_TYPE_NAME_LOOKUP_TAG);
+                clpf_send(NULL, msg->reply_to, &pid, sizeof(Pid), CORE_MESSAGE_TYPE_NAME_LOOKUP_TAG);
                 break;
 
             case CORE_MESSAGE_TYPE_PROCESS_EXIT: {
