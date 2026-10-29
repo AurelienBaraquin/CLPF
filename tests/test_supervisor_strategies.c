@@ -62,8 +62,8 @@ TASK(entry, int argc, char *argv[]) {
     MONITOR(pids[0]);
     MONITOR(pids[2]);
     SEND(pids[1], NULL, 0, MAKE_STR_TAG("crash"));
-    TEST_ASSERT(down_reason(self, pids[0]) == EXIT_REASON_KILLED);
-    TEST_ASSERT(down_reason(self, pids[2]) == EXIT_REASON_KILLED);
+    TEST_ASSERT(down_reason(self, pids[0]) == EXIT_REASON_SHUTDOWN);
+    TEST_ASSERT(down_reason(self, pids[2]) == EXIT_REASON_SHUTDOWN);
     TEST_ASSERT(restarted_mask(self, MEMBERS, pids) == 0x7);
 
     // REST_FOR_ONE: the crashed child and the ones started after it restart
@@ -72,7 +72,7 @@ TASK(entry, int argc, char *argv[]) {
     MONITOR(pids[0]);
     MONITOR(pids[2]);
     SEND(pids[1], NULL, 0, MAKE_STR_TAG("crash"));
-    TEST_ASSERT(down_reason(self, pids[2]) == EXIT_REASON_KILLED);
+    TEST_ASSERT(down_reason(self, pids[2]) == EXIT_REASON_SHUTDOWN);
     TEST_ASSERT(restarted_mask(self, 2, pids) == 0x6);
     SLEEP(20);
     TEST_ASSERT(FETCH(MAKE_DOWN_TAG(pids[0])) == NULL); // untouched

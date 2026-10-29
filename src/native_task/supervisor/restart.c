@@ -5,6 +5,7 @@
 #include <api/link.h>
 #include <utils/time.h>
 #include <api/task.h>
+#include <api/timer.h>
 
 static bool should_restart(RestartType restart, unsigned int reason) {
     switch (restart) {
@@ -24,17 +25,25 @@ bool DEF(sup_start_child, SupChildSlot *child) {
         .priority = child->spec.priority,
         .monitor = true, // the DOWN drives restarts
         .link = true,    // children die with their supervisor
+        .system = self->system,
     };
     child->pid = clpf_spawn(self, &taskcall, options);
     return child->pid != INVALID_PID;
 }
 
-// Kills a running child and consumes its DOWN, so it is not taken for a crash
+// Asks a running child to stop (a child trapping exits gets SUP_SHUTDOWN_TIMEOUT_MS
+// to finish its work), kills it past that, and consumes its DOWN so it is not taken for a crash
 static void DEF(stop_child, SupChildSlot *child) {
     if (child->pid == INVALID_PID)
         return;
-    KILL(child->pid);
-    MSG_FREE(RECEIVE(MAKE_DOWN_TAG(child->pid)));
+
+    SEND_EXIT(child->pid, EXIT_REASON_SHUTDOWN);
+    Message *down = RECEIVE_TIMEOUT(MAKE_DOWN_TAG(child->pid), SUP_SHUTDOWN_TIMEOUT_MS);
+    if (!down) {
+        KILL(child->pid);
+        down = RECEIVE(MAKE_DOWN_TAG(child->pid));
+    }
+    MSG_FREE(down);
     child->pid = INVALID_PID;
 }
 

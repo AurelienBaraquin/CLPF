@@ -51,6 +51,8 @@ Pid clpf_task_add(Funcall_t *fun, const SpawnOptions *options, Pid parent_pid, P
 
     pthread_mutex_lock(&clpf.table_lock);
     clpf.process_count++;
+    if (!options->system)
+        clpf.user_process_count++;
     pthread_mutex_unlock(&clpf.table_lock);
 
     atomic_fetch_add(&scheduler->process_count, 1);

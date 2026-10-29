@@ -52,17 +52,9 @@ SUP_ST DEF(sup_handler_remove, Message *msg, supervisor_t *sup) {
     return removed == 0 ? SUP_SUCCESS : SUP_NOTHING;
 }
 
-SUP_ST DEF(sup_handler_stop, Message *msg, supervisor_t *sup) {
-    (void)self;
-    (void)msg;
-    (void)sup;
-    return SUP_STOP;
-}
-
 static const struct sv_handler_entry sv_handlers[] = {
     {"supervisor::spawn", sup_handler_spawn},
     {"supervisor::remove", sup_handler_remove},
-    {"core::event::stop", sup_handler_stop},
 };
 
 SUP_ST DEF(supervisor_handler, Message *msg, supervisor_t *sup) {

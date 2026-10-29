@@ -1,12 +1,11 @@
 #pragma once
 
 #include <api/base.h>
-#include <flags_internal.h>
 #include <stdatomic.h>
 #include <stdio.h>
 
 // A CLPF test is a regular CLPF program: the entry task runs the scenario and
-// reports through TEST_ASSERT / TEST_PASS, which also stop the runtime.
+// reports through TEST_ASSERT / TEST_PASS; the runtime stops when it ends.
 // The process exit code is 0 only if TEST_PASS was reached without failure.
 
 typedef enum {
@@ -23,7 +22,6 @@ extern _Atomic TestStatus test_status;
             fprintf(stderr, "%s:%d: assertion failed: %s\n",                  \
                     __FILE__, __LINE__, #cond);                               \
             atomic_store(&test_status, TEST_FAILED);                          \
-            exit_in_progress = true;                                          \
         }                                                                     \
     } while (0)
 
@@ -31,7 +29,6 @@ extern _Atomic TestStatus test_status;
     do {                                                                      \
         TestStatus clpf_running = TEST_RUNNING;                                  \
         atomic_compare_exchange_strong(&test_status, &clpf_running, TEST_PASSED);\
-        exit_in_progress = true;                                              \
     } while (0)
 
 #define CLPF_TEST_MAIN(entry)                                                 \

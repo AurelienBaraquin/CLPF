@@ -31,6 +31,12 @@ typedef struct {
 typedef struct {
     Process *process_table; // MAX_PROCESSES slots, allocated by clpf_init
     int process_count;
+    int user_process_count; // processes that are not system ones
+
+    // Set by the main thread when the entry process ended
+    bool shutdown_requested;
+    unsigned int entry_exit_reason;
+    _Atomic Pid system_supervisor; // supervises the system servers, set by the launcher
 
     // Stack of free process table indices
     int *free_slots;
@@ -41,7 +47,7 @@ typedef struct {
 
     TrieNode *name_table;
 
-    // Guards the free slot stack, process_count, the name table and every
+    // Guards the free slot stack, the process counts, the name table and every
     // Process.registered_name: processes are created and registered from any
     // thread, destroyed by the main thread
     pthread_mutex_t table_lock;
@@ -59,7 +65,9 @@ void process_unlock(Process *process);
 // Wakes the locked process if it waits, after a message or signal was queued for it
 void process_notify_locked(Process *process);
 
-void clpf_main(Task entry_point, int argc, char *argv[]);
+// Runs entry_point and the runtime until the entry process ends and every
+// process is gone; returns 0 if the entry process exited normally, 1 otherwise
+int clpf_main(Task entry_point, int argc, char *argv[]);
 int clpf_main_update();
 // Takes a free process table index, or returns -1 if the table is full
 int clpf_slot_alloc(void);
@@ -87,6 +95,8 @@ void yield(Process *self);
 // Detaches the monitors and links of a process that is ending, sends DOWNs and
 // exit signals. Called by the process itself or, for a kill, by its scheduler.
 void process_terminate(Process *process, unsigned int reason);
+// Sends an exit signal from the runtime (no sender process)
+void clpf_signal_exit(Pid pid, unsigned int reason, bool untrappable);
 // Applies an exit signal to a locked process: an EXIT message if it traps exits
 // (unless untrappable), nothing for a normal reason, otherwise a pending kill
 void process_exit_signal_locked(Process *target, Pid from, unsigned int reason, bool untrappable);

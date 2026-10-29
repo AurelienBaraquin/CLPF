@@ -58,7 +58,7 @@ TASK(entry, int argc, char *argv[]) {
     // The first start, then ALWAYS_CRASHING_LIMIT restarts; the next crash is one too many
     for (int i = 0; i < 1 + ALWAYS_CRASHING_LIMIT; ++i)
         MSG_FREE(RECEIVE(MAKE_STR_TAG("crashing")));
-    TEST_ASSERT(down_reason(self, bystander) == EXIT_REASON_KILLED);
+    TEST_ASSERT(down_reason(self, bystander) == EXIT_REASON_SHUTDOWN);
     TEST_ASSERT(down_reason(self, fragile) == EXIT_REASON_ERROR);
     TEST_ASSERT(FETCH(MAKE_STR_TAG("crashing")) == NULL);
 

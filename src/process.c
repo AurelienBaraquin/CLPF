@@ -68,6 +68,9 @@ int process_init(Process *process, Funcall_t *taskcall, const SpawnOptions *opti
     process->exit_notified = false;
     process->linked = NULL;
     process->trap_exit = false;
+    process->system = options->system;
+    process->entry = options->entry;
+    process->exit_reason = 0;
     atomic_store(&process->kill_pending, false);
     process->kill_reason = 0;
     atomic_store(&process->wake_pending, false);

@@ -19,7 +19,6 @@
 #include <api/registry.h>
 #include <api/monitor.h>
 #include <api/supervisor.h>
-#include <flags_internal.h>
 #include <string.h>
 
 #define WORKERS 3
@@ -331,8 +330,7 @@ TASK(entry, int argc, char *argv[]) {
     PRINT("[coordinator] process %ld is down (%s)\n", echo_pid, reason_name(((DownInfo *)down->payload)->reason));
     MSG_FREE(down);
 
-    exit_in_progress = true; // stop the runtime
-    EXIT_NORMAL();
+    EXIT_NORMAL(); // the runtime stops once the entry task ends
 }
 
 CLPF_ENTRY(entry)

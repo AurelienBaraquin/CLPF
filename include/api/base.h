@@ -18,10 +18,10 @@
 #define CALL(_name, ...) \
     _name(self, __VA_ARGS__)
 
+// The program ends when the entry task ends: 0 if it exited normally, 1 otherwise
 #define CLPF_ENTRY(task) \
     int main(int argc, char *argv[]) { \
-        clpf_main(task, argc, argv); \
-        return 0; \
+        return clpf_main(task, argc, argv); \
     }
 
 typedef enum exit_reason_e {
@@ -29,6 +29,7 @@ typedef enum exit_reason_e {
     EXIT_REASON_ERROR,
     EXIT_REASON_NOPROC, // The monitored process did not exist (anymore) when the monitor was set
     EXIT_REASON_KILLED, // Ended by KILL
+    EXIT_REASON_SHUTDOWN, // Asked to stop by its supervisor or the runtime
 } exit_reason;
 
 #define EXIT(reason) \

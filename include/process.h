@@ -64,6 +64,9 @@ typedef struct process_s {
     bool exit_notified; // Guarded by lock: monitors were already sent DOWN, new ones get NOPROC
     links_t *linked;    // Guarded by lock: bidirectional links (see LINK)
     bool trap_exit;     // Guarded by lock: exit signals arrive as EXIT messages
+    bool system;        // See SpawnOptions, set at creation
+    bool entry;         // See SpawnOptions, set at creation
+    unsigned int exit_reason; // Guarded by lock, set once exit_notified
     // Set under lock, after kill_reason: the scheduler ends the process instead of resuming it
     atomic_bool kill_pending;
     unsigned int kill_reason;
@@ -85,6 +88,8 @@ typedef struct {
     size_t arg_block_size;
     size_t stack_size;           // CLPF_DEFAULT_STACK_SIZE by default
     bool link;                   // links the spawner and the new process before it can run
+    bool system;                 // runtime-internal: survives until the user processes are gone
+    bool entry;                  // runtime-internal: its end shuts the runtime down
 } SpawnOptions;
 
 int process_init(Process *process, Funcall_t *taskcall, const SpawnOptions *options, Pid pid, Pid parent_pid);

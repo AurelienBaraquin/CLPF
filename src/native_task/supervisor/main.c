@@ -32,8 +32,14 @@ TASK(clpf_supervisor, SUP_STRAT strategy, uint64_t period_ms, int max_restarts) 
         if (msg->tag.kind == TAG_KIND_DOWN) {
             DownInfo *down = msg->payload;
             CALL(sup_on_child_down, down->from, down->reason, &sv);
-        } else if (msg->tag.kind != TAG_KIND_EXIT) { // the DOWN carries the same news
-            running = CALL(supervisor_handler, msg, &sv) != SUP_STOP;
+        } else if (msg->tag.kind == TAG_KIND_EXIT) {
+            // From a child, the DOWN carries the same news; from the runtime or the
+            // parent, it is an order to stop
+            ExitInfo *exit_info = msg->payload;
+            if (exit_info->from == INVALID_PID || exit_info->from == PARENT())
+                running = false;
+        } else {
+            CALL(supervisor_handler, msg, &sv);
         }
 
         MSG_FREE(msg);

@@ -1,6 +1,7 @@
 #include <native_task/server/io.h>
 #include <api/message.h>
 #include <api/registry.h>
+#include <api/link.h>
 
 #include <stb_sprintf/stb_sprintf.h>
 
@@ -38,7 +39,8 @@ static S_IO DEF(server_io_compute_message, Message *msg) {
         return S_IO_SUCCESS;
     }
 
-    if (MSG_IS(msg, MAKE_STR_TAG("core::event::stop"))) {
+    // Asked to stop: everything printed before is already written, mailboxes being FIFO
+    if (msg->tag.kind == TAG_KIND_EXIT && ((ExitInfo *)msg->payload)->reason != EXIT_REASON_NORMAL) {
         return S_IO_STOP;
     }
 
@@ -53,6 +55,7 @@ TASK0(clpf_server_io) {
     // server before anything can print, a restarted one takes the name back
     if (WHEREIS("server::io") != self->pid && REGISTER("server::io", self->pid) != 0)
         EXIT_ERROR();
+    TRAP_EXIT(true);
 
     while (running) {
         msg = RECEIVE(NO_TAG);

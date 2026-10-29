@@ -9,6 +9,9 @@ typedef enum restart_type_e {
     RES_TEMPORARY, // Never restart the child
 } RestartType;
 
+// How long a child trapping exits may take to stop before it is killed
+#define SUP_SHUTDOWN_TIMEOUT_MS 5000
+
 typedef enum sup_strat_e {
     SUP_ONE_FOR_ONE,    // Restart the child that died
     SUP_ONE_FOR_ALL,    // Stop every other child, then restart them all

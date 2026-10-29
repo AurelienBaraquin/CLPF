@@ -30,6 +30,14 @@ void process_exit_signal_locked(Process *target, Pid from, unsigned int reason, 
     process_notify_locked(target);
 }
 
+void clpf_signal_exit(Pid pid, unsigned int reason, bool untrappable) {
+    Process *target = process_lock(pid);
+    if (target) {
+        process_exit_signal_locked(target, INVALID_PID, reason, untrappable);
+        process_unlock(target);
+    }
+}
+
 void process_terminate(Process *process, unsigned int reason) {
     // Detach under the lock, notify without holding it: no other slot lock is taken while ours is held
     pthread_mutex_lock(&process->lock);
@@ -38,6 +46,7 @@ void process_terminate(Process *process, unsigned int reason) {
     process->monitor.monitored_by = NULL;
     process->linked = NULL;
     process->exit_notified = true;
+    process->exit_reason = reason;
     pthread_mutex_unlock(&process->lock);
 
     DownInfo down = { process->pid, reason };

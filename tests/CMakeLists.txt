@@ -38,6 +38,11 @@ clpf_add_test(test_timers)
 clpf_add_test(test_links)
 clpf_add_test(test_supervisor_strategies)
 clpf_add_test(test_io_server)
+
+# Exit code and complete output of a program whose entry task fails
+clpf_add_test_program(test_shutdown)
+add_test(NAME test_shutdown COMMAND sh -c "lines=$(\"$0\" | grep -c '^line '); \"$0\" > /dev/null; [ $? -eq 1 ] && [ \"$lines\" -eq 1000 ]" $<TARGET_FILE:test_shutdown>)
+set_tests_properties(test_shutdown PROPERTIES TIMEOUT 20)
 # This one crashes on purpose: only its diagnostic is checked
 clpf_add_test_program(test_stack_overflow)
 add_test(NAME test_stack_overflow COMMAND sh -c "\"$0\" 2>&1; exit 0" $<TARGET_FILE:test_stack_overflow>)
