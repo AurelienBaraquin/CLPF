@@ -1,14 +1,12 @@
 #include <utils/run_queue.h>
 #include <stdio.h>
 
-// Initialisation
 void runq_init(RunQueue *rq) {
     rq->head = NULL;
     rq->tail = NULL;
     rq->size = 0;
 }
 
-// Ajout en fin
 void runq_push(RunQueue *rq, Process *p) {
     if (!p)
         return;
@@ -22,7 +20,6 @@ void runq_push(RunQueue *rq, Process *p) {
     rq->size++;
 }
 
-// Extraction en tête
 Process *runq_pop(RunQueue *rq) {
     Process *p = rq->head;
     if (!p)
@@ -35,12 +32,10 @@ Process *runq_pop(RunQueue *rq) {
     return p;
 }
 
-// Queue vide ?
 int runq_empty(RunQueue *rq) {
     return rq->head == NULL;
 }
 
-// Libération de la mémoire
 void runq_clear(RunQueue *rq, void (*destroy)(Process *)) {
     Process *p = rq->head;
     while (p) {

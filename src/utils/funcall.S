@@ -2,13 +2,13 @@
     .text
 
 call_raw_func:
-    # Entrée :
-    # %rdi = pointeur vers la fonction (void (*func)())
-    # %rsi = pointeur vers le tableau de uintptr_t
-    # %rdx = nombre d’arguments
+    # Input:
+    # %rdi = function to call (void (*func)())
+    # %rsi = array of uintptr_t arguments
+    # %rdx = number of arguments
 
-    # Sauvegarde des registres d'entrée
-    mov %rdi, %rax      # RAX = adresse fonction
+    # Free the argument registers
+    mov %rdi, %rax      # RAX = function
     mov %rsi, %r10      # R10 = args[]
     mov %rdx, %r11      # R11 = argc
 
