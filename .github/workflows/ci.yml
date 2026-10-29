@@ -23,6 +23,11 @@ jobs:
         run: cmake --build build -j
       - name: Test
         run: ctest --test-dir build --output-on-failure
+      - name: Use the installed package
+        run: |
+          cmake --install build --prefix "$RUNNER_TEMP/prefix"
+          gcc -std=gnu11 examples/ping_pong.c $(PKG_CONFIG_PATH="$RUNNER_TEMP/prefix/lib/pkgconfig" pkg-config --cflags --libs clpf) -o ping_pong
+          ./ping_pong
 
   sanitizers:
     name: Tests (${{ matrix.sanitizer }} sanitizer)
