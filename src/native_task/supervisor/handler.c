@@ -11,50 +11,54 @@ struct __sv_handler_entry {
     supervisor_handler_t handler;
 };
 
+// Every spawn request gets an answer, INVALID_PID on failure, so the caller never blocks
 SUP_ST DEF(__sup_handler_spawn, Message *msg, __supervisor_t *sup) {
+    Pid child_pid = INVALID_PID;
     SupChildSpec *spec = (SupChildSpec *)msg->payload;
-    if (spec->magic != MAGIC_SUP_CHILD) {
-        fprintf(stderr, "[SUPERVISOR] Invalid magic number: %x\n", spec->magic);
-        return SUP_NOTHING;
+
+    if (msg->size != sizeof(SupChildSpec) || spec->magic != MAGIC_SUP_CHILD) {
+        fprintf(stderr, "[SUPERVISOR] Invalid child spec\n");
+    } else {
+        SupChildSlot *child = CALL(__sup_child_list_insert, &sup->sup_childs, spec);
+        if (child) {
+            child->pid = VSPAWN_MONITOR_NAMED(&spec->taskcall, spec->name, spec->priority);
+            if (child->pid == INVALID_PID) {
+                fprintf(stderr, "[SUPERVISOR] Failed to spawn child process\n");
+                CALL(__sup_child_list_remove, &sup->sup_childs, child);
+            } else {
+                sup->child_count++;
+                child_pid = child->pid;
+            }
+        }
     }
-    if (&spec->taskcall == NULL) {
-        fprintf(stderr, "[SUPERVISOR] Invalid taskcall\n");
-        return SUP_NOTHING;
-    }
-    SupChildSlot *child = CALL(__sup_child_list_insert, &sup->sup_childs, spec);
-    if (!child) {
-        fprintf(stderr, "[SUPERVISOR] Failed to insert child into list\n");
-        return SUP_NOTHING;
-    }
-    child->pid = VSPAWN_MONITOR_NAMED(&spec->taskcall, spec->name, spec->priority);
-    if (child->pid == -1) {
-        fprintf(stderr, "[SUPERVISOR] Failed to spawn child process\n");
-        return SUP_NOTHING;
-    }
-    sup->child_count++;
-    SEND(msg->sender_pid, &child->pid, sizeof(Pid), MAKE_STR_TAG("supervisor::spawn"));
-    return SUP_SUCCESS;
+
+    SEND(msg->sender_pid, &child_pid, sizeof(Pid), MAKE_STR_TAG("supervisor::spawn"));
+    return child_pid == INVALID_PID ? SUP_NOTHING : SUP_SUCCESS;
 }
 
 SUP_ST DEF(__sup_handler_remove, Message *msg, __supervisor_t *sup) {
-    Pid pid = *(Pid *)msg->payload;
-    if (pid == -1) {
-        fprintf(stderr, "[SUPERVISOR] Invalid PID: %ld\n", pid);
-        return SUP_NOTHING;
+    int removed = -1;
+    SupChildSlot *child = msg->size == sizeof(Pid) ? __sup_child_find_by_pid(sup, *(Pid *)msg->payload) : NULL;
+
+    if (child) {
+        MONITOR_REMOVE(child->pid);
+        CALL(__sup_child_list_remove, &sup->sup_childs, child);
+        sup->child_count--;
+        removed = 0;
     }
-    CALL(__sup_child_list_remove, &sup->sup_childs, pid);
-    sup->child_count--;
-    MONITOR_REMOVE(pid);
-    return SUP_SUCCESS;
+
+    SEND(msg->sender_pid, &removed, sizeof(int), MAKE_STR_TAG("supervisor::remove"));
+    return removed == 0 ? SUP_SUCCESS : SUP_NOTHING;
 }
 
 SUP_ST DEF(__sup_handler_stop, Message *msg, __supervisor_t *sup) {
+    (void)self;
+    (void)msg;
+    (void)sup;
     return SUP_STOP;
 }
 
-
-
-const static struct __sv_handler_entry __sv_handlers[] = {
+static const struct __sv_handler_entry __sv_handlers[] = {
     {"supervisor::spawn", __sup_handler_spawn},
     {"supervisor::remove", __sup_handler_remove},
     {"core::event::stop", __sup_handler_stop},
@@ -70,6 +74,6 @@ SUP_ST DEF(__supervisor_handler, Message *msg, __supervisor_t *sup) {
         }
     }
 
-    fprintf(stderr, "[SUPERVISOR] Unknown message type: %s\n", msg->tag.str_value);
+    fprintf(stderr, "[SUPERVISOR] Unknown message (tag kind %d)\n", msg->tag.kind);
     return SUP_NOTHING;
 }

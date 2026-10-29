@@ -1,3 +1,5 @@
+#pragma once
+
 #include <api/base.h>
 #include <utils/magic.h>
 
@@ -9,9 +11,12 @@ typedef enum restart_type_e {
 
 typedef enum sup_strat_e {
     SUP_ONE_FOR_ONE,    // If a child die restart it
-    SUP_ONE_FOR_ALL,    // If a child die everyone die and restart
-    SUP_REST_FOR_ONE,   // If a child die restart him and all the others created after him
+    SUP_ONE_FOR_ALL,    // Not implemented yet (needs a way to kill processes): refused at startup
+    SUP_REST_FOR_ONE,   // Not implemented yet (needs a way to kill processes): refused at startup
 } SUP_STRAT;
+
+// Number of restart timestamps kept per child: max_restarts must stay below it
+#define SUP_RESTART_HISTORY 10
 
 #define MAGIC_SUP_CHILD 0xC5C1D4C1
 
@@ -34,7 +39,7 @@ typedef struct SupChildSlot {
     SupChildSpec spec;
     int restart_count;
 
-    uint64_t last_restart_times[10];
+    uint64_t last_restart_times[SUP_RESTART_HISTORY];
     int restart_index;
 
     TAILQ_ENTRY(SupChildSlot) entry;
@@ -54,7 +59,7 @@ typedef struct __supervisor_s {
 TASK(__supervisor__, SUP_STRAT strategy, uint64_t period_ms, int max_restarts);
 
 SupChildSlot* DEF(__sup_child_list_insert, SupChildList *list, SupChildSpec *child);
-void DEF(__sup_child_list_remove, SupChildList *list, Pid pid);
-SupChildSlot *DEF(__sup_child_find_by_pid, __supervisor_t *sv, Pid pid);
+void DEF(__sup_child_list_remove, SupChildList *list, SupChildSlot *child);
+SupChildSlot *__sup_child_find_by_pid(__supervisor_t *sv, Pid pid);
 
 SUP_ST DEF(__supervisor_handler, Message *msg, __supervisor_t *sup);
