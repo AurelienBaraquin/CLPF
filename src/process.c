@@ -44,6 +44,7 @@ int process_init(Process *process, char *name, Funcall_t *taskcall, process_prio
 
     process->links.parent = parent_pid;
     process->exit_notified = false;
+    atomic_store(&process->wake_pending, false);
     process->callbacks_blocked = 0;
 
     mpscq_init(&process->signal_queue);
@@ -104,6 +105,17 @@ Process *process_lock(Pid pid) {
 
 void process_unlock(Process *process) {
     pthread_mutex_unlock(&process->lock);
+}
+
+void process_notify_locked(Process *process) {
+    // An exiting process is never queued again, so its slot can be freed safely
+    if (process->exit_notified)
+        return;
+    if (atomic_exchange(&process->wake_pending, true))
+        return;
+
+    Scheduler *scheduler = &clpf.scheduler_table[process->scheduler_pid];
+    mpscq_push(&scheduler->wakeups, &process->wake_node);
 }
 
 Pid process_get_parent_pid(Process *self) {

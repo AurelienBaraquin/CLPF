@@ -10,6 +10,7 @@ int scheduler_init(Scheduler* scheduler, Pid pid) {
     for (int i = 0; i < NB_RQ; i++) {
         mpscq_init(&scheduler->shared_rq[i]);
     }
+    mpscq_init(&scheduler->wakeups);
     for (int i = 0; i < NB_RQ; i++) {
         runq_init(&scheduler->rq[i]);
     }
@@ -56,11 +57,6 @@ void scheduler_push_shared(Scheduler* scheduler, Process* process) {
 void scheduler_push(Scheduler* scheduler, Process* process) {
     if (!scheduler || !process)
         return;
-    
-    if (process->state == PROCESS_WAITING) {
-        runq_push(&scheduler->rq[3], process);
-        return;
-    }
 
     switch (process->priority) {
         case PROCESS_PRIORITY_LOW:
@@ -92,27 +88,18 @@ void scheduler_drain(Scheduler* scheduler) {
     }
 }
 
-void update_waiting_processes(Scheduler* scheduler) {
-    if (!scheduler) return;
+void scheduler_drain_wakeups(Scheduler* scheduler) {
+    MPSCQNode* node = mpscq_drain(&scheduler->wakeups);
+    while (node) {
+        Process* process = container_of(node, Process, wake_node);
+        node = node->next;
 
-    RunQueue temp_rq = {0};
-    runq_init(&temp_rq);
-
-
-    // Senders never touch a process state: the owning scheduler wakes a
-    // waiting process once a message or a signal has reached it
-    Process* process;
-    while ((process = runq_pop(&scheduler->rq[3])) != NULL) {
-        if (mailbox_has_incoming(&process->mailbox) || !mpscq_empty(&process->signal_queue)) {
+        // Cleared before looking at the state: a later delivery queues the process again
+        atomic_store(&process->wake_pending, false);
+        if (process->state == PROCESS_WAITING) {
             process->state = PROCESS_READY;
             scheduler_push(scheduler, process);
-        } else {
-            runq_push(&temp_rq, process);
         }
-    }
-
-    while ((process = runq_pop(&temp_rq)) != NULL) {
-        runq_push(&scheduler->rq[3], process);
     }
 }
 
@@ -120,10 +107,10 @@ Process* pick_process(Scheduler* scheduler) {
     if (!scheduler)
         return NULL;
 
-    update_waiting_processes(scheduler);
+    scheduler_drain_wakeups(scheduler);
     scheduler_drain(scheduler);
 
-    for (int i = 0; i < NB_RQ - 1; ++i) {
+    for (int i = 0; i < NB_RQ; ++i) {
         RunQueue* rq = &scheduler->rq[i];
 
         size_t n = runq_size(rq);

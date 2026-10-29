@@ -113,9 +113,12 @@ void scheduler_loop(Scheduler* scheduler) {
                 scheduler_push(scheduler, process);
                 break;
             case PROCESS_WAITING:
-                scheduler_push(scheduler, process);
+                // Parked: it comes back through the wakeup queue
                 break;
             case PROCESS_EXITING:
+                // exiting() stopped further wakeups; take its pending one out of
+                // the queue before the main thread frees or reuses the slot
+                scheduler_drain_wakeups(scheduler);
                 atomic_fetch_sub(&scheduler->process_count, 1);
                 request_process_exit(process);
                 break;

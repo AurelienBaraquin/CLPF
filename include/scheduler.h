@@ -4,7 +4,7 @@
 #include <pthread.h>
 #include <utils/run_queue.h>
 
-#define NB_RQ 4 // Number of run queues
+#define NB_RQ 3 // Number of run queues
 
 typedef struct scheduler_s {
     pthread_t system_thread_id;
@@ -13,14 +13,12 @@ typedef struct scheduler_s {
     // 0 -> VERY_HIGH
     // 1 -> HIGH
     // 2 -> MEDIUM & LOW
-    // 3 -> WAITING
     MPSCQ shared_rq[NB_RQ];
-
-    // 0 -> VERY_HIGH
-    // 1 -> HIGH
-    // 2 -> MEDIUM & LOW
-    // 3 -> WAITING
     RunQueue rq[NB_RQ];
+
+    // Processes that received a message or a signal. Waiting processes are in
+    // no run queue: they come back through here, so a pick never scans them.
+    MPSCQ wakeups;
 
     atomic_int process_count;
 
@@ -39,5 +37,8 @@ void scheduler_push_shared(Scheduler* scheduler, Process* process);
 
 // Non-thread-safe push to the scheduler (only in the scheduler thread)
 void scheduler_push(Scheduler* scheduler, Process* process);
+
+// Moves the waiting processes that got a message or a signal back to a run queue (scheduler thread only)
+void scheduler_drain_wakeups(Scheduler* scheduler);
 
 Process* pick_process(Scheduler* scheduler);

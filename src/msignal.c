@@ -18,5 +18,6 @@ void signal_send(Pid to, Pid from, SignalType type, unsigned int reason) {
     signal->reason = reason;
 
     mpscq_push(&target_process->signal_queue, &signal->node);
+    process_notify_locked(target_process);
     process_unlock(target_process);
 }

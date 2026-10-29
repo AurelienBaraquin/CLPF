@@ -76,6 +76,8 @@ Process *process_get(Pid pid);
 // destroyed until process_unlock is called
 Process *process_lock(Pid pid);
 void process_unlock(Process *process);
+// Wakes the locked process if it waits, after a message or signal was queued for it
+void process_notify_locked(Process *process);
 
 void __clpf_main(Task entry_point, int argc, char *argv[]);
 int __clpf_main_update();
