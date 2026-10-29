@@ -34,6 +34,7 @@ clpf_add_test(test_string_tags)
 clpf_add_test(test_registry)
 clpf_add_test(test_spawn_with)
 clpf_add_test(test_stack_size)
+clpf_add_test(test_timers)
 # This one crashes on purpose: only its diagnostic is checked
 clpf_add_test_program(test_stack_overflow)
 add_test(NAME test_stack_overflow COMMAND sh -c "\"$0\" 2>&1; exit 0" $<TARGET_FILE:test_stack_overflow>)

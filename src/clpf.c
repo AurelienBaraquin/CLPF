@@ -4,6 +4,7 @@
 #include <utils/cpu.h>
 #include <flags_internal.h>
 #include <utils/stack_guard.h>
+#include <timer.h>
 
 void init_task(Task entry, int argc, char *argv[]);
 
@@ -47,6 +48,7 @@ static int clpf_init(void)
 
     mpscq_init(&clpf.message_queue);
     idle_init(&clpf.main_idle);
+    timers_init();
     return 0;
 }
 
@@ -93,6 +95,7 @@ static void clpf_destroy(void)
         n = next;
     }
 
+    timers_destroy();
     idle_destroy(&clpf.main_idle);
 }
 
@@ -162,6 +165,7 @@ void clpf_main(Task entry_point, int argc, char *argv[])
         }
 
         int updated = clpf_main_update();
+        uint64_t next_timer = timers_fire_due();
 
         // Check if all processes are finished
         if (total_process_count <= 0 && mpscq_empty(&clpf.message_queue) && updated == 0) {
@@ -169,7 +173,7 @@ void clpf_main(Task entry_point, int argc, char *argv[])
         }
 
         if (updated == 0)
-            idle_wait(&clpf.main_idle, main_has_work, NULL);
+            idle_wait_until(&clpf.main_idle, main_has_work, NULL, next_timer);
     }
 
     exit_in_progress = 1;
