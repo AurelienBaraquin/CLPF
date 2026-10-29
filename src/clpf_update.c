@@ -35,17 +35,18 @@ int __clpf_main_update()
                     send(NULL, msg->reply_to, &new_pid, sizeof(Pid), CORE_MESSAGE_TYPE_SPAWN_TAG);
                 break;
 
-            case CORE_MESSAGE_TYPE_NAME_REGISTER:
-                if (name_table_insert(clpf.name_table, msg->data.name_register.name, msg->data.name_register.pid) == 0) {
-                    memset(clpf.process_table[msg->data.name_register.pid].__name, 0, NAME_MAX_LENGTH);
-                    strcpy(clpf.process_table[msg->data.name_register.pid].__name, msg->data.name_register.name);
+            case CORE_MESSAGE_TYPE_NAME_REGISTER: {
+                Process *process = process_get(msg->data.name_register.pid);
+                if (process && name_table_insert(clpf.name_table, msg->data.name_register.name, process->pid) == 0) {
+                    memset(process->__name, 0, NAME_MAX_LENGTH);
+                    strcpy(process->__name, msg->data.name_register.name);
                 }
                 break;
+            }
             case CORE_MESSAGE_TYPE_NAME_UNREGISTER: {
-                Pid registered = name_table_lookup(clpf.name_table, msg->data.name_unregister.name);
-                if (registered == INVALID_PID)
-                    break;
-                memset(clpf.process_table[registered].__name, 0, NAME_MAX_LENGTH);
+                Process *registered = process_get(name_table_lookup(clpf.name_table, msg->data.name_unregister.name));
+                if (registered)
+                    memset(registered->__name, 0, NAME_MAX_LENGTH);
                 name_table_remove(clpf.name_table, msg->data.name_unregister.name);
                 break;
             }
@@ -58,14 +59,17 @@ int __clpf_main_update()
                 send(NULL, msg->reply_to, &pid, sizeof(Pid), CORE_MESSAGE_TYPE_NAME_LOOKUP_TAG);
                 break;
 
-            case CORE_MESSAGE_TYPE_PROCESS_EXIT:
-                if (msg->data.process_exit.pid != -1) {
-                    name_table_remove(clpf.name_table, clpf.process_table[msg->data.process_exit.pid].__name);
-                    process_destroy(&clpf.process_table[msg->data.process_exit.pid]);
-                    clpf.process_table[msg->data.process_exit.pid].pid = -1;
-                    clpf.process_count--;
-                }
+            case CORE_MESSAGE_TYPE_PROCESS_EXIT: {
+                Process *process = process_get(msg->data.process_exit.pid);
+                if (!process)
+                    break;
+                // The name may already belong to a restarted process
+                if (name_table_lookup(clpf.name_table, process->__name) == process->pid)
+                    name_table_remove(clpf.name_table, process->__name);
+                process_destroy(process);
+                clpf.process_count--;
                 break;
+            }
             default:
                 break;
         }

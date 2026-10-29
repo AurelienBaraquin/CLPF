@@ -17,7 +17,9 @@ static void *scheduler_thread(void *arg)
 void clpf_init()
 {
     for (int i = 0; i < MAX_PROCESSES; i++) {
-        clpf.process_table[i].pid = -1;
+        pthread_mutex_init(&clpf.process_table[i].lock, NULL);
+        clpf.process_table[i].pid = INVALID_PID;
+        clpf.process_table[i].generation = 0;
     }
 
     clpf.process_count = 0;
@@ -45,6 +47,10 @@ void clpf_destroy()
 
     for (int i = 0; i < clpf.process_count; i++) {
         process_destroy(&clpf.process_table[i]);
+    }
+
+    for (int i = 0; i < MAX_PROCESSES; i++) {
+        pthread_mutex_destroy(&clpf.process_table[i].lock);
     }
 
     name_table_free(clpf.name_table);

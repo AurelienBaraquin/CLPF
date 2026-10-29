@@ -53,20 +53,16 @@ void *fetch(Process* self, Tag userdata) {
 }
 
 int send(Process *self, Pid pid, void* data, size_t size, Tag tag) {
-    if (pid == -1) {
-        fprintf(stderr, "Invalid PID: %ld\n", pid);
+    // Sending to a process that no longer exists is not an error for the runtime
+    Process* other_process = process_lock(pid);
+    if (!other_process)
         return -1;
-    }
-
-    Process* other_process = &clpf.process_table[pid];
-    if (!other_process) {
-        fprintf(stderr, "Process %ld not found\n", pid);
-        return -1;
-    }
 
     Pid sender_pid = self ? self->pid : -1;
 
-    if (mailbox_send_message(&other_process->mailbox, &other_process->heap, data, size, sender_pid, tag) != 0) {
+    int delivered = mailbox_send_message(&other_process->mailbox, &other_process->heap, data, size, sender_pid, tag);
+    process_unlock(other_process);
+    if (delivered != 0) {
         fprintf(stderr, "Failed to deliver a message to process %ld\n", pid);
         return -1;
     }

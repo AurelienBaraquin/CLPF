@@ -4,8 +4,14 @@
 #include <global_supervisor.h>
 #include <utils/name_table.h>
 
-#define MAX_PROCESSES 65536 // 2^16
+#define PID_INDEX_BITS 16
+#define MAX_PROCESSES (1 << PID_INDEX_BITS)
 #define MAX_SCHEDULERS 64
+
+// A pid is a process table index tagged with the slot generation, so the pid
+// of a dead process never designates the next process created in its slot
+#define PID_MAKE(index, generation) ((Pid)(((generation) << PID_INDEX_BITS) | (index)))
+#define PID_INDEX(pid) ((pid) & (MAX_PROCESSES - 1))
 
 typedef enum core_message_type_e {
     CORE_MESSAGE_TYPE_SPAWN,
@@ -66,6 +72,14 @@ typedef struct {
 } CLPF;
 
 extern CLPF clpf;
+
+// Returns the live process with this pid, or NULL. The result is only stable
+// on the main thread, which is the only one creating and destroying processes.
+Process *process_get(Pid pid);
+// Same as process_get, but keeps the slot locked so the process cannot be
+// destroyed until process_unlock is called
+Process *process_lock(Pid pid);
+void process_unlock(Process *process);
 
 void __clpf_main(Task entry_point, int argc, char *argv[]);
 int __clpf_main_update();

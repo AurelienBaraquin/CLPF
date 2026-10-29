@@ -39,7 +39,11 @@ static inline bool name_empty(ProcessName name) {
 }
 
 typedef struct process_s {
-    Pid pid;
+    // Guards pid against concurrent senders while the slot is created or destroyed.
+    // Initialized once with the process table, never re-initialized.
+    pthread_mutex_t lock;
+    Pid pid; // INVALID_PID while the slot is free
+    unsigned long generation; // Incremented each time the slot is reused, kept across reuses
     Pid scheduler_pid;
 
     ProcessName __name;

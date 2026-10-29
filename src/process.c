@@ -42,9 +42,9 @@ int process_init(Process *process, char *name, Funcall_t *taskcall, process_prio
     links_init(&process->links);
     monitor_init(&process->monitor);
 
-    if (parent_pid != -1) {
+    Process *parent = process_get(parent_pid);
+    if (parent) {
         process->links.parent = parent_pid;
-        Process *parent = &clpf.process_table[parent_pid];
         link_add_child(&parent->links, pid);
     }
 
@@ -57,10 +57,15 @@ int process_init(Process *process, char *name, Funcall_t *taskcall, process_prio
 }
 
 void process_destroy(Process *process) {
-    if (!process || process->pid == -1)
+    if (!process || process->pid == INVALID_PID)
         return;
-    
+
     printf("[%s (%ld)] destroyed\n", process->__name, process->pid);
+
+    // From here on, senders see the slot as free and never reach the heap
+    pthread_mutex_lock(&process->lock);
+    process->pid = INVALID_PID;
+    pthread_mutex_unlock(&process->lock);
 
     mailbox_destroy(&process->mailbox);
     funcall_destroy(&process->taskcall);
@@ -72,6 +77,31 @@ void process_destroy(Process *process) {
     links_clear(&process->links);
     monitor_clear(&process->monitor);
     mpscq_clear(&process->signal_queue, NULL);
+}
+
+Process *process_get(Pid pid) {
+    if (pid < 0)
+        return NULL;
+
+    Process *process = &clpf.process_table[PID_INDEX(pid)];
+    return process->pid == pid ? process : NULL;
+}
+
+Process *process_lock(Pid pid) {
+    if (pid < 0)
+        return NULL;
+
+    Process *process = &clpf.process_table[PID_INDEX(pid)];
+    pthread_mutex_lock(&process->lock);
+    if (process->pid != pid) {
+        pthread_mutex_unlock(&process->lock);
+        return NULL;
+    }
+    return process;
+}
+
+void process_unlock(Process *process) {
+    pthread_mutex_unlock(&process->lock);
 }
 
 Pid process_get_parent_pid(Process *self) {

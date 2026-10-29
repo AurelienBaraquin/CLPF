@@ -18,6 +18,7 @@ void mailbox_destroy(Mailbox* mbox) {
     mbox->inbox_tail = NULL;
     mbox->inbox_len = 0;
     pthread_mutex_unlock(&mbox->lock);
+    pthread_mutex_destroy(&mbox->lock);
 
     mbox->seen_head = NULL;
     mbox->seen_tail = NULL;
