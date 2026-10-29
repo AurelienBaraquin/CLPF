@@ -6,17 +6,9 @@
 #define PAIRS 8
 #define ROUND_TRIPS 2000
 
-// Root processes are spread over the schedulers, so every message below
-// crosses threads. A lost wakeup leaves a process waiting forever and the
+// New processes are spread over the schedulers, so most messages below
+// cross threads. A lost wakeup leaves a process waiting forever and the
 // test hits its timeout.
-static Pid spawn_root(Process *self, Funcall_t *taskcall) {
-    __clpf_request_task_add(self, "", true, false, taskcall, PROCESS_PRIORITY_MEDIUM, INVALID_PID);
-    Pid *pid = RECEIVE(CORE_MESSAGE_TYPE_SPAWN_TAG);
-    Pid result = *pid;
-    FREE(pid);
-    return result;
-}
-
 TASK0(echo) {
     for (int i = 0; i < ROUND_TRIPS; ++i) {
         Message *msg = RECEIVE_RAW(MAKE_STR_TAG("ping"));
@@ -44,14 +36,9 @@ TASK(entry, int argc, char *argv[]) {
     (void)argv;
 
     for (int i = 0; i < PAIRS; ++i) {
-        Funcall_t echo_call;
-        funcall_init(&echo_call, echo, 0);
-        Pid echo_pid = spawn_root(self, &echo_call);
+        Pid echo_pid = SPAWN0(echo);
         TEST_ASSERT(echo_pid != INVALID_PID);
-
-        Funcall_t pinger_call;
-        funcall_init(&pinger_call, pinger, 2, echo_pid, self->pid);
-        TEST_ASSERT(spawn_root(self, &pinger_call) != INVALID_PID);
+        TEST_ASSERT(SPAWN(pinger, 2, echo_pid, self->pid) != INVALID_PID);
     }
 
     for (int i = 0; i < PAIRS; ++i) {

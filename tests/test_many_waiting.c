@@ -31,10 +31,8 @@ TASK(entry, int argc, char *argv[]) {
     (void)argc;
     (void)argv;
 
-    Funcall_t sleeper_call;
-    funcall_init(&sleeper_call, sleeper, 0);
     for (int i = 0; i < WAITING_PROCESSES; ++i)
-        __clpf_request_task_add(self, "", false, false, &sleeper_call, PROCESS_PRIORITY_MEDIUM, self->pid);
+        SPAWN0(sleeper);
 
     Pid child = SPAWN(echo, 1, self->pid);
     TEST_ASSERT(child != INVALID_PID);

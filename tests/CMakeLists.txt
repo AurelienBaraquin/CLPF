@@ -23,6 +23,7 @@ clpf_add_test(test_exit_semantics)
 clpf_add_test(test_supervisor_policies)
 clpf_add_test(test_many_waiting)
 clpf_add_test(test_idle)
+clpf_add_test(test_spawn_concurrent)
 clpf_add_test(test_low_priority_alone)
 
 # The runtime must still start a scheduler when only one CPU is usable

@@ -13,7 +13,6 @@
 #define PID_INDEX(pid) ((pid) & (MAX_PROCESSES - 1))
 
 typedef enum core_message_type_e {
-    CORE_MESSAGE_TYPE_SPAWN,
     CORE_MESSAGE_TYPE_NAME_REGISTER,
     CORE_MESSAGE_TYPE_NAME_UNREGISTER,
     CORE_MESSAGE_TYPE_NAME_LOOKUP,
@@ -28,14 +27,6 @@ typedef struct {
     Pid reply_to; // Reply to this process (can be -1 if no reply is needed)
 
     union {
-        struct {
-            char name[NAME_MAX_LENGTH];
-            Funcall_t *taskcall;
-            process_priority priority;
-            Pid parent_pid;
-            bool monitor; // The sender monitors the new process from its very start
-        } spawn;
-
         struct {
             char name[NAME_MAX_LENGTH];
             Pid pid;
@@ -68,17 +59,18 @@ typedef struct {
 
     TrieNode *name_table;
 
+    // Guards the free slot stack, process_count and the name table: processes
+    // are created from any thread, destroyed by the main thread
+    pthread_mutex_t table_lock;
+
     MPSCQ message_queue;
     IdleWaiter main_idle; // The main thread sleeps here while it has no core message
 } CLPF;
 
 extern CLPF clpf;
 
-// Returns the live process with this pid, or NULL. The result is only stable
-// on the main thread, which is the only one creating and destroying processes.
-Process *process_get(Pid pid);
-// Same as process_get, but keeps the slot locked so the process cannot be
-// destroyed until process_unlock is called
+// Returns the live process with this pid with its slot locked, so it cannot be
+// destroyed until process_unlock is called, or NULL if there is no such process
 Process *process_lock(Pid pid);
 void process_unlock(Process *process);
 // Wakes the locked process if it waits, after a message or signal was queued for it
@@ -98,12 +90,12 @@ void clpf_wake_all(void);
 // Frees a core message and what it owns
 void __clpf_message_destroy(CoreMessage* msg);
 
-// This function is not thread-safe and should be used with caution only in the main thread (use __clpf_request_task_add for thread-safe task creation)
+// Thread-safe. Creates a process on the least loaded scheduler and returns its pid, or INVALID_PID.
 // monitored_by (or INVALID_PID) gets a DOWN signal when the new process exits, even if it exits right away
-Pid __clpf_task_add(char *name, Funcall_t *fun, process_priority priority, Pid parent_pid, Pid monitored_by);
+Pid __clpf_task_add(const char *name, Funcall_t *fun, process_priority priority, Pid parent_pid, Pid monitored_by);
 
-// Thread-safe task creation
-int __clpf_request_task_add(Process *self, char *name, bool need_reply, bool monitor, Funcall_t *fun, process_priority priority, Pid parent_pid);
+// Spawns a child of self; with monitor, self is monitoring it from its very start
+Pid clpf_spawn(Process *self, const char *name, Funcall_t *fun, process_priority priority, bool monitor);
 
 typedef enum exit_reason_e exit_reason;
 

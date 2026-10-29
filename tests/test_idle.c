@@ -68,20 +68,16 @@ TASK(entry, int argc, char *argv[]) {
     FREE(used);
 
     // ...and a sleeping scheduler wakes up as soon as a message reaches it
-    Funcall_t echo_call;
-    funcall_init(&echo_call, echo, 0);
-    __clpf_request_task_add(self, "", true, false, &echo_call, PROCESS_PRIORITY_MEDIUM, INVALID_PID);
-    Pid *echo_pid = RECEIVE(CORE_MESSAGE_TYPE_SPAWN_TAG);
+    Pid echo_pid = SPAWN0(echo);
 
     uint64_t start = now_ms();
     for (int i = 0; i < ROUND_TRIPS; ++i) {
-        SEND(*echo_pid, NULL, 0, MAKE_STR_TAG("ping"));
+        SEND(echo_pid, NULL, 0, MAKE_STR_TAG("ping"));
         RECEIVE(MAKE_STR_TAG("pong"));
     }
     uint64_t elapsed = now_ms() - start;
     fprintf(stderr, "%d cross-scheduler round trips in %lu ms\n", ROUND_TRIPS, (unsigned long)elapsed);
     TEST_ASSERT(elapsed < MAX_ROUND_TRIPS_MS);
-    FREE(echo_pid);
 
     TEST_PASS();
     EXIT_NORMAL();

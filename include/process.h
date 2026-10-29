@@ -73,7 +73,7 @@ typedef struct process_s {
     atomic_bool wake_pending; // wake_node is queued: no need to queue it again
 } Process;
 
-int process_init(Process *process, char *name, Funcall_t *taskcall, process_priority priority, Pid pid, Pid parent_pid);
+int process_init(Process *process, const char *name, Funcall_t *taskcall, process_priority priority, Pid pid, Pid parent_pid);
 void process_destroy(Process *process);
 
 void co_entrypoint();

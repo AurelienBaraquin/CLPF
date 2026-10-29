@@ -2,5 +2,4 @@
 
 typedef struct Tag_s Tag;
 
-extern Tag CORE_MESSAGE_TYPE_SPAWN_TAG;
 extern Tag CORE_MESSAGE_TYPE_NAME_LOOKUP_TAG;

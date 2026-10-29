@@ -4,7 +4,7 @@
 #include <string.h>
 #include <stdio.h>
 
-int process_init(Process *process, char *name, Funcall_t *taskcall, process_priority priority, Pid pid, Pid parent_pid) {
+int process_init(Process *process, const char *name, Funcall_t *taskcall, process_priority priority, Pid pid, Pid parent_pid) {
     if (!taskcall || !process)
         return -1;
     if (priority < PROCESS_PRIORITY_LOW || priority > PROCESS_PRIORITY_VERY_HIGH)
@@ -80,14 +80,6 @@ void process_destroy(Process *process) {
     links_clear(&process->links);
     monitor_clear(&process->monitor);
     mpscq_init(&process->signal_queue); // pending signals live in the unmapped heap
-}
-
-Process *process_get(Pid pid) {
-    if (pid < 0)
-        return NULL;
-
-    Process *process = &clpf.process_table[PID_INDEX(pid)];
-    return process->pid == pid ? process : NULL;
 }
 
 Process *process_lock(Pid pid) {

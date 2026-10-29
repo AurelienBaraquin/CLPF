@@ -3,29 +3,10 @@
 #include <api/message.h>
 #include <clpf_const.h>
 
-// Callbacks stay blocked while waiting for the reply, so a DOWN coming from
-// the new process is only handled once the caller knows its pid
-#define __SPAWN_WAIT_RESULT()                                \
-    ({                                                       \
-        self->callbacks_blocked++;                           \
-        Pid *__pid_ptr =                                     \
-            (Pid *)RECEIVE(CORE_MESSAGE_TYPE_SPAWN_TAG);     \
-        self->callbacks_blocked--;                           \
-        Pid __pid = *__pid_ptr;                              \
-        safe_heap_free(&self->heap, __pid_ptr);              \
-        __pid;                                               \
-    })
-
-#define __SPAWN_RAW(name, funcall_ptr, prio, with_monitor)   \
-    ({                                                       \
-        __clpf_request_task_add(self, name, true, with_monitor, \
-                                funcall_ptr, prio,           \
-                                self->pid);                  \
-        Pid __spawned = __SPAWN_WAIT_RESULT();               \
-        if ((with_monitor) && __spawned != INVALID_PID)      \
-            monitor_add(&self->monitor, __spawned);          \
-        __spawned;                                           \
-    })
+// Spawning is synchronous and does not yield: the pid is known before the
+// new process can run, exit or send anything
+#define __SPAWN_RAW(name, funcall_ptr, prio, with_monitor) \
+    clpf_spawn(self, name, funcall_ptr, prio, with_monitor)
 
 #define VSPAWN_PRIO(funcall_ptr, prio)       __SPAWN_RAW("", funcall_ptr, prio, false)
 #define VSPAWN_NAMED(funcall_ptr, name, prio) __SPAWN_RAW(name, funcall_ptr, prio, false)

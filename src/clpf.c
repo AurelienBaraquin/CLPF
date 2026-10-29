@@ -42,6 +42,7 @@ static int clpf_init(void)
 
     clpf.process_count = 0;
     clpf.scheduler_count = 0;
+    pthread_mutex_init(&clpf.table_lock, NULL);
 
     mpscq_init(&clpf.message_queue);
     idle_init(&clpf.main_idle);
@@ -50,14 +51,20 @@ static int clpf_init(void)
 
 int clpf_slot_alloc(void)
 {
-    if (clpf.free_slot_count == 0)
-        return -1;
-    return clpf.free_slots[--clpf.free_slot_count];
+    int index = -1;
+
+    pthread_mutex_lock(&clpf.table_lock);
+    if (clpf.free_slot_count > 0)
+        index = clpf.free_slots[--clpf.free_slot_count];
+    pthread_mutex_unlock(&clpf.table_lock);
+    return index;
 }
 
 void clpf_slot_release(int index)
 {
+    pthread_mutex_lock(&clpf.table_lock);
     clpf.free_slots[clpf.free_slot_count++] = index;
+    pthread_mutex_unlock(&clpf.table_lock);
 }
 
 static void clpf_destroy(void)
@@ -75,6 +82,7 @@ static void clpf_destroy(void)
     }
     free(clpf.process_table);
     free(clpf.free_slots);
+    pthread_mutex_destroy(&clpf.table_lock);
 
     name_table_free(clpf.name_table);
 
