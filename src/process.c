@@ -3,8 +3,11 @@
 #include <links.h>
 #include <string.h>
 #include <stdio.h>
+#ifdef __SANITIZE_ADDRESS__
+#include <sanitizer/asan_interface.h>
+#endif
 
-int process_init(Process *process, char *name, Funcall_t *taskcall, process_priority priority, Pid pid, Pid parent_pid) {
+int process_init(Process *process, const char *name, Funcall_t *taskcall, process_priority priority, Pid pid, Pid parent_pid) {
     if (!taskcall || !process)
         return -1;
     if (priority < PROCESS_PRIORITY_LOW || priority > PROCESS_PRIORITY_VERY_HIGH)
@@ -44,6 +47,7 @@ int process_init(Process *process, char *name, Funcall_t *taskcall, process_prio
 
     process->links.parent = parent_pid;
     process->exit_notified = false;
+    atomic_store(&process->wake_pending, false);
     process->callbacks_blocked = 0;
 
     mpscq_init(&process->signal_queue);
@@ -74,19 +78,17 @@ void process_destroy(Process *process) {
     safe_heap_destroy(&process->heap);
     if (process->acoro)
         aco_destroy(process->acoro);
-    if (process->share_stack)
+    if (process->share_stack) {
+#ifdef __SANITIZE_ADDRESS__
+        // AddressSanitizer does not know about coroutine stacks: clear the redzones
+        // their frames left, or a later mapping at the same address looks overflowed
+        ASAN_UNPOISON_MEMORY_REGION(process->share_stack->real_ptr, process->share_stack->real_sz);
+#endif
         aco_share_stack_destroy(process->share_stack);
+    }
     links_clear(&process->links);
     monitor_clear(&process->monitor);
-    mpscq_clear(&process->signal_queue, NULL);
-}
-
-Process *process_get(Pid pid) {
-    if (pid < 0)
-        return NULL;
-
-    Process *process = &clpf.process_table[PID_INDEX(pid)];
-    return process->pid == pid ? process : NULL;
+    mpscq_init(&process->signal_queue); // pending signals live in the unmapped heap
 }
 
 Process *process_lock(Pid pid) {
@@ -104,6 +106,18 @@ Process *process_lock(Pid pid) {
 
 void process_unlock(Process *process) {
     pthread_mutex_unlock(&process->lock);
+}
+
+void process_notify_locked(Process *process) {
+    // An exiting process is never queued again, so its slot can be freed safely
+    if (process->exit_notified)
+        return;
+    if (atomic_exchange(&process->wake_pending, true))
+        return;
+
+    Scheduler *scheduler = &clpf.scheduler_table[process->scheduler_pid];
+    mpscq_push(&scheduler->wakeups, &process->wake_node);
+    scheduler_wake(scheduler);
 }
 
 Pid process_get_parent_pid(Process *self) {

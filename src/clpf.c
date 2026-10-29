@@ -1,7 +1,6 @@
 #include <clpf_internal.h>
 #include <stdio.h>
 #include <pthread.h>
-#include <unistd.h>
 #include <utils/cpu.h>
 #include <flags_internal.h>
 
@@ -17,27 +16,58 @@ static void *scheduler_thread(void *arg)
     return NULL;
 }
 
-void clpf_init()
+static int clpf_init(void)
 {
+    clpf.process_table = calloc(MAX_PROCESSES, sizeof(Process));
+    clpf.free_slots = malloc(MAX_PROCESSES * sizeof(int));
+    clpf.name_table = name_table_init();
+    if (!clpf.process_table || !clpf.free_slots || !clpf.name_table) {
+        fprintf(stderr, "Failed to allocate the runtime tables\n");
+        free(clpf.process_table);
+        free(clpf.free_slots);
+        name_table_free(clpf.name_table);
+        return -1;
+    }
+
     for (int i = 0; i < MAX_PROCESSES; i++) {
         pthread_mutex_init(&clpf.process_table[i].lock, NULL);
         clpf.process_table[i].pid = INVALID_PID;
         clpf.process_table[i].generation = 0;
     }
 
+    // Lowest indices on top, so the first processes get the smallest pids
+    clpf.free_slot_count = MAX_PROCESSES;
+    for (int i = 0; i < MAX_PROCESSES; i++)
+        clpf.free_slots[i] = MAX_PROCESSES - 1 - i;
+
     clpf.process_count = 0;
     clpf.scheduler_count = 0;
-
-    clpf.name_table = name_table_init();
-    if (!clpf.name_table) {
-        fprintf(stderr, "Failed to initialize name table\n");
-        return;
-    }
+    pthread_mutex_init(&clpf.table_lock, NULL);
 
     mpscq_init(&clpf.message_queue);
+    idle_init(&clpf.main_idle);
+    return 0;
 }
 
-void clpf_destroy()
+int clpf_slot_alloc(void)
+{
+    int index = -1;
+
+    pthread_mutex_lock(&clpf.table_lock);
+    if (clpf.free_slot_count > 0)
+        index = clpf.free_slots[--clpf.free_slot_count];
+    pthread_mutex_unlock(&clpf.table_lock);
+    return index;
+}
+
+void clpf_slot_release(int index)
+{
+    pthread_mutex_lock(&clpf.table_lock);
+    clpf.free_slots[clpf.free_slot_count++] = index;
+    pthread_mutex_unlock(&clpf.table_lock);
+}
+
+static void clpf_destroy(void)
 {
     for (int i = 0; i < clpf.scheduler_count; i++) {
         scheduler_destroy(&clpf.scheduler_table[i]);
@@ -50,10 +80,38 @@ void clpf_destroy()
     for (int i = 0; i < MAX_PROCESSES; i++) {
         pthread_mutex_destroy(&clpf.process_table[i].lock);
     }
+    free(clpf.process_table);
+    free(clpf.free_slots);
+    pthread_mutex_destroy(&clpf.table_lock);
 
     name_table_free(clpf.name_table);
 
-    mpscq_clear(&clpf.message_queue, free);
+    for (MPSCQNode *n = mpscq_drain(&clpf.message_queue); n != NULL; ) {
+        MPSCQNode *next = n->next;
+        __clpf_message_destroy(container_of(n, CoreMessage, node));
+        n = next;
+    }
+
+    idle_destroy(&clpf.main_idle);
+}
+
+void clpf_post(CoreMessage *msg)
+{
+    mpscq_push(&clpf.message_queue, &msg->node);
+    idle_wake(&clpf.main_idle);
+}
+
+void clpf_wake_all(void)
+{
+    idle_wake(&clpf.main_idle);
+    for (int i = 0; i < clpf.scheduler_count; i++)
+        scheduler_wake(&clpf.scheduler_table[i]);
+}
+
+static bool main_has_work(void *arg)
+{
+    (void)arg;
+    return exit_in_progress || !mpscq_empty(&clpf.message_queue);
 }
 
 void __clpf_main(Task entry_point, int argc, char *argv[])
@@ -63,7 +121,8 @@ void __clpf_main(Task entry_point, int argc, char *argv[])
         return;
     }
 
-    clpf_init();
+    if (clpf_init() != 0)
+        return;
 
     int cpus = nb_cpu();
     if (cpus <= 0) {
@@ -94,8 +153,6 @@ void __clpf_main(Task entry_point, int argc, char *argv[])
     init_task(entry_point, argc, argv);
 
     while (exit_in_progress == 0) {
-        usleep(1000); // Sleep for 1ms to avoid busy waiting
-
         size_t total_process_count = 0;
 
         for (int i = 0; i < clpf.scheduler_count; ++i) {
@@ -108,9 +165,13 @@ void __clpf_main(Task entry_point, int argc, char *argv[])
         if (total_process_count <= 0 && mpscq_empty(&clpf.message_queue) && updated == 0) {
             break;
         }
+
+        if (updated == 0)
+            idle_wait(&clpf.main_idle, main_has_work, NULL);
     }
 
     exit_in_progress = 1;
+    clpf_wake_all();
 
     for (int i = 0; i < MAX_PROCESSES; ++i) {
         Process* process = &clpf.process_table[i];

@@ -4,7 +4,6 @@
 #include <stdio.h>
 #include <api/base.h>
 #include <assert.h>
-#include <unistd.h>
 
 void co_entrypoint() {
     Process* proc = (Process*)aco_get_arg();
@@ -22,18 +21,14 @@ void handle_signals(Process* process) {
     if (!process)
         return;
 
-    MPSCQNode *node = signal_drain(process);
+    MPSCQNode *node = mpscq_drain(&process->signal_queue);
     while (node) {
-        Signal *signal = (Signal *)node->data;
-        if (!signal)
-            break;
+        Signal *signal = container_of(node, Signal, node);
+        node = node->next;
         if (signal->type == SIGNAL_DOWN) {
             send(NULL, process->pid, signal, sizeof(Signal), MAKE_STR_TAG("scheduler::event::signal"));
         }
-        MPSCQNode *next_node = node->next;
         safe_heap_free(&process->heap, signal);
-        free(node);
-        node = next_node;
     }
 }
 
@@ -70,7 +65,19 @@ void request_process_exit(Process* process) {
     msg->reply_to = -1;
     msg->data.process_exit.pid = process->pid;
 
-    mpscq_push(&clpf.message_queue, msg);
+    clpf_post(msg);
+}
+
+static bool scheduler_has_work(void *arg) {
+    Scheduler *scheduler = arg;
+
+    if (exit_in_progress || !mpscq_empty(&scheduler->wakeups))
+        return true;
+    for (int i = 0; i < NB_RQ; i++) {
+        if (!mpscq_empty(&scheduler->shared_rq[i]))
+            return true;
+    }
+    return false;
 }
 
 void scheduler_loop(Scheduler* scheduler) {
@@ -82,6 +89,7 @@ void scheduler_loop(Scheduler* scheduler) {
 
     while (1) {
         if (UNLIKELY(exit_in_progress)) {
+            clpf_wake_all();
             break;
         }
         // Process scheduling logic goes here
@@ -99,7 +107,7 @@ void scheduler_loop(Scheduler* scheduler) {
         Process* process = pick_process(scheduler);
         
         if (!process) {
-            usleep(SCHEDULER_IDLE_SLEEP_US);
+            idle_wait(&scheduler->idle, scheduler_has_work, scheduler);
             continue;
         }
 
@@ -117,9 +125,12 @@ void scheduler_loop(Scheduler* scheduler) {
                 scheduler_push(scheduler, process);
                 break;
             case PROCESS_WAITING:
-                scheduler_push(scheduler, process);
+                // Parked: it comes back through the wakeup queue
                 break;
             case PROCESS_EXITING:
+                // exiting() stopped further wakeups; take its pending one out of
+                // the queue before the main thread frees or reuses the slot
+                scheduler_drain_wakeups(scheduler);
                 atomic_fetch_sub(&scheduler->process_count, 1);
                 request_process_exit(process);
                 break;

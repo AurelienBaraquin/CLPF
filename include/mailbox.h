@@ -1,8 +1,6 @@
 #pragma once
 
 #include <stddef.h>
-#include <pthread.h>
-#include <stdatomic.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <utils/pid.h>
@@ -43,25 +41,21 @@ typedef struct Message {
 } Message;
 
 typedef struct Mailbox {
-    // Pour lecture locale sans lock
+    // Read by the owner only, without any lock
     Message *seen_head;
     Message *seen_tail;
 
-    // Pour réception depuis autres threads
+    // Written by senders: guarded by the owning process's slot lock
     Message *inbox_head;
     Message *inbox_tail;
-    atomic_size_t inbox_len; // Written under lock, read lock-free by the owner's scheduler
-
-    pthread_mutex_t lock;
 } Mailbox;
 
 void mailbox_init(Mailbox* mailbox);
 // Messages live in the owner's heap and are released with it
 void mailbox_destroy(Mailbox* mailbox);
-// Copies data into dest_heap (the receiver's heap) and queues it, returns -1 if the allocation fails
+// Copies data into dest_heap (the receiver's heap) and queues it, returns -1 if the allocation fails.
+// The caller holds the receiver's slot lock, as for mailbox_transfer_inbox_to_seen.
 int mailbox_send_message(Mailbox* dest, safe_heap_t *dest_heap, void* data, size_t size, Pid sender, Tag tag);
 void mailbox_transfer_inbox_to_seen(Mailbox* mbox);
-// True if messages arrived since the last transfer to the seen list
-bool mailbox_has_incoming(Mailbox* mbox);
 Message* mailbox_receive_seen(Mailbox* mbox);
 Message* mailbox_peek_and_match_seen(Mailbox* mbox, Tag userdata);

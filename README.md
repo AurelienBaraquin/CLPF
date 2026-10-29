@@ -62,13 +62,14 @@ CLPF_ENTRY(entry)                                 // generates main()
 ## Architecture
 
 - **Context switching:** processes are [libaco](https://github.com/hnes/libaco) coroutines (included as a git submodule), so switching between them is a small assembly register swap with no syscall. A process's arguments are passed through `funcall.S`. This hand-written x86-64 trampoline loads up to 6 integer arguments into the System V argument registers, then calls the entry point. `self` is always the first argument.
-- **Schedulers:** each scheduler thread owns 4 private run queues (very high, high, medium/low, waiting). A low-priority process is picked once every 8 passes over its queue. A scheduler only sleeps (1 ms) when none of its processes is ready.
-- **Cross-thread handoff:** other threads push onto lock-free MPSC queues (a CAS-push Treiber stack, drained with a single atomic exchange and reversed for FIFO order). The owning scheduler moves them into its private queues before each pick.
-- **Wakeups:** senders never touch another process's state. A waiting process is moved back to a ready queue by its own scheduler once its inbox or signal queue is non-empty, so no wakeup can be lost.
-- **Control plane:** spawn, exit, register and lookup requests are posted to a global MPSC queue. The main thread processes them and replies with a message. A new root process goes to the least-loaded scheduler; a child process stays on its parent's scheduler.
+- **Schedulers:** each scheduler thread owns 3 private run queues (very high, high, medium/low). A low-priority process is picked once every 8 passes over its queue. When none of its processes is ready, a scheduler sleeps on a condition variable and is woken by whoever gives it work: no polling.
+- **Cross-thread handoff:** other threads push onto intrusive lock-free MPSC queues (a CAS-push Treiber stack whose node lives in the queued element, drained with a single atomic exchange and reversed for FIFO order). Pushing never allocates.
+- **Wakeups:** senders never touch another process's state. Waiting processes are in no queue; a delivery pushes the receiver once onto its scheduler's wakeup queue, so a scheduler only looks at processes that actually received something, however many are blocked.
+- **Spawning:** a spawn runs directly on the calling thread (slot allocation and the name registry are guarded by a table lock) and places the process on the least loaded scheduler. `SPAWN` never yields.
+- **Control plane:** exit, register and lookup requests are posted to the main thread, which destroys exited processes and answers lookups with a message.
 - **Pids:** a pid is a process table index tagged with a per-slot generation, so the pid of a dead process never designates a later one. Each slot has a lock that senders hold while delivering, so a message either reaches a live process or `SEND` returns -1.
 - **Memory:** each process has its own [TLSF](http://www.gii.upv.es/tlsf/) heap on `mmap`'d pools, which grow on demand. A spinlock guards the heap, because senders on other threads allocate into it. When a process exits, its whole heap is unmapped at once, with no per-object cleanup.
-- **Mailboxes:** a two-stage design. A mutex-protected inbox takes writes from any thread. A private "seen" list lets the owning process scan for selective receive without taking the lock.
+- **Mailboxes:** a two-stage design. The inbox takes writes from any thread under the receiver's slot lock. A private "seen" list lets the owning process scan for selective receive without taking the lock.
 - **Signals and monitors:** a process's exit sends `DOWN` signals through a per-process MPSC signal queue. The scheduler turns them into messages, and they run the monitor callback the next time the target is scheduled. Supervisors spawn and monitor a child in one step, so a child that crashes immediately is still seen.
 
 ## Build & run
@@ -121,7 +122,6 @@ Not finished / planned (from the project's `todo`):
 - [ ] Load balancing: migrating processes and work stealing between schedulers, and choosing a better scheduler when spawning a process.
 - [ ] A supervisor for the system servers in the launcher (so the I/O server is always running).
 - [ ] Shutting down cleanly when the application tree ends. Right now the entry process sets `exit_in_progress`.
-- [ ] Event-driven idle. An idle scheduler polls every 1 ms instead of being woken when work arrives for it.
 - [ ] Preemption based on reduction counting, as BEAM does. Scheduling is purely cooperative today.
 
 ## License

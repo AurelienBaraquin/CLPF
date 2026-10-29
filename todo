@@ -19,15 +19,15 @@ Fonctionnalités
 - [ ] Superviser les serveurs système (IO doit toujours être actif)
 - [ ] Ressource optimisation -> migration / work stealing + création de process au meilleur endroit
 - [ ] Préemption par comptage de réductions
-- [ ] Idle événementiel (schedulers et thread principal ne doivent plus dormir 1 ms en boucle)
+- [x] Idle événementiel (schedulers et thread principal ne doivent plus dormir 1 ms en boucle)
 
 Performance
 - [ ] PRINT fait un WHEREIS (aller-retour au thread principal) à chaque appel
-- [ ] update_waiting_processes et runq_size en O(n) à chaque choix de process
-- [ ] mpscq_push fait un malloc par push -> nœud intrusif
-- [ ] Recherche de slot libre en O(65536), table statique d'environ 23 Mo
-- [ ] Trois verrous par message (slot, mailbox, tas)
-- [ ] Tout spawn / lookup passe par le thread principal
+- [x] update_waiting_processes et runq_size en O(n) à chaque choix de process
+- [x] mpscq_push fait un malloc par push -> nœud intrusif
+- [x] Recherche de slot libre en O(65536), table statique d'environ 23 Mo
+- [x] Trois verrous par message (slot, mailbox, tas) -> deux (slot, tas)
+- [x] Tout spawn / lookup passe par le thread principal (spawn direct ; lookup : PR 2)
 
 Qualité et outillage
 - [ ] CI GitHub Actions (build, ctest, ASan, TSan)

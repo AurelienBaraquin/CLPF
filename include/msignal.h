@@ -9,6 +9,7 @@ typedef enum signal_type_e {
 } SignalType;
 
 typedef struct signal_s {
+    MPSCQNode node; // Signals are allocated in the target's heap and queued intrusively
     SignalType type;
     Pid from;
 
@@ -17,4 +18,3 @@ typedef struct signal_s {
 
 // Queues a signal for process `to` (dropped if it no longer exists)
 void signal_send(Pid to, Pid from, SignalType type, unsigned int reason);
-MPSCQNode *signal_drain(Process *self);

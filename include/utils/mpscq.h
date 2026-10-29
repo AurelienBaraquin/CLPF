@@ -2,31 +2,29 @@
 
 #include <stdatomic.h>
 #include <stdbool.h>
+#include <stddef.h>
 
-typedef struct MPSCQ MPSCQ;
-typedef struct MPSCQNode MPSCQNode;
+// Intrusive multi-producer single-consumer queue: the node lives inside the
+// queued element, so pushing never allocates. Producers push lock-free, the
+// single consumer takes everything at once with mpscq_drain.
 
-struct MPSCQ {
-    _Atomic(MPSCQNode *) head;
-};
-
-struct MPSCQNode {
-    void *data;
+typedef struct MPSCQNode {
     struct MPSCQNode *next;
-};
+} MPSCQNode;
 
-/// Initialise la queue (heap ou stack)
+typedef struct MPSCQ {
+    _Atomic(MPSCQNode *) head;
+} MPSCQ;
+
+#define container_of(ptr, type, member) \
+    ((type *)((char *)(ptr) - offsetof(type, member)))
+
 void mpscq_init(MPSCQ *q);
 
-/// Enfile un élément (thread-safe, lock-free)
-void mpscq_push(MPSCQ *q, void *ptr);
+// Thread-safe, lock-free
+void mpscq_push(MPSCQ *q, MPSCQNode *node);
 
-/// Vide la queue en une liste FIFO (mono-thread, non thread-safe)
-/// Retourne le premier élément (la liste est chainée via `next`)
-void *mpscq_drain(MPSCQ *q);
+// Consumer only: detaches every queued node and returns them in FIFO order, linked through next
+MPSCQNode *mpscq_drain(MPSCQ *q);
 
-/// Retourne vrai si la queue est vide
 bool mpscq_empty(MPSCQ *q);
-
-/// Libère la mémoire de la queue
-void mpscq_clear(MPSCQ *q, void (*destroy)(void *));

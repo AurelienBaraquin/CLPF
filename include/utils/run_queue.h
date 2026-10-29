@@ -7,6 +7,7 @@
 typedef struct RunQueue {
     Process *head;
     Process *tail;
+    size_t size;
 } RunQueue;
 
 // Initialisation

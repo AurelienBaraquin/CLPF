@@ -6,7 +6,9 @@
 Message* __receive_internal_fetch(Process *self, Tag userdata) {
     Message* msg;
 
+    pthread_mutex_lock(&self->lock);
     mailbox_transfer_inbox_to_seen(&self->mailbox);
+    pthread_mutex_unlock(&self->lock);
 
     if (userdata.kind != TAG_KIND_NONE)
         msg = mailbox_peek_and_match_seen(&self->mailbox, userdata);
@@ -63,6 +65,8 @@ int send(Process *self, Pid pid, void* data, size_t size, Tag tag) {
     Pid sender_pid = self ? self->pid : -1;
 
     int delivered = mailbox_send_message(&other_process->mailbox, &other_process->heap, data, size, sender_pid, tag);
+    if (delivered == 0)
+        process_notify_locked(other_process);
     process_unlock(other_process);
     if (delivered != 0) {
         fprintf(stderr, "Failed to deliver a message to process %ld\n", pid);
