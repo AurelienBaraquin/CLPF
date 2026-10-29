@@ -8,7 +8,6 @@ typedef struct MPSCQNode MPSCQNode;
 
 struct MPSCQ {
     _Atomic(MPSCQNode *) head;
-    MPSCQNode *tail;
 };
 
 struct MPSCQNode {

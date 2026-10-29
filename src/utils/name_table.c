@@ -4,21 +4,19 @@
 #include <ctype.h>
 #include <utils/name_table.h>
 
-#define ALPHABET_SIZE 63
-
 static TrieNode* create_node() {
     TrieNode* node = (TrieNode*)calloc(1, sizeof(TrieNode));
     node->pid = -1;
     return node;
 }
 
-// a-z => 0-25, A-Z => 26-51, 0-9 => 52-61, _ => 62
+// a-z => 0-25, A-Z => 26-51, 0-9 => 52-61, _ => 62, : => 63
 static int char_to_index(char c) {
     if (c >= 'a' && c <= 'z') return c - 'a';
     if (c >= 'A' && c <= 'Z') return 26 + (c - 'A');
     if (c >= '0' && c <= '9') return 52 + (c - '0');
     if (c == '_') return 62;
-    if (c == ':') return 58;
+    if (c == ':') return 63;
     return -1;
 }
 
@@ -38,6 +36,9 @@ void name_table_free(TrieNode* root) {
 }
 
 int name_table_insert(TrieNode *root, const char* name, Pid pid) {
+    if (*name == '\0')
+        return -1;
+
     TrieNode* current = root;
     while (*name) {
         int index = char_to_index(*name);

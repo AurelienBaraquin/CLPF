@@ -4,7 +4,6 @@
 
 void mpscq_init(MPSCQ *q) {
     atomic_store(&q->head, NULL);
-    q->tail = NULL;
 }
 
 void mpscq_push(MPSCQ *q, void *ptr) {
@@ -24,7 +23,6 @@ bool mpscq_empty(MPSCQ *q) {
 
 void *mpscq_drain(MPSCQ *q) {
     MPSCQNode *list = atomic_exchange(&q->head, NULL);
-    q->tail = NULL;
 
     // Inverse la liste pour garantir FIFO
     MPSCQNode *prev = NULL, *curr = list, *next;
@@ -35,17 +33,12 @@ void *mpscq_drain(MPSCQ *q) {
         curr = next;
     }
 
-    // Reconnecte la liste inversée
-    MPSCQNode *fifo = prev;
-    q->tail = fifo;
-
     // Retourne la tête de la liste
-    return fifo;
+    return prev;
 }
 
 void mpscq_clear(MPSCQ *q, void (*destroy)(void *)) {
     MPSCQNode *node = atomic_exchange(&q->head, NULL);
-    q->tail = NULL;
 
     // Inverse la liste pour FIFO
     MPSCQNode *prev = NULL, *curr = node, *next;

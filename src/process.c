@@ -18,18 +18,7 @@ int process_init(Process *process, char *name, Funcall_t *taskcall, process_prio
     process->state = PROCESS_INIT,
     process->priority = priority;
 
-    switch (priority) {
-        case PROCESS_PRIORITY_LOW:
-            process->schedule_count = 8;
-            break;
-        case PROCESS_PRIORITY_MEDIUM:
-        case PROCESS_PRIORITY_HIGH:
-        case PROCESS_PRIORITY_VERY_HIGH:
-            process->schedule_count = 1;
-            break;
-        default:
-            return -1;
-    } 
+    process->schedule_count = priority == PROCESS_PRIORITY_LOW ? LOW_PRIORITY_SKIPS : 0;
 
     Funcall_t funcall = {0};
     funcall.func = taskcall->func;
@@ -53,27 +42,34 @@ int process_init(Process *process, char *name, Funcall_t *taskcall, process_prio
     links_init(&process->links);
     monitor_init(&process->monitor);
 
-    if (parent_pid != -1) {
-        process->links.parent = parent_pid;
-        Process *parent = &clpf.process_table[parent_pid];
-        link_add_child(&parent->links, pid);
-    }
+    process->links.parent = parent_pid;
+    process->exit_notified = false;
+    process->callbacks_blocked = 0;
 
     mpscq_init(&process->signal_queue);
     mailbox_init(&process->mailbox);
 
+#ifdef CLPF_TRACE
     printf("[%s (%ld)] created\n", process->__name, process->pid);
+#endif
 
     return 0;
 }
 
 void process_destroy(Process *process) {
-    if (!process || process->pid == -1)
+    if (!process || process->pid == INVALID_PID)
         return;
-    
-    printf("[%s (%ld)] destroyed\n", process->__name, process->pid);
 
-    mailbox_destroy(&process->mailbox, (heap_t *)&process->heap);
+#ifdef CLPF_TRACE
+    printf("[%s (%ld)] destroyed\n", process->__name, process->pid);
+#endif
+
+    // From here on, senders see the slot as free and never reach the heap
+    pthread_mutex_lock(&process->lock);
+    process->pid = INVALID_PID;
+    pthread_mutex_unlock(&process->lock);
+
+    mailbox_destroy(&process->mailbox);
     funcall_destroy(&process->taskcall);
     safe_heap_destroy(&process->heap);
     if (process->acoro)
@@ -85,28 +81,51 @@ void process_destroy(Process *process) {
     mpscq_clear(&process->signal_queue, NULL);
 }
 
+Process *process_get(Pid pid) {
+    if (pid < 0)
+        return NULL;
+
+    Process *process = &clpf.process_table[PID_INDEX(pid)];
+    return process->pid == pid ? process : NULL;
+}
+
+Process *process_lock(Pid pid) {
+    if (pid < 0)
+        return NULL;
+
+    Process *process = &clpf.process_table[PID_INDEX(pid)];
+    pthread_mutex_lock(&process->lock);
+    if (process->pid != pid) {
+        pthread_mutex_unlock(&process->lock);
+        return NULL;
+    }
+    return process;
+}
+
+void process_unlock(Process *process) {
+    pthread_mutex_unlock(&process->lock);
+}
+
 Pid process_get_parent_pid(Process *self) {
     return self ? self->links.parent : -1;
 }
 
 size_t process_get_child_count(Process *self) {
-    return self ? link_count(self->links.children) : 0;
+    if (!self)
+        return 0;
+
+    pthread_mutex_lock(&self->lock);
+    size_t count = link_count(self->links.children);
+    pthread_mutex_unlock(&self->lock);
+    return count;
 }
 
 Pid process_get_child_pid(Process *self, size_t index) {
-    return self ? link_get_nth(self->links.children, index) : -1;
-}
-
-bool process_poll_mailbox(Process* self) {
     if (!self)
-        return false;
+        return INVALID_PID;
 
-    mailbox_transfer_inbox_to_seen(&self->mailbox);
-
-    if (self->mailbox.seen_head != NULL) {
-        self->state = PROCESS_READY;
-        return true;
-    }
-
-    return false;
+    pthread_mutex_lock(&self->lock);
+    Pid child = link_get_nth(self->links.children, index);
+    pthread_mutex_unlock(&self->lock);
+    return child;
 }

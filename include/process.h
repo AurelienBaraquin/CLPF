@@ -1,7 +1,5 @@
 #pragma once
 
-#define RUNNING_ON_VALGRIND
-
 #include <memory/safe_heap.h>
 #include <memory/stack.h>
 #include <utils/mpscq.h>
@@ -13,6 +11,10 @@
 #include <mailbox.h>
 
 #define NAME_MAX_LENGTH 64
+
+// A low priority process is skipped this many times before being picked,
+// so it runs once for every 8 passes over its run queue
+#define LOW_PRIORITY_SKIPS 7
 
 typedef void (*Task)();
 
@@ -32,12 +34,13 @@ typedef enum process_priority_e {
 } process_priority;
 
 typedef char ProcessName[NAME_MAX_LENGTH];
-static inline bool name_empty(ProcessName name) {
-    return name[0] == '\0';
-}
 
 typedef struct process_s {
-    Pid pid;
+    // Guards pid against concurrent senders while the slot is created or destroyed.
+    // Initialized once with the process table, never re-initialized.
+    pthread_mutex_t lock;
+    Pid pid; // INVALID_PID while the slot is free
+    unsigned long generation; // Incremented each time the slot is reused, kept across reuses
     Pid scheduler_pid;
 
     ProcessName __name;
@@ -49,13 +52,17 @@ typedef struct process_s {
     process_state state;
     process_priority priority;
 
-    // == 1 for VH, H, M and == 8 for Low
-    unsigned short schedule_count; // Decremented each time the process is picked from the front of the queue, and scheduled if == 0 otherwise it goes to the back of the queue
+    // Remaining skips before a low priority process is scheduled (always 0 for other priorities)
+    unsigned short schedule_count;
 
     Funcall_t taskcall;
 
-    ProcessLinks links;
-    Monitor monitor;
+    ProcessLinks links; // children is guarded by lock
+    Monitor monitor; // monitored_by is guarded by lock
+    bool exit_notified; // Guarded by lock: monitors were already sent DOWN, new ones get NOPROC
+
+    // While non-zero, monitor callbacks are not run (owner thread only)
+    int callbacks_blocked;
 
     MPSCQ signal_queue;
     Mailbox mailbox;
@@ -73,5 +80,3 @@ Pid process_get_parent_pid(Process *self);
 Pid process_get_child_pid(Process *self, size_t index);
 size_t process_get_child_count(Process *self);
 
-// Mailbox
-bool process_poll_mailbox(Process* self);

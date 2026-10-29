@@ -1,11 +1,16 @@
 #pragma once
 
 #include <scheduler.h>
-#include <global_supervisor.h>
 #include <utils/name_table.h>
 
-#define MAX_PROCESSES 65536 // 2^16
+#define PID_INDEX_BITS 16
+#define MAX_PROCESSES (1 << PID_INDEX_BITS)
 #define MAX_SCHEDULERS 64
+
+// A pid is a process table index tagged with the slot generation, so the pid
+// of a dead process never designates the next process created in its slot
+#define PID_MAKE(index, generation) ((Pid)(((generation) << PID_INDEX_BITS) | (index)))
+#define PID_INDEX(pid) ((pid) & (MAX_PROCESSES - 1))
 
 typedef enum core_message_type_e {
     CORE_MESSAGE_TYPE_SPAWN,
@@ -27,6 +32,7 @@ typedef struct {
             Funcall_t *taskcall;
             process_priority priority;
             Pid parent_pid;
+            bool monitor; // The sender monitors the new process from its very start
         } spawn;
 
         struct {
@@ -57,29 +63,35 @@ typedef struct {
 
     TrieNode *name_table;
 
-    unsigned short fix; // From index -> Emigrate to
-    unsigned short tix; // Target index -> Immigrate from
-
-    GlobalSupervisor global_supervisor;
-
     MPSCQ message_queue;
 } CLPF;
 
 extern CLPF clpf;
 
+// Returns the live process with this pid, or NULL. The result is only stable
+// on the main thread, which is the only one creating and destroying processes.
+Process *process_get(Pid pid);
+// Same as process_get, but keeps the slot locked so the process cannot be
+// destroyed until process_unlock is called
+Process *process_lock(Pid pid);
+void process_unlock(Process *process);
+
 void __clpf_main(Task entry_point, int argc, char *argv[]);
 int __clpf_main_update();
 
 // This function is not thread-safe and should be used with caution only in the main thread (use __clpf_request_task_add for thread-safe task creation)
-Pid __clpf_task_add(char *name, Funcall_t *fun, process_priority priority, Pid parent_pid);
+// monitored_by (or INVALID_PID) gets a DOWN signal when the new process exits, even if it exits right away
+Pid __clpf_task_add(char *name, Funcall_t *fun, process_priority priority, Pid parent_pid, Pid monitored_by);
 
 // Thread-safe task creation
-int __clpf_request_task_add(Process *self, char *name, bool need_reply, Funcall_t *fun, process_priority priority, Pid parent_pid);
+int __clpf_request_task_add(Process *self, char *name, bool need_reply, bool monitor, Funcall_t *fun, process_priority priority, Pid parent_pid);
 
 typedef enum exit_reason_e exit_reason;
 
 // Base
 void yield(Process *self);
+// Notifies the monitors and terminates the calling process: never returns.
+// Not declared _Noreturn: AddressSanitizer mishandles noreturn calls made on coroutine stacks.
 void exiting(Process *self, exit_reason reason);
 
 
@@ -98,9 +110,9 @@ void *fetch(Process* self, Tag userdata);
 int send(Process *self, Pid pid, void* data, size_t size, Tag tag);
 
 // Request (send + receive with the same tag)
-void* request(Process *self, pid_t pid, void* data, size_t size, Tag tag);
+void* request(Process *self, Pid pid, void* data, size_t size, Tag tag);
 
 
 
-// Process callbacks
+// Runs the monitor callbacks of pending signals, unless callbacks_blocked is set
 void handle_callbacks(Process *self);

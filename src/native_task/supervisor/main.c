@@ -12,6 +12,15 @@ TASK(__supervisor__, SUP_STRAT strategy, uint64_t period_ms, int max_restarts) {
     Message *msg = NULL;
     bool running = true;
 
+    if (strategy != SUP_ONE_FOR_ONE) {
+        fprintf(stderr, "[SUPERVISOR] Only SUP_ONE_FOR_ONE is implemented\n");
+        EXIT_ERROR();
+    }
+    if (max_restarts >= SUP_RESTART_HISTORY) {
+        fprintf(stderr, "[SUPERVISOR] max_restarts must be below %d\n", SUP_RESTART_HISTORY);
+        EXIT_ERROR();
+    }
+
     __supervisor_t sv;
     sv.strategy = strategy;
     sv.period_ms = period_ms > 0 ? period_ms : DEFAULT_PERIOD;

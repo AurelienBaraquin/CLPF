@@ -4,20 +4,11 @@
 #include <pthread.h>
 #include <utils/run_queue.h>
 
-typedef enum scheduler_migration_state_e {
-    SCHEDULER_IMMIGRATING,
-    SCHEDULER_EMIGRATING,
-    SCHEDULER_BALANCED,
-} scheduler_migration_state;
-
 #define NB_RQ 4 // Number of run queues
 
 typedef struct scheduler_s {
     pthread_t system_thread_id;
     Pid pid;
-
-    struct scheduler_s* immigrate_from;
-    struct scheduler_s* emigrate_to;
 
     // 0 -> VERY_HIGH
     // 1 -> HIGH
@@ -33,20 +24,11 @@ typedef struct scheduler_s {
 
     atomic_int process_count;
 
-    pthread_mutex_t mutex;
-    pthread_cond_t cond;
-
     aco_t* scheduler_acoro;
 } Scheduler;
 
-#define LOCK_UNTIL(predicate, cond, mutex) \
-    do { \
-        pthread_mutex_lock(mutex); \
-        while (!(predicate)) { \
-            pthread_cond_wait(cond, mutex); \
-        } \
-        pthread_mutex_unlock(mutex); \
-    } while (0)
+// Time a scheduler sleeps when none of its processes is ready
+#define SCHEDULER_IDLE_SLEEP_US 1000
 
 int scheduler_init(Scheduler* scheduler, Pid pid);
 void scheduler_destroy(Scheduler* scheduler);

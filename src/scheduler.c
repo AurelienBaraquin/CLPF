@@ -5,8 +5,6 @@ int scheduler_init(Scheduler* scheduler, Pid pid) {
         return -1;
 
     scheduler->pid = pid;
-    scheduler->immigrate_from = NULL;
-    scheduler->emigrate_to = NULL;
     atomic_init(&scheduler->process_count, 0);
 
     for (int i = 0; i < NB_RQ; i++) {
@@ -17,9 +15,6 @@ int scheduler_init(Scheduler* scheduler, Pid pid) {
     }
 
     scheduler->system_thread_id = -1;
-
-    pthread_mutex_init(&scheduler->mutex, NULL);
-    pthread_cond_init(&scheduler->cond, NULL);
 
     scheduler->scheduler_acoro = NULL;
 
@@ -36,9 +31,6 @@ void scheduler_destroy(Scheduler* scheduler) {
     for (int i = 0; i < NB_RQ; i++) {
         runq_clear(&scheduler->rq[i], NULL);
     }
-
-    pthread_mutex_destroy(&scheduler->mutex);
-    pthread_cond_destroy(&scheduler->cond);
 
     if (scheduler->scheduler_acoro)
         aco_destroy(scheduler->scheduler_acoro);
@@ -62,11 +54,6 @@ void scheduler_push_shared(Scheduler* scheduler, Process* process) {
         default:
             break;
     }
-
-    // Notify the scheduler thread
-    pthread_mutex_lock(&scheduler->mutex);
-    pthread_cond_signal(&scheduler->cond);
-    pthread_mutex_unlock(&scheduler->mutex);
 }
 
 void scheduler_push(Scheduler* scheduler, Process* process) {
@@ -117,13 +104,15 @@ void update_waiting_processes(Scheduler* scheduler) {
     runq_init(&temp_rq);
 
 
+    // Senders never touch a process state: the owning scheduler wakes a
+    // waiting process once a message or a signal has reached it
     Process* process;
     while ((process = runq_pop(&scheduler->rq[3])) != NULL) {
-        if (process->state == PROCESS_WAITING) {
-            runq_push(&temp_rq, process);
-        } else {
+        if (mailbox_has_incoming(&process->mailbox) || !mpscq_empty(&process->signal_queue)) {
             process->state = PROCESS_READY;
             scheduler_push(scheduler, process);
+        } else {
+            runq_push(&temp_rq, process);
         }
     }
 
@@ -144,25 +133,17 @@ Process* pick_process(Scheduler* scheduler) {
 
         size_t n = runq_size(rq);
         for (size_t j = 0; j < n; ++j) {
-            Process* process = runq_pop(rq); // on consomme ici
+            Process* process = runq_pop(rq);
 
-            if (!process) continue;
-
+            // Only low priority processes are ever delayed
             if (process->schedule_count > 0) {
                 process->schedule_count--;
-                scheduler_push(scheduler, process); // on le remet
+                runq_push(rq, process);
                 continue;
             }
 
-            // Reset pour la prochaine fois
-            switch (process->priority) {
-                case PROCESS_PRIORITY_LOW:
-                    process->schedule_count = 8;
-                    break;
-                default:
-                    process->schedule_count = 1;
-                    break;
-            }
+            if (process->priority == PROCESS_PRIORITY_LOW)
+                process->schedule_count = LOW_PRIORITY_SKIPS;
 
             return process;
         }

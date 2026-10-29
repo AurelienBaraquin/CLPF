@@ -1,7 +1,7 @@
-#include <native_task/supervisor.h>
-#include <api/message.h>
+#include <api/supervisor.h>
+#include <api/memory.h>
 
-Pid __sup_add_child(Process *self, ProcessName name, Pid sup, SUP_STRAT strat, process_priority prio, void (*func)(), int argc, ...) {
+Pid __sup_add_child(Process *self, char *name, Pid sup, RestartType restart, process_priority prio, void (*func)(), int argc, ...) {
     Funcall_t taskcall;
 
     va_list ap;
@@ -11,23 +11,31 @@ Pid __sup_add_child(Process *self, ProcessName name, Pid sup, SUP_STRAT strat, p
 
     if (taskcall.func == NULL) {
         write(STDERR_FILENO, "Error: Invalid taskcall\n", 25);
-        return -1;
+        return INVALID_PID;
     }
 
     SupChildSpec spec = {0};
     spec.magic = MAGIC_SUP_CHILD;
-    strncpy(spec.name, name, NAME_MAX_LENGTH);
+    strncpy(spec.name, name, NAME_MAX_LENGTH - 1);
     spec.taskcall = taskcall;
     spec.priority = prio;
-    spec.restart = RES_PERMANENT;
+    spec.restart = restart;
 
     Pid *pid = REQUEST(sup, &spec, sizeof(SupChildSpec), MAKE_STR_TAG("supervisor::spawn"));
-    if (pid) {
-        Pid child_pid = *pid;
-        safe_heap_free(&self->heap, pid);
-        return child_pid;
-    } else {
-        write(STDERR_FILENO, "Error: Failed to spawn child process\n", 38);
+    if (!pid)
+        return INVALID_PID;
+
+    Pid child_pid = *pid;
+    FREE(pid);
+    return child_pid;
+}
+
+int __sup_remove_child(Process *self, Pid sup, Pid child) {
+    int *removed = REQUEST(sup, &child, sizeof(Pid), MAKE_STR_TAG("supervisor::remove"));
+    if (!removed)
         return -1;
-    }
+
+    int result = *removed;
+    FREE(removed);
+    return result;
 }

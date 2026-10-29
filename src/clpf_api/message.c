@@ -21,6 +21,7 @@ Message* __receive_internal(Process *self, Tag userdata) {
     Message* msg;
 
     while (1) {
+        handle_callbacks(self);
         msg = __receive_internal_fetch(self, userdata);
 
         if (msg)
@@ -36,52 +37,45 @@ void* receive(Process* self, Tag userdata) {
     assert(msg);
 
     void *payload = msg->payload;
-    if (payload)
-        safe_heap_free((safe_heap_t *)msg->heap, msg);
+    safe_heap_free(&self->heap, msg);
 
     return payload;
 }
 
 void *fetch(Process* self, Tag userdata) {
+    handle_callbacks(self);
     Message *msg = __receive_internal_fetch(self, userdata);
     if (!msg)
         return NULL;
 
     void *payload = msg->payload;
-    if (payload)
-        safe_heap_free((safe_heap_t *)msg->heap, msg);
+    safe_heap_free(&self->heap, msg);
 
     return payload;
 }
 
 int send(Process *self, Pid pid, void* data, size_t size, Tag tag) {
-    if (pid == -1) {
-        fprintf(stderr, "Invalid PID: %ld\n", pid);
+    // Sending to a process that no longer exists is not an error for the runtime
+    Process* other_process = process_lock(pid);
+    if (!other_process)
         return -1;
-    }
-
-    Process* other_process = &clpf.process_table[pid];
-    if (!other_process) {
-        fprintf(stderr, "Process %ld not found\n", pid);
-        return -1;
-    }
 
     Pid sender_pid = self ? self->pid : -1;
 
-    if (other_process)
-        mailbox_send_message(&other_process->mailbox, (heap_t*)&other_process->heap, data, size, sender_pid, tag);
-    else
-        mailbox_send_message(&other_process->mailbox, NULL, data, size, sender_pid, tag);
-
-    if (other_process->state == PROCESS_WAITING) {
-        other_process->state = PROCESS_READY;
+    int delivered = mailbox_send_message(&other_process->mailbox, &other_process->heap, data, size, sender_pid, tag);
+    process_unlock(other_process);
+    if (delivered != 0) {
+        fprintf(stderr, "Failed to deliver a message to process %ld\n", pid);
+        return -1;
     }
 
     if (self)
         yield(self);
+
+    return 0;
 }
 
-void* request(Process *self, pid_t pid, void* data, size_t size, Tag tag) {
+void* request(Process *self, Pid pid, void* data, size_t size, Tag tag) {
     if (send(self, pid, data, size, tag) != -1) {
         return receive(self, tag);
     } else {

@@ -23,7 +23,6 @@ void links_clear(ProcessLinks *links);
 
 void link_add_child(ProcessLinks *links, Pid child);
 
-int link_has_child(ProcessLinks *links, Pid child);
 void link_remove_child(ProcessLinks *links, Pid child);
 
 size_t link_count(links_t *list);

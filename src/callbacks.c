@@ -2,7 +2,7 @@
 
 void handle_signals_callbacks(Process *self) {
     Signal *sig = NULL;
-    while (sig = FETCH(MAKE_STR_TAG("scheduler::event::signal"))) {
+    while ((sig = FETCH(MAKE_STR_TAG("scheduler::event::signal")))) {
         if (!sig)
             return;
 
@@ -19,5 +19,11 @@ void handle_signals_callbacks(Process *self) {
 }
 
 void handle_callbacks(Process *self) {
+    // Not reentrant: a callback that waits for a message must not run other callbacks
+    if (self->callbacks_blocked > 0)
+        return;
+
+    self->callbacks_blocked++;
     handle_signals_callbacks(self);
+    self->callbacks_blocked--;
 }

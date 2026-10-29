@@ -2,7 +2,7 @@
 
 #include <utils/pid.h>
 
-#define ALPHABET_SIZE 63  // For extended ASCII
+#define ALPHABET_SIZE 64  // a-z, A-Z, 0-9, '_' and ':'
 
 typedef struct TrieNode {
     struct TrieNode* children[ALPHABET_SIZE];
@@ -16,7 +16,7 @@ TrieNode* name_table_init(void);
 // Frees all the memory used
 void name_table_free(TrieNode *root);
 
-// Inserts a name with its Pid
+// Inserts a name with its Pid, returns -1 if the name is empty or has an invalid character
 int name_table_insert(TrieNode *root, const char* name, Pid pid);
 
 // Searches for a Pid associated with a name, returns -1 if not found

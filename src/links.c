@@ -52,14 +52,6 @@ void link_add_child(ProcessLinks *links, Pid child) {
     add_to_list(&links->children, child);
 }
 
-int link_has_child(ProcessLinks *links, Pid child) {
-    for (links_t *l = links->children; l; l = l->next) {
-        if (l->pid == child)
-            return 1;
-    }
-    return 0;
-}
-
 void link_remove_child(ProcessLinks *links, Pid child) {
     remove_from_list(&links->children, child);
 }

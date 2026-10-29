@@ -1,17 +1,28 @@
 #include <clpf_internal.h>
 #include <stdio.h>
 #include <pthread.h>
+#include <unistd.h>
 #include <utils/cpu.h>
 #include <flags_internal.h>
 
 void init_task(Task entry, int argc, char *argv[]);
 
+#define RESERVED_CPUS 2
+
 CLPF clpf = {0};
+
+static void *scheduler_thread(void *arg)
+{
+    scheduler_loop((Scheduler *)arg);
+    return NULL;
+}
 
 void clpf_init()
 {
     for (int i = 0; i < MAX_PROCESSES; i++) {
-        clpf.process_table[i].pid = -1;
+        pthread_mutex_init(&clpf.process_table[i].lock, NULL);
+        clpf.process_table[i].pid = INVALID_PID;
+        clpf.process_table[i].generation = 0;
     }
 
     clpf.process_count = 0;
@@ -23,11 +34,6 @@ void clpf_init()
         return;
     }
 
-    clpf.fix = 0;
-    clpf.tix = 0;
-
-    global_supervisor_init(&clpf.global_supervisor);
-
     mpscq_init(&clpf.message_queue);
 }
 
@@ -37,13 +43,15 @@ void clpf_destroy()
         scheduler_destroy(&clpf.scheduler_table[i]);
     }
 
-    for (int i = 0; i < clpf.process_count; i++) {
+    for (int i = 0; i < MAX_PROCESSES; i++) {
         process_destroy(&clpf.process_table[i]);
     }
 
-    name_table_free(clpf.name_table);
+    for (int i = 0; i < MAX_PROCESSES; i++) {
+        pthread_mutex_destroy(&clpf.process_table[i].lock);
+    }
 
-    global_supervisor_destroy(&clpf.global_supervisor);
+    name_table_free(clpf.name_table);
 
     mpscq_clear(&clpf.message_queue, free);
 }
@@ -57,13 +65,16 @@ void __clpf_main(Task entry_point, int argc, char *argv[])
 
     clpf_init();
 
-    int cpus = nb_cpu() - 1;
+    int cpus = nb_cpu();
     if (cpus <= 0) {
         perror("Failed to get number of CPUs");
         return;
     }
 
-    for (int i = 0; i < MAX_SCHEDULERS && i < cpus - 1; i++) {
+    // Two cores are left to the main thread and the system, but there is always one scheduler
+    int schedulers = cpus > RESERVED_CPUS ? cpus - RESERVED_CPUS : 1;
+
+    for (int i = 0; i < MAX_SCHEDULERS && i < schedulers; i++) {
         if (scheduler_init(&clpf.scheduler_table[i], i) != 0) {
             fprintf(stderr, "Failed to initialize scheduler %d\n", i);
             return;
@@ -73,7 +84,7 @@ void __clpf_main(Task entry_point, int argc, char *argv[])
 
     for (int i = 0; i < clpf.scheduler_count; i++) {
         Scheduler* scheduler = &clpf.scheduler_table[i];
-        int r = pthread_create(&scheduler->system_thread_id, NULL, (void *(*)(void *))scheduler_loop, scheduler);
+        int r = pthread_create(&scheduler->system_thread_id, NULL, scheduler_thread, scheduler);
         if (r != 0) {
             fprintf(stderr, "Failed to create scheduler thread %d\n", i);
             return;
@@ -101,18 +112,11 @@ void __clpf_main(Task entry_point, int argc, char *argv[])
 
     exit_in_progress = 1;
 
-    for (int i = 0; i < clpf.process_count; ++i) {
+    for (int i = 0; i < MAX_PROCESSES; ++i) {
         Process* process = &clpf.process_table[i];
-        if (process->pid != -1) {
+        if (process->pid != INVALID_PID) {
             send(NULL, process->pid, NULL, 0, ((Tag){ .kind = TAG_KIND_STRING, .str_value = ("core::event::stop") }));
         }
-    }
-
-    for (int i = 0; i < clpf.scheduler_count; ++i) {
-        Scheduler* scheduler = &clpf.scheduler_table[i];
-        pthread_mutex_lock(&scheduler->mutex);
-        pthread_cond_signal(&scheduler->cond);
-        pthread_mutex_unlock(&scheduler->mutex);
     }
 
     for (int i = 0; i < clpf.scheduler_count; i++) {

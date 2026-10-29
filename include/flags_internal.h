@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdatomic.h>
 #include <stdbool.h>
 
-extern bool exit_in_progress;
+extern atomic_bool exit_in_progress;

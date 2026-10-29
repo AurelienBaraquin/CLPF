@@ -30,21 +30,27 @@ int __clpf_main_update()
         CoreMessage* msg = (CoreMessage*)n->data;
         switch (msg->op) {
             case CORE_MESSAGE_TYPE_SPAWN:
-                Pid new_pid = __clpf_task_add(msg->data.spawn.name, msg->data.spawn.taskcall, msg->data.spawn.priority, msg->data.spawn.parent_pid);
+                Pid new_pid = __clpf_task_add(msg->data.spawn.name, msg->data.spawn.taskcall, msg->data.spawn.priority, msg->data.spawn.parent_pid,
+                                              msg->data.spawn.monitor ? msg->sender : INVALID_PID);
                 if (msg->reply_to != -1)
                     send(NULL, msg->reply_to, &new_pid, sizeof(Pid), CORE_MESSAGE_TYPE_SPAWN_TAG);
                 break;
 
-            case CORE_MESSAGE_TYPE_NAME_REGISTER:
-                if (name_table_insert(clpf.name_table, msg->data.name_register.name, msg->data.name_register.pid) == 0) {
-                    memset(clpf.process_table[msg->data.name_register.pid].__name, 0, NAME_MAX_LENGTH);
-                    strcpy(clpf.process_table[msg->data.name_register.pid].__name, msg->data.name_register.name);
+            case CORE_MESSAGE_TYPE_NAME_REGISTER: {
+                Process *process = process_get(msg->data.name_register.pid);
+                if (process && name_table_insert(clpf.name_table, msg->data.name_register.name, process->pid) == 0) {
+                    memset(process->__name, 0, NAME_MAX_LENGTH);
+                    strcpy(process->__name, msg->data.name_register.name);
                 }
                 break;
-            case CORE_MESSAGE_TYPE_NAME_UNREGISTER:
-                memset(clpf.process_table[name_table_lookup(clpf.name_table, msg->data.name_unregister.name)].__name, 0, NAME_MAX_LENGTH);
+            }
+            case CORE_MESSAGE_TYPE_NAME_UNREGISTER: {
+                Process *registered = process_get(name_table_lookup(clpf.name_table, msg->data.name_unregister.name));
+                if (registered)
+                    memset(registered->__name, 0, NAME_MAX_LENGTH);
                 name_table_remove(clpf.name_table, msg->data.name_unregister.name);
                 break;
+            }
             case CORE_MESSAGE_TYPE_NAME_LOOKUP:
                 Pid pid = name_table_lookup(clpf.name_table, msg->data.name_lookup.name);
                 if (msg->reply_to == -1) {
@@ -54,14 +60,22 @@ int __clpf_main_update()
                 send(NULL, msg->reply_to, &pid, sizeof(Pid), CORE_MESSAGE_TYPE_NAME_LOOKUP_TAG);
                 break;
 
-            case CORE_MESSAGE_TYPE_PROCESS_EXIT:
-                if (msg->data.process_exit.pid != -1) {
-                    name_table_remove(clpf.name_table, clpf.process_table[msg->data.process_exit.pid].__name);
-                    process_destroy(&clpf.process_table[msg->data.process_exit.pid]);
-                    clpf.process_table[msg->data.process_exit.pid].pid = -1;
-                    clpf.process_count--;
+            case CORE_MESSAGE_TYPE_PROCESS_EXIT: {
+                Process *process = process_get(msg->data.process_exit.pid);
+                if (!process)
+                    break;
+                // The name may already belong to a restarted process
+                if (name_table_lookup(clpf.name_table, process->__name) == process->pid)
+                    name_table_remove(clpf.name_table, process->__name);
+                Process *parent = process_lock(process->links.parent);
+                if (parent) {
+                    link_remove_child(&parent->links, process->pid);
+                    process_unlock(parent);
                 }
+                process_destroy(process);
+                clpf.process_count--;
                 break;
+            }
             default:
                 break;
         }

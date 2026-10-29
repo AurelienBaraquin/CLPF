@@ -1,0 +1,26 @@
+# Each test is a standalone CLPF program; a hang is caught by the timeout.
+function(clpf_add_test name)
+    add_executable(${name} ${name}.c)
+    target_compile_options(${name} PRIVATE -Wall -Wextra)
+    target_link_libraries(${name} cbeam)
+    add_test(NAME ${name} COMMAND ${name})
+    set_tests_properties(${name} PROPERTIES TIMEOUT 20)
+endfunction()
+
+clpf_add_test(test_smoke)
+clpf_add_test(test_stack_alignment)
+clpf_add_test(test_name_table)
+clpf_add_test(test_scheduler_throughput)
+clpf_add_test(test_pingpong_stress)
+clpf_add_test(test_pid_reuse)
+clpf_add_test(test_supervisor_restart)
+clpf_add_test(test_monitor)
+clpf_add_test(test_exit_semantics)
+clpf_add_test(test_supervisor_policies)
+
+# The runtime must still start a scheduler when only one CPU is usable
+find_program(TASKSET taskset)
+if(TASKSET)
+    add_test(NAME test_single_cpu COMMAND ${TASKSET} -c 0 $<TARGET_FILE:test_smoke>)
+    set_tests_properties(test_single_cpu PROPERTIES TIMEOUT 20)
+endif()

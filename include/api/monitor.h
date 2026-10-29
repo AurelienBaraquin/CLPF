@@ -7,9 +7,11 @@
     self->monitor.arg = _arg;
 
 #define MONITOR_ADD(target) \
-    monitor_add(&self->monitor, target); \
-    monitored_by_add(&clpf.process_table[target].monitor, self->pid);
+    process_monitor(self, target)
 
 #define MONITOR_REMOVE(target) \
-    monitor_remove(&self->monitor, target); \
-    monitored_by_remove(&clpf.process_table[target].monitor, self->pid);
+    process_demonitor(self, target)
+
+// Ask to receive a DOWN signal when target exits (immediately, with EXIT_REASON_NOPROC, if it is already gone)
+void process_monitor(Process *self, Pid target);
+void process_demonitor(Process *self, Pid target);

@@ -37,7 +37,10 @@ call_raw_func:
     mov 40(%r10), %r9   # arg6
 
 .call:
+    # rsp ≡ 8 (mod 16) here; realign so the callee is entered with rsp ≡ 8 as the ABI requires
+    sub $8, %rsp
     call *%rax
+    add $8, %rsp
     ret
 
 .section .note.GNU-stack,"",@progbits
