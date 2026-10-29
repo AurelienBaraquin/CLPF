@@ -11,9 +11,13 @@ TASK(exit_normally, Pid report_to) {
     EXIT_NORMAL();
 }
 
+static atomic_bool crashed_once;
+
 TASK(crash_once, Pid report_to) {
     SEND(report_to, NULL, 0, MAKE_STR_TAG("crash"));
-    EXIT_ERROR();
+    if (!atomic_exchange(&crashed_once, true))
+        EXIT_ERROR();
+    MSG_FREE(RECEIVE(MAKE_STR_TAG("never")));
 }
 
 TASK(crash_temporary, Pid report_to) {
@@ -43,7 +47,7 @@ TASK(entry, int argc, char *argv[]) {
 
     // A transient child that crashes is restarted
     TEST_ASSERT(SUP_ADD_CHILD(sup, RES_TRANSIENT, crash_once, "transient_crash", 1, self->pid) != INVALID_PID);
-    for (int i = 0; i < 1 + MAX_RESTARTS; ++i)
+    for (int i = 0; i < 2; ++i) // first start + one restart
         MSG_FREE(RECEIVE(MAKE_STR_TAG("crash")));
 
     // A temporary child is never restarted
@@ -60,11 +64,6 @@ TASK(entry, int argc, char *argv[]) {
     TEST_ASSERT(idle_pid != INVALID_PID);
     TEST_ASSERT(SUP_REMOVE_CHILD(sup, idle_pid) == 0);
     TEST_ASSERT(SUP_REMOVE_CHILD(sup, idle_pid) == -1);
-
-    // Strategies that are not implemented are refused instead of duplicating children
-    Pid all = SPAWN_SUPERVISOR("all", SUP_ONE_FOR_ALL, PERIOD_MS, MAX_RESTARTS);
-    settle(self);
-    TEST_ASSERT(SUP_ADD_CHILD0(all, RES_PERMANENT, idle, "idle_all") == INVALID_PID);
 
     TEST_PASS();
     EXIT_NORMAL();

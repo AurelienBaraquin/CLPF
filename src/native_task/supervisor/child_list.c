@@ -12,11 +12,6 @@ SupChildSlot* DEF(sup_child_list_insert, SupChildList *list, SupChildSpec *child
     }
     new_child->pid = INVALID_PID;
     new_child->spec = *child;
-    new_child->restart_count = 0;
-    new_child->restart_index = 0;
-    for (int i = 0; i < SUP_RESTART_HISTORY; ++i) {
-        new_child->last_restart_times[i] = 0;
-    }
     TAILQ_INSERT_TAIL(list, new_child, entry);
 
     return new_child;
