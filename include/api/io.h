@@ -8,6 +8,8 @@
 #define FORMAT(fmt, ...) \
     clpf_format(self, fmt, ##__VA_ARGS__)
 
+// Waits for a line of stdin without blocking anything else; returns it with its
+// newline, allocated in the caller's heap (FREE it), or NULL at the end of input
 #define GETLINE() \
     clpf_getline(self)
 

@@ -43,6 +43,12 @@ clpf_add_test(test_io_server)
 clpf_add_test_program(test_shutdown)
 add_test(NAME test_shutdown COMMAND sh -c "lines=$(\"$0\" | grep -c '^line '); \"$0\" > /dev/null; [ $? -eq 1 ] && [ \"$lines\" -eq 1000 ]" $<TARGET_FILE:test_shutdown>)
 set_tests_properties(test_shutdown PROPERTIES TIMEOUT 20)
+
+clpf_add_test_program(test_getline)
+add_test(NAME test_getline COMMAND sh -c "printf 'hello\\nworld\\n' | \"$0\" read" $<TARGET_FILE:test_getline>)
+add_test(NAME test_getline_does_not_block_print COMMAND sh -c "sleep 3 | timeout 1 \"$0\" wait" $<TARGET_FILE:test_getline>)
+set_tests_properties(test_getline test_getline_does_not_block_print PROPERTIES TIMEOUT 20)
+set_tests_properties(test_getline_does_not_block_print PROPERTIES PASS_REGULAR_EXPRESSION "^early")
 # This one crashes on purpose: only its diagnostic is checked
 clpf_add_test_program(test_stack_overflow)
 add_test(NAME test_stack_overflow COMMAND sh -c "\"$0\" 2>&1; exit 0" $<TARGET_FILE:test_stack_overflow>)
