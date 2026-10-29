@@ -3,14 +3,14 @@
 #include <string.h>
 #include <stdbool.h>
 
-void mailbox_init(Mailbox* mailbox) {
+void mailbox_init(Mailbox *mailbox) {
     mailbox->seen_head = NULL;
     mailbox->seen_tail = NULL;
     mailbox->inbox_head = NULL;
     mailbox->inbox_tail = NULL;
 }
 
-void mailbox_destroy(Mailbox* mbox) {
+void mailbox_destroy(Mailbox *mbox) {
     mbox->inbox_head = NULL;
     mbox->inbox_tail = NULL;
 
@@ -25,12 +25,12 @@ static bool tag_has_string(Tag tag) {
     return tag.kind == TAG_KIND_STRING || tag.kind == TAG_KIND_NOTIFY;
 }
 
-int mailbox_send_message(Mailbox* dest, safe_heap_t *dest_heap, void* data, size_t size, Pid sender, Tag tag) {
+int mailbox_send_message(Mailbox *dest, safe_heap_t *dest_heap, void *data, size_t size, Pid sender, Tag tag) {
     if (!data)
         size = 0;
     size_t string_size = tag_has_string(tag) ? strlen(tag.str_value) + 1 : 0;
 
-    Message* msg = safe_heap_alloc(dest_heap, MESSAGE_HEADER_SIZE + size + string_size);
+    Message *msg = safe_heap_alloc(dest_heap, MESSAGE_HEADER_SIZE + size + string_size);
     if (!msg)
         return -1;
 
@@ -58,7 +58,7 @@ int mailbox_send_message(Mailbox* dest, safe_heap_t *dest_heap, void* data, size
     return 0;
 }
 
-void mailbox_transfer_inbox_to_seen(Mailbox* mbox) {
+void mailbox_transfer_inbox_to_seen(Mailbox *mbox) {
     if (mbox->inbox_head) {
         if (mbox->seen_tail)
             mbox->seen_tail->next = mbox->inbox_head;
@@ -71,9 +71,9 @@ void mailbox_transfer_inbox_to_seen(Mailbox* mbox) {
     }
 }
 
-Message* mailbox_take_matching(Mailbox* mbox, MessageMatch match, Tag pattern) {
-    Message* prev = NULL;
-    Message* msg = mbox->seen_head;
+Message *mailbox_take_matching(Mailbox *mbox, MessageMatch match, Tag pattern) {
+    Message *prev = NULL;
+    Message *msg = mbox->seen_head;
 
     while (msg) {
         if (match(msg, pattern)) {

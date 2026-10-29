@@ -112,31 +112,27 @@ bool clpf_match_same(const Message *msg, Tag pattern) {
         case TAG_KIND_INTEGER:
         case TAG_KIND_DOWN:
         case TAG_KIND_EXIT:
-        case TAG_KIND_TIMEOUT:
-            return msg->tag.int_value == pattern.int_value;
+        case TAG_KIND_TIMEOUT: return msg->tag.int_value == pattern.int_value;
         case TAG_KIND_STRING:
-        case TAG_KIND_NOTIFY:
-            return strcmp(msg->tag.str_value, pattern.str_value) == 0;
-        case TAG_KIND_INTERNAL:
-            return msg->tag.internal_code == pattern.internal_code;
-        default:
-            return false;
+        case TAG_KIND_NOTIFY: return strcmp(msg->tag.str_value, pattern.str_value) == 0;
+        case TAG_KIND_INTERNAL: return msg->tag.internal_code == pattern.internal_code;
+        default: return false;
     }
 }
 
 bool clpf_match_prefix(const Message *msg, Tag pattern) {
-    return msg->tag.kind == TAG_KIND_STRING && pattern.kind == TAG_KIND_STRING
-        && strncmp(msg->tag.str_value, pattern.str_value, strlen(pattern.str_value)) == 0;
+    return msg->tag.kind == TAG_KIND_STRING && pattern.kind == TAG_KIND_STRING &&
+           strncmp(msg->tag.str_value, pattern.str_value, strlen(pattern.str_value)) == 0;
 }
 
 bool clpf_match_gte(const Message *msg, Tag pattern) {
-    return msg->tag.kind == TAG_KIND_INTEGER && pattern.kind == TAG_KIND_INTEGER
-        && msg->tag.int_value >= pattern.int_value;
+    return msg->tag.kind == TAG_KIND_INTEGER && pattern.kind == TAG_KIND_INTEGER &&
+           msg->tag.int_value >= pattern.int_value;
 }
 
 bool clpf_match_lte(const Message *msg, Tag pattern) {
-    return msg->tag.kind == TAG_KIND_INTEGER && pattern.kind == TAG_KIND_INTEGER
-        && msg->tag.int_value <= pattern.int_value;
+    return msg->tag.kind == TAG_KIND_INTEGER && pattern.kind == TAG_KIND_INTEGER &&
+           msg->tag.int_value <= pattern.int_value;
 }
 
 bool clpf_match_in_range(const Message *msg, Tag pattern) {

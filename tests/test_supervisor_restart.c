@@ -3,8 +3,8 @@
 #include <api/monitor.h>
 #include <api/timer.h>
 
-#define PERIOD_MS 10000
-#define CHILDREN 30
+#define PERIOD_MS             10000
+#define CHILDREN              30
 #define ALWAYS_CRASHING_LIMIT 3
 
 static atomic_bool crashed[CHILDREN];

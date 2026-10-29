@@ -1,7 +1,7 @@
 #include <native_task/supervisor.h>
 #include <api/memory.h>
 
-SupChildSlot* DEF(sup_child_list_insert, SupChildList *list, SupChildSpec *child) {
+SupChildSlot *DEF(sup_child_list_insert, SupChildList *list, SupChildSpec *child) {
     if (!list || !child)
         return NULL;
 

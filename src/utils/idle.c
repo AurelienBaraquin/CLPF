@@ -30,7 +30,7 @@ void idle_wait_until(IdleWaiter *waiter, bool (*has_work)(void *arg), void *arg,
     // Work published before this point is seen here; work published later
     // comes with an idle_wake that finds sleeping set
     if (!has_work(arg)) {
-        struct timespec deadline = { (time_t)(deadline_ms / 1000), (long)(deadline_ms % 1000) * 1000000L };
+        struct timespec deadline = {(time_t)(deadline_ms / 1000), (long)(deadline_ms % 1000) * 1000000L};
 
         pthread_mutex_lock(&waiter->lock);
         while (!atomic_load(&waiter->signaled)) {

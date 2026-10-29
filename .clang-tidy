@@ -1,0 +1,16 @@
+# Static analysis of the project's own code (external/ is excluded by the header filter).
+# signed-bitwise is off: POSIX flag macros (PROT_READ | PROT_WRITE...) are signed ints.
+Checks: >
+  clang-analyzer-*,
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-reserved-identifier,
+  -bugprone-macro-parentheses,
+  -bugprone-assignment-in-if-condition,
+  -bugprone-signed-bitwise,
+  -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,
+  performance-*,
+  portability-*,
+  -portability-avoid-pragma-once
+WarningsAsErrors: '*'
+HeaderFilterRegex: '.*/(include|src|tests)/.*'

@@ -18,7 +18,7 @@ typedef struct {
 } Hello;
 
 TASK(child, Pid report_to) {
-    Hello hello = { self->pid, self->scheduler_pid };
+    Hello hello = {self->pid, self->scheduler_pid};
     SEND(report_to, &hello, sizeof hello, MAKE_STR_TAG("hello"));
     EXIT_NORMAL();
 }
@@ -56,7 +56,7 @@ TASK(entry, int argc, char *argv[]) {
     TEST_ASSERT(FETCH(MAKE_STR_TAG("spawn_failed")) == NULL);
 
     // Every spawn got its own pid
-    qsort(pids, TOTAL_CHILDREN, sizeof(Pid), compare_pids);
+    qsort(pids, (size_t)TOTAL_CHILDREN, sizeof(Pid), compare_pids);
     for (int i = 1; i < TOTAL_CHILDREN; ++i)
         TEST_ASSERT(pids[i] != pids[i - 1]);
 

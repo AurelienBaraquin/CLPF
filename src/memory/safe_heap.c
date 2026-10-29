@@ -6,11 +6,10 @@
 #include <errno.h>
 #include <assert.h>
 
-#define ALIGN_UP(x, align) (((x) + ((align)-1)) & ~((align)-1))
+#define ALIGN_UP(x, align) (((x) + ((align) - 1)) & ~((align) - 1))
 
-static void* safe_mmap(size_t size) {
-    void* base = mmap(NULL, ALIGN_UP(size, 4096), PROT_READ | PROT_WRITE,
-                      MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+static void *safe_mmap(size_t size) {
+    void *base = mmap(NULL, ALIGN_UP(size, 4096), PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     if (base == MAP_FAILED) {
         fprintf(stderr, "safe_mmap: mmap failed (%s)\n", strerror(errno));
         return NULL;
@@ -18,7 +17,7 @@ static void* safe_mmap(size_t size) {
     return base;
 }
 
-int safe_heap_create(safe_heap_t* safe_heap, size_t size) {
+int safe_heap_create(safe_heap_t *safe_heap, size_t size) {
     if (!safe_heap) {
         fprintf(stderr, "safe_heap_create: null pointer\n");
         return -1;
@@ -30,7 +29,7 @@ int safe_heap_create(safe_heap_t* safe_heap, size_t size) {
     if (size < MINIMAL_HEAP_POOL_SIZE)
         size = MINIMAL_HEAP_POOL_SIZE;
 
-    void* base = safe_mmap(size);
+    void *base = safe_mmap(size);
     if (!base)
         return -1;
 
@@ -41,7 +40,7 @@ int safe_heap_create(safe_heap_t* safe_heap, size_t size) {
         return -1;
     }
 
-    safe_heap_pool_t* pool = calloc(1, sizeof(safe_heap_pool_t));
+    safe_heap_pool_t *pool = calloc(1, sizeof(safe_heap_pool_t));
     if (!pool) {
         tlsf_destroy(tlsf);
         munmap(base, size);
@@ -59,7 +58,7 @@ int safe_heap_create(safe_heap_t* safe_heap, size_t size) {
     return 0;
 }
 
-void safe_heap_destroy(safe_heap_t* safe_heap) {
+void safe_heap_destroy(safe_heap_t *safe_heap) {
     if (!safe_heap)
         return;
 
@@ -68,7 +67,7 @@ void safe_heap_destroy(safe_heap_t* safe_heap) {
         safe_heap->tlsf = NULL;
     }
 
-    safe_heap_pool_t* pool;
+    safe_heap_pool_t *pool;
     while (!SLIST_EMPTY(&safe_heap->pools)) {
         pool = SLIST_FIRST(&safe_heap->pools);
         SLIST_REMOVE_HEAD(&safe_heap->pools, next);
@@ -84,7 +83,7 @@ void safe_heap_destroy(safe_heap_t* safe_heap) {
     memset(safe_heap, 0xA5, sizeof(*safe_heap)); // poison to catch use-after-free
 }
 
-void safe_heap_free(safe_heap_t* safe_heap, void* ptr) {
+void safe_heap_free(safe_heap_t *safe_heap, void *ptr) {
     if (!safe_heap || !ptr || !safe_heap->tlsf)
         return;
 
@@ -93,7 +92,7 @@ void safe_heap_free(safe_heap_t* safe_heap, void* ptr) {
     spinlock_unlock(&safe_heap->lock);
 }
 
-int safe_heap_grow(safe_heap_t* safe_heap, size_t size) {
+int safe_heap_grow(safe_heap_t *safe_heap, size_t size) {
     if (!safe_heap || !safe_heap->tlsf) {
         fprintf(stderr, "safe_heap_grow: invalid heap\n");
         return -1;
@@ -102,13 +101,13 @@ int safe_heap_grow(safe_heap_t* safe_heap, size_t size) {
     if (size < MINIMAL_HEAP_POOL_SIZE)
         size = MINIMAL_HEAP_POOL_SIZE;
 
-    void* base = safe_mmap(size);
+    void *base = safe_mmap(size);
     if (!base)
         return -1;
 
     spinlock_lock(&safe_heap->lock);
 
-    void* ref = tlsf_add_pool(safe_heap->tlsf, base, size);
+    void *ref = tlsf_add_pool(safe_heap->tlsf, base, size);
     if (!ref) {
         munmap(base, size);
         spinlock_unlock(&safe_heap->lock);
@@ -116,7 +115,7 @@ int safe_heap_grow(safe_heap_t* safe_heap, size_t size) {
         return -1;
     }
 
-    safe_heap_pool_t* pool = calloc(1, sizeof(safe_heap_pool_t));
+    safe_heap_pool_t *pool = calloc(1, sizeof(safe_heap_pool_t));
     if (!pool) {
         munmap(base, size);
         spinlock_unlock(&safe_heap->lock);
@@ -132,11 +131,11 @@ int safe_heap_grow(safe_heap_t* safe_heap, size_t size) {
     return 0;
 }
 
-void* safe_heap_alloc(safe_heap_t* safe_heap, size_t size) {
+void *safe_heap_alloc(safe_heap_t *safe_heap, size_t size) {
     if (!safe_heap || !safe_heap->tlsf || size == 0)
         return NULL;
 
-    void* ptr = NULL;
+    void *ptr = NULL;
 
     spinlock_lock(&safe_heap->lock);
     ptr = tlsf_malloc(safe_heap->tlsf, size);
@@ -160,12 +159,12 @@ void* safe_heap_alloc(safe_heap_t* safe_heap, size_t size) {
     return ptr;
 }
 
-void* safe_heap_realloc(safe_heap_t* safe_heap, void* ptr, size_t size) {
+void *safe_heap_realloc(safe_heap_t *safe_heap, void *ptr, size_t size) {
     if (!safe_heap || !safe_heap->tlsf || size == 0)
         return NULL;
 
     spinlock_lock(&safe_heap->lock);
-    void* new_ptr = tlsf_realloc(safe_heap->tlsf, ptr, size);
+    void *new_ptr = tlsf_realloc(safe_heap->tlsf, ptr, size);
     spinlock_unlock(&safe_heap->lock);
 
     if (!new_ptr) {

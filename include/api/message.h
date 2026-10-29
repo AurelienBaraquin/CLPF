@@ -19,38 +19,28 @@ bool clpf_match_kind(const Message *msg, Tag pattern);     // same TagKind (use 
 
 // Blocks until the oldest message with this tag (NO_TAG: any message) arrives.
 // The message belongs to the caller: release it with MSG_FREE.
-#define RECEIVE(tag) \
-    clpf_receive(self, TM_SAME, tag)
+#define RECEIVE(tag) clpf_receive(self, TM_SAME, tag)
 
 // Blocks until the oldest message accepted by match arrives
-#define RECEIVE_IF(match, pattern) \
-    clpf_receive(self, match, pattern)
+#define RECEIVE_IF(match, pattern) clpf_receive(self, match, pattern)
 
 // Like RECEIVE without blocking: NULL only when no message matches
-#define FETCH(tag) \
-    clpf_fetch(self, TM_SAME, tag)
+#define FETCH(tag) clpf_fetch(self, TM_SAME, tag)
 
-#define FETCH_IF(match, pattern) \
-    clpf_fetch(self, match, pattern)
+#define FETCH_IF(match, pattern) clpf_fetch(self, match, pattern)
 
 // Copies size bytes of data into the receiver's heap: pointers inside the
 // payload are meaningless to the receiver. Returns 0, or -1 if pid is gone.
-#define SEND(pid, data, size, tag) \
-    clpf_send(self, pid, data, size, tag)
+#define SEND(pid, data, size, tag) clpf_send(self, pid, data, size, tag)
 
 // Sends, then waits for the reply carrying the same tag (NULL if pid is gone)
-#define REQUEST(pid, data, size, tag) \
-    clpf_request(self, pid, data, size, tag)
+#define REQUEST(pid, data, size, tag) clpf_request(self, pid, data, size, tag)
 
-#define MSG_IS(msg, tag) \
-    clpf_match_same(msg, tag)
+#define MSG_IS(msg, tag) clpf_match_same(msg, tag)
 
-#define MSG_FREE(msg) \
-    clpf_msg_free(self, msg)
+#define MSG_FREE(msg) clpf_msg_free(self, msg)
 
 // Empty signal-like messages identified by a name (any string, built at run time or not)
-#define NOTIFY(pid, name) \
-    SEND(pid, NULL, 0, MAKE_NOTIFY_TAG(name))
+#define NOTIFY(pid, name) SEND(pid, NULL, 0, MAKE_NOTIFY_TAG(name))
 
-#define WAIT_NOTIF(name) \
-    MSG_FREE(RECEIVE(MAKE_NOTIFY_TAG(name)))
+#define WAIT_NOTIF(name) MSG_FREE(RECEIVE(MAKE_NOTIFY_TAG(name)))

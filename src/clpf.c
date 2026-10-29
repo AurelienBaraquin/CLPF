@@ -7,20 +7,19 @@
 #include <utils/stack_guard.h>
 #include <timer.h>
 
-void init_task(Task entry, int argc, char *argv[]);
+// Starts the launcher, which starts the system servers and then the entry task
+int init_task(Task entry, int argc, char *argv[]);
 
 #define RESERVED_CPUS 2
 
 CLPF clpf = {0};
 
-static void *scheduler_thread(void *arg)
-{
+static void *scheduler_thread(void *arg) {
     scheduler_loop((Scheduler *)arg);
     return NULL;
 }
 
-static int clpf_init(void)
-{
+static int clpf_init(void) {
     clpf.process_table = calloc(MAX_PROCESSES, sizeof(Process));
     clpf.free_slots = malloc(MAX_PROCESSES * sizeof(int));
     clpf.name_table = name_table_init();
@@ -53,8 +52,7 @@ static int clpf_init(void)
     return 0;
 }
 
-int clpf_slot_alloc(void)
-{
+int clpf_slot_alloc(void) {
     int index = -1;
 
     pthread_mutex_lock(&clpf.table_lock);
@@ -64,15 +62,13 @@ int clpf_slot_alloc(void)
     return index;
 }
 
-void clpf_slot_release(int index)
-{
+void clpf_slot_release(int index) {
     pthread_mutex_lock(&clpf.table_lock);
     clpf.free_slots[clpf.free_slot_count++] = index;
     pthread_mutex_unlock(&clpf.table_lock);
 }
 
-static void clpf_destroy(void)
-{
+static void clpf_destroy(void) {
     for (int i = 0; i < clpf.scheduler_count; i++) {
         scheduler_destroy(&clpf.scheduler_table[i]);
     }
@@ -90,7 +86,7 @@ static void clpf_destroy(void)
 
     name_table_free(clpf.name_table);
 
-    for (MPSCQNode *n = mpscq_drain(&clpf.message_queue); n != NULL; ) {
+    for (MPSCQNode *n = mpscq_drain(&clpf.message_queue); n != NULL;) {
         MPSCQNode *next = n->next;
         clpf_message_destroy(container_of(n, CoreMessage, node));
         n = next;
@@ -100,22 +96,19 @@ static void clpf_destroy(void)
     idle_destroy(&clpf.main_idle);
 }
 
-void clpf_post(CoreMessage *msg)
-{
+void clpf_post(CoreMessage *msg) {
     mpscq_push(&clpf.message_queue, &msg->node);
     idle_wake(&clpf.main_idle);
 }
 
-void clpf_wake_all(void)
-{
+void clpf_wake_all(void) {
     idle_wake(&clpf.main_idle);
     for (int i = 0; i < clpf.scheduler_count; i++)
         scheduler_wake(&clpf.scheduler_table[i]);
 }
 
 // Main thread, during shutdown: ends every process that is not a system one
-static void kill_user_processes(void)
-{
+static void kill_user_processes(void) {
     for (int i = 0; i < MAX_PROCESSES; i++) {
         Process *process = &clpf.process_table[i];
         pthread_mutex_lock(&process->lock);
@@ -125,14 +118,12 @@ static void kill_user_processes(void)
     }
 }
 
-static bool main_has_work(void *arg)
-{
+static bool main_has_work(void *arg) {
     (void)arg;
     return exit_in_progress || !mpscq_empty(&clpf.message_queue);
 }
 
-int clpf_main(Task entry_point, int argc, char *argv[])
-{
+int clpf_main(Task entry_point, int argc, char *argv[]) {
     if (!entry_point) {
         fprintf(stderr, "Entry point is NULL\n");
         return 1;
@@ -160,7 +151,7 @@ int clpf_main(Task entry_point, int argc, char *argv[])
     }
 
     for (int i = 0; i < clpf.scheduler_count; i++) {
-        Scheduler* scheduler = &clpf.scheduler_table[i];
+        Scheduler *scheduler = &clpf.scheduler_table[i];
         int r = pthread_create(&scheduler->system_thread_id, NULL, scheduler_thread, scheduler);
         if (r != 0) {
             fprintf(stderr, "Failed to create scheduler thread %d\n", i);
@@ -168,7 +159,9 @@ int clpf_main(Task entry_point, int argc, char *argv[])
         }
     }
 
-    init_task(entry_point, argc, argv);
+    // Without a launcher no process exists: the loop below ends at once
+    if (init_task(entry_point, argc, argv) != 0)
+        clpf.entry_exit_reason = EXIT_REASON_ERROR;
 
     // Once the entry process ended: kill the user processes, then ask the
     // system servers (I/O last) to stop, then wait until every process is gone
@@ -213,7 +206,7 @@ int clpf_main(Task entry_point, int argc, char *argv[])
     clpf_wake_all();
 
     for (int i = 0; i < clpf.scheduler_count; i++) {
-        Scheduler* scheduler = &clpf.scheduler_table[i];
+        Scheduler *scheduler = &clpf.scheduler_table[i];
         pthread_join(scheduler->system_thread_id, NULL);
     }
 

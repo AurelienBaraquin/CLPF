@@ -4,7 +4,7 @@
 #include <api/memory.h>
 #include <utils/time.h>
 
-#define ROUND_TRIPS 5000
+#define ROUND_TRIPS     5000
 #define MAX_DURATION_MS 2000
 
 // A context switch must not cost a scheduler sleep: thousands of

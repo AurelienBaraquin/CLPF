@@ -4,16 +4,17 @@
 #include <string.h>
 #include <unistd.h>
 
-#define ALT_STACK_SIZE (64 * 1024)
+#define ALT_STACK_SIZE ((size_t)64 * 1024)
 
 static __thread Process *running_process;
 static __thread char alt_stack[ALT_STACK_SIZE];
 static size_t page_size;
 
+// Appends text without its NUL: the message is written with its length
 static size_t append(char *buffer, size_t used, const char *text) {
-    size_t length = strlen(text);
-    memcpy(buffer + used, text, length);
-    return used + length;
+    while (*text)
+        buffer[used++] = *text++;
+    return used;
 }
 
 static size_t append_number(char *buffer, size_t used, long value) {
@@ -72,7 +73,7 @@ void stack_guard_thread_init(void) {
     if (sigaltstack(NULL, &current) == 0 && !(current.ss_flags & SS_DISABLE))
         return;
 
-    stack_t stack = { .ss_sp = alt_stack, .ss_size = ALT_STACK_SIZE, .ss_flags = 0 };
+    stack_t stack = {.ss_sp = alt_stack, .ss_size = ALT_STACK_SIZE, .ss_flags = 0};
     sigaltstack(&stack, NULL);
 }
 

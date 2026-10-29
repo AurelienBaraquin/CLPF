@@ -21,8 +21,8 @@ TASK(entry, int argc, char *argv[]) {
     // REGISTER answers right away
     TEST_ASSERT(REGISTER("db", first) == 0);
     TEST_ASSERT(WHEREIS("db") == first);
-    TEST_ASSERT(REGISTER("db", second) == -1);      // name taken
-    TEST_ASSERT(REGISTER("cache", first) == -1);    // one name per process
+    TEST_ASSERT(REGISTER("db", second) == -1);       // name taken
+    TEST_ASSERT(REGISTER("cache", first) == -1);     // one name per process
     TEST_ASSERT(REGISTER("bad name", second) == -1); // invalid character
     TEST_ASSERT(REGISTER("", second) == -1);
 

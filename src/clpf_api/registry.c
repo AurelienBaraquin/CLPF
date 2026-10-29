@@ -21,9 +21,9 @@ int clpf_register(const char *name, Pid pid) {
     pthread_mutex_lock(&clpf.table_lock);
     Process *process = process_lock(pid);
     if (process) {
-        if (!process->exit_notified && process->registered_name[0] == '\0' && !name_taken(name)
-            && name_table_insert(clpf.name_table, name, pid) == 0) {
-            strcpy(process->registered_name, name);
+        if (!process->exit_notified && process->registered_name[0] == '\0' && !name_taken(name) &&
+            name_table_insert(clpf.name_table, name, pid) == 0) {
+            memcpy(process->registered_name, name, strlen(name) + 1); // length checked above
             result = 0;
         }
         process_unlock(process);

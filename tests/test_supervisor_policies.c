@@ -2,8 +2,8 @@
 #include <api/supervisor.h>
 #include <api/memory.h>
 
-#define PERIOD_MS 10000
-#define MAX_RESTARTS 3
+#define PERIOD_MS     10000
+#define MAX_RESTARTS  3
 #define SETTLE_YIELDS 20000
 
 TASK(exit_normally, Pid report_to) {

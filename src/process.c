@@ -25,8 +25,7 @@ int process_init(Process *process, Funcall_t *taskcall, const SpawnOptions *opti
     memset(process->registered_name, 0, NAME_MAX_LENGTH);
 
     process->scheduler_pid = -1;
-    process->state = PROCESS_INIT,
-    process->priority = priority;
+    process->state = PROCESS_INIT, process->priority = priority;
 
     process->schedule_count = priority == PROCESS_PRIORITY_LOW ? LOW_PRIORITY_SKIPS : 0;
     process->reductions = REDUCTION_BUDGET;
@@ -39,7 +38,7 @@ int process_init(Process *process, Funcall_t *taskcall, const SpawnOptions *opti
     if (taskcall->argc >= 6) {
         fprintf(stderr, "[process_init] Too many arguments (%d), max is 5\n", taskcall->argc);
         return -1;
-    }    
+    }
     memcpy(&funcall.args[1], taskcall->args, sizeof(uintptr_t) * (taskcall->argc));
 
     process->taskcall = funcall;

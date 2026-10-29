@@ -24,7 +24,7 @@ void process_exit_signal_locked(Process *target, Pid from, unsigned int reason, 
         return;
 
     if (!untrappable && target->trap_exit) {
-        ExitInfo info = { from, reason };
+        ExitInfo info = {from, reason};
         if (mailbox_send_message(&target->mailbox, &target->heap, &info, sizeof info, from, MAKE_EXIT_TAG(from)) == 0)
             process_notify_locked(target);
         return;
@@ -56,7 +56,7 @@ void process_terminate(Process *process, unsigned int reason) {
     process->exit_reason = reason;
     pthread_mutex_unlock(&process->lock);
 
-    DownInfo down = { process->pid, reason };
+    DownInfo down = {process->pid, reason};
     for (links_t *l = watchers; l; l = l->next)
         clpf_deliver(process->pid, l->pid, &down, sizeof down, MAKE_DOWN_TAG(process->pid));
     free_link_list(watchers);

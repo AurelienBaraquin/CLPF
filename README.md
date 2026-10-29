@@ -2,7 +2,7 @@
 
 **An Erlang/BEAM-style actor runtime written in C.** It multiplexes lightweight processes across a pool of scheduler threads. Processes talk only through mailboxes, and supervisors restart them when they crash.
 
-> Status: experimental, paused since May 2025. The core runtime works. See [Status](#status) for what is and isn't done.
+> Status: experimental. See [Status](#status) for what works and the known limits.
 
 ## Features
 
@@ -78,37 +78,54 @@ CLPF_ENTRY(entry)                                       // generates main(): exi
 
 ## Build & run
 
-Requirements: Linux on x86-64, GCC or Clang, CMake ≥ 3.15, pthreads.
+Requirements: Linux on x86-64, GCC or Clang (the API uses GNU C statement expressions), CMake ≥ 3.15, pthreads.
 
 ```sh
 git clone --recursive https://github.com/AurelienBaraquin/CLPF.git
 cd CLPF                       # if already cloned: git submodule update --init
 cmake -S . -B build
 cmake --build build -j
-./build/clpf_demo            # demo: a supervised child that crashes and is restarted
+./build/clpf_demo             # the showcase in main.c (-i to type your name)
 ctest --test-dir build --output-on-failure
 ```
 
-The build produces `build/libclpf.a` plus `libtlsf.a`, `liblibaco.a` and `libstb_sprintf.a`. To build your own program against them:
+[`docs/api.md`](docs/api.md) documents the whole API, and [`examples/`](examples) holds short runnable programs (ping-pong through the registry, supervisors, timers, links).
+
+### Using the library
 
 ```sh
-gcc -std=gnu11 -Iinclude -Iexternal my_app.c \
-    -Lbuild -lclpf -ltlsf -llibaco -lstb_sprintf -lpthread -o my_app
+cmake --install build --prefix ~/.local
 ```
+
+installs `libclpf.a` and its vendored dependencies, the headers under `include/clpf`, a CMake package and a pkg-config file:
+
+```cmake
+find_package(clpf REQUIRED)
+target_link_libraries(my_app clpf::clpf)
+```
+
+```sh
+gcc -std=gnu11 my_app.c $(pkg-config --cflags --libs clpf) -o my_app
+```
+
+### Options and checks
 
 CMake options:
 
 - `CMAKE_BUILD_TYPE` (default `Debug`)
-- `CLPF_SANITIZE=thread` or `address` builds everything, tests included, with that sanitizer. The test suite passes under both.
-- `CLPF_TRACE=ON` logs every process creation and destruction to stdout.
+- `CLPF_SANITIZE=thread` or `address` builds everything, tests included, with that sanitizer
+- `CLPF_TRACE=ON` logs every process creation and destruction to stdout
+- `CLPF_BUILD_TESTS`, `CLPF_BUILD_EXAMPLES` (both `ON` by default)
 
 ```sh
 cmake -S . -B build-thread -DCLPF_SANITIZE=thread
 cmake --build build-thread -j
-setarch -R ctest --test-dir build-thread    # setarch -R: some kernels need ASLR off for TSan
+setarch -R ctest --test-dir build-thread    # setarch -R: recent kernels need ASLR off for TSan
 ```
 
 Tests live in `tests/`. Each one is a small CLPF program that reports through `TEST_ASSERT` / `TEST_PASS` (`tests/test_helpers.h`), and CTest treats a hang as a failure through its timeout.
+
+The code is formatted with clang-format and checked with clang-tidy (`.clang-format`, `.clang-tidy`). The CI runs the tests in Debug and Release, under both sanitizers, builds an example against the installed package, and checks formatting and clang-tidy with pinned versions (`pip install clang-format==23.1.3 clang-tidy==23.1.4`).
 
 ## Status
 

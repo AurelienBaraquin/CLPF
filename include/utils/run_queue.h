@@ -10,20 +10,20 @@ typedef struct RunQueue {
     size_t size;
 } RunQueue;
 
-// Initialisation
+// Initialise an empty queue
 void runq_init(RunQueue *rq);
 
-// Ajout en fin
+// Append at the tail
 void runq_push(RunQueue *rq, Process *p);
 
-// Extraction en tête
+// Remove and return the head, or NULL
 Process *runq_pop(RunQueue *rq);
 
-// Queue vide ?
+// Non-zero if the queue is empty
 int runq_empty(RunQueue *rq);
 
-// Libération de la mémoire
+// Empty the queue, calling destroy (if any) on each process
 void runq_clear(RunQueue *rq, void (*destroy)(Process *));
 
-// Taille de la queue
+// Number of processes, O(1)
 size_t runq_size(RunQueue *rq);

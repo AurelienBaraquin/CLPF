@@ -20,7 +20,7 @@ TASK(entry, int argc, char *argv[]) {
     (void)argc;
     (void)argv;
 
-    Params params = { 0.75, "alpha", self->pid };
+    Params params = {0.75, "alpha", self->pid};
     TEST_ASSERT(SPAWN_WITH(worker, &params, sizeof params) != INVALID_PID);
 
     // The child got its own copy

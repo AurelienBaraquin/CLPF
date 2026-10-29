@@ -3,7 +3,7 @@
 #include <api/message.h>
 #include <api/memory.h>
 
-#define PAIRS 8
+#define PAIRS       8
 #define ROUND_TRIPS 2000
 
 // New processes are spread over the schedulers, so most messages below
