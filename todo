@@ -30,12 +30,12 @@ Performance
 - [x] Tout spawn / lookup passe par le thread principal (spawn direct, registre synchrone)
 
 Qualité et outillage
-- [ ] CI GitHub Actions (build, ctest, ASan, TSan)
-- [ ] clang-format / clang-tidy
+- [x] CI GitHub Actions (build, ctest, ASan, TSan)
+- [x] clang-format / clang-tidy
 - [x] Identifiants réservés __xxx à renommer
 - [x] Nommage incohérent cbeam / CLPF
-- [ ] Cible install + pkg-config / find_package
-- [ ] Portabilité : x86-64 seulement (funcall.S) -> aarch64
-- [ ] Référence de l'API + dossier examples/
-- [ ] Tests manquants : registre, GETLINE, ratio LOW, NOTIFY, OOM
-- [ ] Commentaires mélangeant français et anglais
+- [x] Cible install + pkg-config / find_package
+- [ ] Portabilité : x86-64 seulement (funcall.S) -> aarch64 (hors périmètre : libaco est x86 uniquement, il faudrait remplacer son changement de contexte)
+- [x] Référence de l'API + dossier examples/
+- [x] Tests manquants : registre, GETLINE, ratio LOW, NOTIFY, OOM
+- [x] Commentaires mélangeant français et anglais
