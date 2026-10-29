@@ -1,4 +1,5 @@
 #include <scheduler.h>
+#include <clpf_internal.h>
 
 int scheduler_init(Scheduler* scheduler, Pid pid) {
     if (!scheduler)
@@ -11,6 +12,8 @@ int scheduler_init(Scheduler* scheduler, Pid pid) {
         mpscq_init(&scheduler->shared_rq[i]);
     }
     mpscq_init(&scheduler->wakeups);
+    atomic_init(&scheduler->steal_requests, 0);
+    atomic_init(&scheduler->ready_count, 0);
     idle_init(&scheduler->idle);
     for (int i = 0; i < NB_RQ; i++) {
         runq_init(&scheduler->rq[i]);
@@ -112,6 +115,77 @@ void scheduler_drain_wakeups(Scheduler* scheduler) {
     }
 }
 
+bool scheduler_request_work(Scheduler* thief) {
+    Scheduler* victim = NULL;
+    int most = 1; // with a single ready process, its scheduler is not overloaded
+    for (int i = 0; i < clpf.scheduler_count; i++) {
+        Scheduler* candidate = &clpf.scheduler_table[i];
+        int ready = atomic_load(&candidate->ready_count);
+        if (candidate != thief && ready > most) {
+            victim = candidate;
+            most = ready;
+        }
+    }
+
+    if (victim)
+        atomic_fetch_or(&victim->steal_requests, (uint64_t)1 << thief->pid);
+    return victim != NULL;
+}
+
+// Moves a ready process to another scheduler; it must be in no queue of this one.
+// A process with a wakeup queued here stays: this scheduler will still read its state.
+static bool migrate(Scheduler* from, Scheduler* to, Process* process) {
+    pthread_mutex_lock(&process->lock);
+    bool movable = !atomic_load(&process->wake_pending);
+    if (movable) {
+        process->scheduler_pid = to->pid;
+        // A started coroutine returns to the thread that resumes it
+        if (process->acoro)
+            process->acoro->main_co = to->scheduler_acoro;
+    }
+    pthread_mutex_unlock(&process->lock);
+
+    if (movable) {
+        atomic_fetch_sub(&from->process_count, 1);
+        atomic_fetch_add(&to->process_count, 1);
+        scheduler_push_shared(to, process);
+    }
+    return movable;
+}
+
+static size_t ready_processes(Scheduler* scheduler) {
+    size_t ready = 0;
+    for (int i = 0; i < NB_RQ; i++)
+        ready += runq_size(&scheduler->rq[i]);
+    return ready;
+}
+
+// Shares the ready processes evenly with the thieves, least urgent first
+static void give_work(Scheduler* scheduler, uint64_t thieves) {
+    size_t share = ready_processes(scheduler) / ((size_t)__builtin_popcountll(thieves) + 1);
+
+    for (int t = 0; t < clpf.scheduler_count && share > 0; t++) {
+        if (!(thieves & ((uint64_t)1 << t)))
+            continue;
+
+        Scheduler* thief = &clpf.scheduler_table[t];
+        size_t to_give = share;
+        for (int i = NB_RQ - 1; i >= 0 && to_give > 0; i--) {
+            RunQueue* rq = &scheduler->rq[i];
+            size_t n = runq_size(rq);
+            for (size_t j = 0; j < n && to_give > 0; j++) {
+                Process* process = runq_pop(rq);
+                if (migrate(scheduler, thief, process))
+                    to_give--;
+                else
+                    runq_push(rq, process);
+            }
+        }
+    }
+}
+
+static Process* pick_ready(Scheduler* scheduler);
+
 Process* pick_process(Scheduler* scheduler) {
     if (!scheduler)
         return NULL;
@@ -119,6 +193,26 @@ Process* pick_process(Scheduler* scheduler) {
     scheduler_drain_wakeups(scheduler);
     scheduler_drain(scheduler);
 
+    uint64_t thieves = atomic_exchange(&scheduler->steal_requests, 0);
+    if (thieves)
+        give_work(scheduler, thieves);
+
+    Process* picked = pick_ready(scheduler);
+    int ready = (int)ready_processes(scheduler);
+    atomic_store(&scheduler->ready_count, ready);
+
+    // Overloaded: wake the sleeping schedulers so that they come and take some
+    if (ready >= 2) {
+        for (int i = 0; i < clpf.scheduler_count; i++) {
+            Scheduler* other = &clpf.scheduler_table[i];
+            if (other != scheduler && atomic_load(&other->idle.sleeping))
+                scheduler_wake(other);
+        }
+    }
+    return picked;
+}
+
+static Process* pick_ready(Scheduler* scheduler) {
     for (int i = 0; i < NB_RQ; ++i) {
         RunQueue* rq = &scheduler->rq[i];
 

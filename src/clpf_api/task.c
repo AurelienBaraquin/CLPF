@@ -4,7 +4,8 @@
 
 Pid clpf_task_add(Funcall_t *fun, const SpawnOptions *options, Pid parent_pid, Pid monitored_by)
 {
-    Pid scheduler_index = sch_mg_get_less_process_scheduler();
+    Pid scheduler_index = options->scheduler > 0 && options->scheduler <= clpf.scheduler_count
+        ? options->scheduler - 1 : sch_mg_get_less_process_scheduler();
     if (scheduler_index == -1) {
         fprintf(stderr, "No scheduler available\n");
         return INVALID_PID;

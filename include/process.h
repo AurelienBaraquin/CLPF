@@ -92,6 +92,7 @@ typedef struct {
     size_t arg_block_size;
     size_t stack_size;           // CLPF_DEFAULT_STACK_SIZE by default
     bool link;                   // links the spawner and the new process before it can run
+    int scheduler;               // 1 + index of the scheduler to start on; 0 picks the least loaded
     bool system;                 // runtime-internal: survives until the user processes are gone
     bool entry;                  // runtime-internal: its end shuts the runtime down
 } SpawnOptions;

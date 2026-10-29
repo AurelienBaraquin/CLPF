@@ -38,6 +38,7 @@ clpf_add_test(test_timers)
 clpf_add_test(test_links)
 clpf_add_test(test_supervisor_strategies)
 clpf_add_test(test_io_server)
+clpf_add_test(test_work_stealing)
 
 # Exit code and complete output of a program whose entry task fails
 clpf_add_test_program(test_shutdown)
