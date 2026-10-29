@@ -1,0 +1,10 @@
+# Each test is a standalone CLPF program; a hang is caught by the timeout.
+function(clpf_add_test name)
+    add_executable(${name} ${name}.c)
+    target_compile_options(${name} PRIVATE -Wall -Wextra)
+    target_link_libraries(${name} cbeam)
+    add_test(NAME ${name} COMMAND ${name})
+    set_tests_properties(${name} PROPERTIES TIMEOUT 20)
+endfunction()
+
+clpf_add_test(test_smoke)
