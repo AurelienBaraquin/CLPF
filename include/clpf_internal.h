@@ -92,6 +92,12 @@ typedef enum exit_reason_e exit_reason;
 
 // Base
 void yield(Process *self);
+// Spends reductions; yields once the budget is used up (cooperative preemption)
+void clpf_reduce(Process *self, int cost);
+
+// Reductions charged by the runtime operations
+#define REDUCTIONS_SEND 10
+#define REDUCTIONS_FETCH 1
 // Detaches the monitors and links of a process that is ending, sends DOWNs and
 // exit signals. Called by the process itself or, for a kill, by its scheduler.
 void process_terminate(Process *process, unsigned int reason);

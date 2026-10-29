@@ -10,6 +10,13 @@ void yield(Process *self) {
     assert(clpf.scheduler_table[self->scheduler_pid].pid == self->scheduler_pid);
     assert(clpf.scheduler_table[self->scheduler_pid].scheduler_acoro);
     aco_yield();
+    self->reductions = REDUCTION_BUDGET;
+}
+
+void clpf_reduce(Process *self, int cost) {
+    self->reductions -= cost;
+    if (self->reductions <= 0)
+        yield(self);
 }
 
 void process_exit_signal_locked(Process *target, Pid from, unsigned int reason, bool untrappable) {

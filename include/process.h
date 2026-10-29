@@ -11,6 +11,9 @@
 
 #define NAME_MAX_LENGTH 64
 
+// Work a process may do before it has to let others run (see REDUCE)
+#define REDUCTION_BUDGET 2000
+
 // A low priority process is skipped this many times before being picked,
 // so it runs once for every 8 passes over its run queue
 #define LOW_PRIORITY_SKIPS 7
@@ -56,6 +59,7 @@ typedef struct process_s {
 
     // Remaining skips before a low priority process is scheduled (always 0 for other priorities)
     unsigned short schedule_count;
+    int reductions; // Left before the next forced yield (owner only)
 
     Funcall_t taskcall;
 

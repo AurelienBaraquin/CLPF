@@ -60,6 +60,7 @@ void clpf_sleep(Process *self, uint64_t ms) {
 }
 
 Message *clpf_fetch(Process *self, MessageMatch match, Tag pattern) {
+    clpf_reduce(self, REDUCTIONS_FETCH);
     return take_matching(self, match, pattern);
 }
 
@@ -82,8 +83,8 @@ int clpf_deliver(Pid from, Pid pid, void *data, size_t size, Tag tag) {
 
 int clpf_send(Process *self, Pid pid, void *data, size_t size, Tag tag) {
     int delivered = clpf_deliver(self ? self->pid : INVALID_PID, pid, data, size, tag);
-    if (delivered == 0 && self)
-        yield(self);
+    if (self)
+        clpf_reduce(self, REDUCTIONS_SEND);
     return delivered;
 }
 

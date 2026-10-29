@@ -56,9 +56,12 @@ set_tests_properties(test_stack_overflow PROPERTIES
     TIMEOUT 20
     PASS_REGULAR_EXPRESSION "stack overflow in process 'runaway'")
 
-# The runtime must still start a scheduler when only one CPU is usable
+# The runtime must still start a scheduler when only one CPU is usable,
+# and preemption must keep a busy process from starving the others there
 find_program(TASKSET taskset)
 if(TASKSET)
     add_test(NAME test_single_cpu COMMAND ${TASKSET} -c 0 $<TARGET_FILE:test_smoke>)
-    set_tests_properties(test_single_cpu PROPERTIES TIMEOUT 20)
+    clpf_add_test_program(test_reductions)
+    add_test(NAME test_reductions COMMAND ${TASKSET} -c 0 $<TARGET_FILE:test_reductions>)
+    set_tests_properties(test_single_cpu test_reductions PROPERTIES TIMEOUT 20)
 endif()

@@ -50,4 +50,10 @@ typedef enum exit_reason_e {
     process_get_child_count(self)
 
 #define YIELD() \
-    yield(self);
+    yield(self)
+
+// Accounts for n units of work. The scheduler is cooperative: a process only
+// gives the CPU away at API calls, so a long computation should REDUCE
+// regularly, or it keeps its scheduler to itself.
+#define REDUCE(n) \
+    clpf_reduce(self, n)
