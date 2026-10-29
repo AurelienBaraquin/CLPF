@@ -21,11 +21,16 @@ void mailbox_destroy(Mailbox* mbox) {
 // The payload starts at the first 16-byte boundary after the header
 #define MESSAGE_HEADER_SIZE ((sizeof(Message) + 15) & ~(size_t)15)
 
+static bool tag_has_string(Tag tag) {
+    return tag.kind == TAG_KIND_STRING || tag.kind == TAG_KIND_NOTIFY;
+}
+
 int mailbox_send_message(Mailbox* dest, safe_heap_t *dest_heap, void* data, size_t size, Pid sender, Tag tag) {
     if (!data)
         size = 0;
+    size_t string_size = tag_has_string(tag) ? strlen(tag.str_value) + 1 : 0;
 
-    Message* msg = safe_heap_alloc(dest_heap, MESSAGE_HEADER_SIZE + size);
+    Message* msg = safe_heap_alloc(dest_heap, MESSAGE_HEADER_SIZE + size + string_size);
     if (!msg)
         return -1;
 
@@ -34,8 +39,14 @@ int mailbox_send_message(Mailbox* dest, safe_heap_t *dest_heap, void* data, size
     if (size > 0)
         memcpy(msg->payload, data, size);
 
-    msg->sender_pid = sender;
     msg->tag = tag;
+    if (string_size > 0) {
+        char *string = (char *)msg + MESSAGE_HEADER_SIZE + size;
+        memcpy(string, tag.str_value, string_size);
+        msg->tag.str_value = string;
+    }
+
+    msg->sender_pid = sender;
     msg->next = NULL;
 
     if (dest->inbox_tail)

@@ -74,6 +74,7 @@ bool clpf_match_same(const Message *msg, Tag pattern) {
         case TAG_KIND_INTEGER:
             return msg->tag.int_value == pattern.int_value;
         case TAG_KIND_STRING:
+        case TAG_KIND_NOTIFY:
             return strcmp(msg->tag.str_value, pattern.str_value) == 0;
         case TAG_KIND_INTERNAL:
             return msg->tag.internal_code == pattern.internal_code;

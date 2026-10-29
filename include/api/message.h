@@ -48,9 +48,9 @@ bool clpf_match_kind(const Message *msg, Tag pattern);     // same TagKind (use 
 #define MSG_FREE(msg) \
     clpf_msg_free(self, msg)
 
-// ONLY STATIC STRING ARE ALLOWED DO NOT PUT DYNAMIC STRING !!!!!
-#define NOTIFY(pid, data) \
-    SEND(pid, NULL, 0, MAKE_STR_TAG("notify::"data))
+// Empty signal-like messages identified by a name (any string, built at run time or not)
+#define NOTIFY(pid, name) \
+    SEND(pid, NULL, 0, MAKE_NOTIFY_TAG(name))
 
-#define WAIT_NOTIF(data) \
-    MSG_FREE(RECEIVE(MAKE_STR_TAG("notify::"data)))
+#define WAIT_NOTIF(name) \
+    MSG_FREE(RECEIVE(MAKE_NOTIFY_TAG(name)))
