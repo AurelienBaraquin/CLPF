@@ -29,14 +29,19 @@ static S_IO DEF(server_io_compute_message, Message *msg) {
         ssize_t len = getline(&buffer, &size, stdin);
         if (len < 0) {
             perror("getline");
+            free(buffer);
             return S_IO_NOTHING;
         }
         SEND(dest, buffer, len, MAKE_STR_TAG("server::io::getline"));
+        free(buffer);
+        return S_IO_SUCCESS;
     }
 
     if (MessageMatchFn_SameTag(msg, MAKE_STR_TAG("core::event::stop"))) {
         return S_IO_STOP;
     }
+
+    return S_IO_NOTHING;
 }
 
 TASK0(__server_io__) {

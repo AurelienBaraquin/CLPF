@@ -36,8 +36,7 @@ void* receive(Process* self, Tag userdata) {
     assert(msg);
 
     void *payload = msg->payload;
-    if (payload)
-        safe_heap_free((safe_heap_t *)msg->heap, msg);
+    safe_heap_free((safe_heap_t *)msg->heap, msg);
 
     return payload;
 }
@@ -48,8 +47,7 @@ void *fetch(Process* self, Tag userdata) {
         return NULL;
 
     void *payload = msg->payload;
-    if (payload)
-        safe_heap_free((safe_heap_t *)msg->heap, msg);
+    safe_heap_free((safe_heap_t *)msg->heap, msg);
 
     return payload;
 }
@@ -79,9 +77,11 @@ int send(Process *self, Pid pid, void* data, size_t size, Tag tag) {
 
     if (self)
         yield(self);
+
+    return 0;
 }
 
-void* request(Process *self, pid_t pid, void* data, size_t size, Tag tag) {
+void* request(Process *self, Pid pid, void* data, size_t size, Tag tag) {
     if (send(self, pid, data, size, tag) != -1) {
         return receive(self, tag);
     } else {

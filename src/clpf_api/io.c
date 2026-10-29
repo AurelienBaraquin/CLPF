@@ -56,8 +56,6 @@ int __print(Process *self, const char *fmt, ...) {
 
 char* __getline(Process *self) {
     char *line = NULL;
-    size_t len = 0;
-    ssize_t read;
 
     Pid io = WHEREIS("server::io");
     if (io == -1) {

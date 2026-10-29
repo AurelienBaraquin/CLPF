@@ -18,7 +18,7 @@ typedef enum {
 
 #define MAKE_INTERNAL_TAG(code)     ((Tag){ .kind = TAG_KIND_INTERNAL, .internal_code = (code) })
 #define MAKE_INT_TAG(val)           ((Tag){ .kind = TAG_KIND_INTEGER, .int_value = (val) })
-#define MAKE_RANGE_TAG(min, max)    MAKE_INT_TAG(((int64_t)min << 32) | max);
+#define MAKE_RANGE_TAG(min, max)    MAKE_INT_TAG(((int64_t)(min) << 32) | (max))
 #define MAKE_STR_TAG(str)           ((Tag){ .kind = TAG_KIND_STRING,  .str_value = (str) })
 #define MAKE_TAG_KIND(k)            ((Tag){ .kind = (k) })
 
@@ -34,7 +34,6 @@ typedef struct Tag_s {
     };
 } Tag;
 
-#pragma pack(push, 1)
 typedef struct Message {
     Tag tag; // Always at the beginning of the message
     heap_t *heap; // Heap used to allocate the message
@@ -43,7 +42,6 @@ typedef struct Message {
     Pid sender_pid;
     struct Message *next;
 } Message;
-#pragma pack(pop)
 
 typedef struct Mailbox {
     // Pour lecture locale sans lock
