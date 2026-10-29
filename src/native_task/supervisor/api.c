@@ -11,7 +11,7 @@ Pid clpf_sup_add_child(Process *self, char *name, Pid sup, RestartType restart, 
     va_end(ap);
 
     if (taskcall.func == NULL) {
-        write(STDERR_FILENO, "Error: Invalid taskcall\n", 25);
+        fprintf(stderr, "[supervisor] invalid task for child '%s'\n", name);
         return INVALID_PID;
     }
 

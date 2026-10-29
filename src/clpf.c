@@ -7,7 +7,8 @@
 #include <utils/stack_guard.h>
 #include <timer.h>
 
-void init_task(Task entry, int argc, char *argv[]);
+// Starts the launcher, which starts the system servers and then the entry task
+int init_task(Task entry, int argc, char *argv[]);
 
 #define RESERVED_CPUS 2
 
@@ -158,7 +159,9 @@ int clpf_main(Task entry_point, int argc, char *argv[]) {
         }
     }
 
-    init_task(entry_point, argc, argv);
+    // Without a launcher no process exists: the loop below ends at once
+    if (init_task(entry_point, argc, argv) != 0)
+        clpf.entry_exit_reason = EXIT_REASON_ERROR;
 
     // Once the entry process ended: kill the user processes, then ask the
     // system servers (I/O last) to stop, then wait until every process is gone

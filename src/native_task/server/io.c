@@ -1,5 +1,7 @@
 #include <native_task/server/io.h>
 #include <api/message.h>
+#include <errno.h>
+#include <unistd.h>
 #include <api/registry.h>
 #include <api/link.h>
 
@@ -11,12 +13,26 @@ typedef enum server_io_e {
     S_IO_SUCCESS,
 } S_IO;
 
+// write() may write less than asked (pipes, large outputs): loop until all is out
+static void write_all(int fd, const char *data, size_t size) {
+    while (size > 0) {
+        ssize_t written = write(fd, data, size);
+        if (written < 0) {
+            if (errno == EINTR)
+                continue;
+            return;
+        }
+        data += written;
+        size -= (size_t)written;
+    }
+}
+
 static S_IO server_io_compute_message(Message *msg) {
     if (!msg)
         return S_IO_NOTHING;
 
     if (MSG_IS(msg, MAKE_STR_TAG("server::io::print"))) {
-        write(STDOUT_FILENO, msg->payload, msg->size);
+        write_all(STDOUT_FILENO, msg->payload, msg->size);
         return S_IO_SUCCESS;
     }
 
