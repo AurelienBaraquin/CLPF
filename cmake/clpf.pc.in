@@ -1,0 +1,9 @@
+prefix=${pcfiledir}/@CLPF_PC_TO_PREFIX@
+libdir=${prefix}/@CMAKE_INSTALL_LIBDIR@
+includedir=${prefix}/@CMAKE_INSTALL_INCLUDEDIR@/clpf
+
+Name: clpf
+Description: Erlang-style actor runtime in C (GNU C, x86-64 Linux)
+Version: @PROJECT_VERSION@
+Libs: -L${libdir} -lclpf -lclpf_tlsf -lclpf_aco -lclpf_stb_sprintf -pthread
+Cflags: -I${includedir}
