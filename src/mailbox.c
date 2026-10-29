@@ -8,7 +8,7 @@ void mailbox_init(Mailbox* mailbox) {
     mailbox->seen_tail = NULL;
     mailbox->inbox_head = NULL;
     mailbox->inbox_tail = NULL;
-    mailbox->inbox_len = 0;
+    atomic_init(&mailbox->inbox_len, 0);
     pthread_mutex_init(&mailbox->lock, NULL);
 }
 
@@ -70,6 +70,10 @@ void mailbox_transfer_inbox_to_seen(Mailbox* mbox) {
         mbox->inbox_len = 0;
     }
     pthread_mutex_unlock(&mbox->lock);
+}
+
+bool mailbox_has_incoming(Mailbox* mbox) {
+    return atomic_load(&mbox->inbox_len) > 0;
 }
 
 Message* mailbox_receive_seen(Mailbox* mbox) {

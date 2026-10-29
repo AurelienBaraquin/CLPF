@@ -85,17 +85,3 @@ size_t process_get_child_count(Process *self) {
 Pid process_get_child_pid(Process *self, size_t index) {
     return self ? link_get_nth(self->links.children, index) : -1;
 }
-
-bool process_poll_mailbox(Process* self) {
-    if (!self)
-        return false;
-
-    mailbox_transfer_inbox_to_seen(&self->mailbox);
-
-    if (self->mailbox.seen_head != NULL) {
-        self->state = PROCESS_READY;
-        return true;
-    }
-
-    return false;
-}

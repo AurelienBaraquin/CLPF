@@ -78,7 +78,6 @@ void scheduler_loop(Scheduler* scheduler) {
     if (!scheduler)
         return;
 
-    scheduler->system_thread_id = pthread_self();
     aco_thread_init(NULL);
     scheduler->scheduler_acoro = aco_create(NULL, NULL, 0, NULL, NULL);
 

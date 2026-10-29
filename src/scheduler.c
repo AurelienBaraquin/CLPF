@@ -106,13 +106,15 @@ void update_waiting_processes(Scheduler* scheduler) {
     runq_init(&temp_rq);
 
 
+    // Senders never touch a process state: the owning scheduler wakes a
+    // waiting process once a message or a signal has reached it
     Process* process;
     while ((process = runq_pop(&scheduler->rq[3])) != NULL) {
-        if (process->state == PROCESS_WAITING) {
-            runq_push(&temp_rq, process);
-        } else {
+        if (mailbox_has_incoming(&process->mailbox) || !mpscq_empty(&process->signal_queue)) {
             process->state = PROCESS_READY;
             scheduler_push(scheduler, process);
+        } else {
+            runq_push(&temp_rq, process);
         }
     }
 

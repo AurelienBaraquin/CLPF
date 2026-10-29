@@ -75,5 +75,3 @@ Pid process_get_parent_pid(Process *self);
 Pid process_get_child_pid(Process *self, size_t index);
 size_t process_get_child_count(Process *self);
 
-// Mailbox
-bool process_poll_mailbox(Process* self);
