@@ -1,38 +1,350 @@
+// CLPF showcase: a supervised worker pool computing jobs.
+//
+//   entry (coordinator)
+//    |- stats    : counter server, registered by name, answers REQUESTs (HIGH priority)
+//    |- ticker   : LOW priority background process, polls with FETCH
+//    |- echo     : replies to int-tagged requests, used for selective receive
+//    `- pool     : ONE_FOR_ONE supervisor
+//        |- worker x3 : RES_TRANSIENT, crash on "poison" jobs and get restarted
+//        |- janitor   : RES_TEMPORARY, crashes once and is never restarted
+//        `- spare     : RES_PERMANENT, removed from supervision then stopped
+//
+// Run with -i to be asked your name through GETLINE.
+
+#include <api/base.h>
 #include <api/task.h>
 #include <api/message.h>
-#include <api/base.h>
+#include <api/memory.h>
 #include <api/io.h>
+#include <api/tag.h>
+#include <api/monitor.h>
 #include <api/supervisor.h>
-
 #include <flags_internal.h>
+#include <string.h>
 
-#define MAX_RESTARTS 1
+#define WORKERS 3
+#define JOBS 100
+#define POISON_INTERVAL 37      // every 37th job crashes its worker
+#define MAX_FIB 90              // fib(n) fits in a long up to n = 92
+#define POOL_PERIOD_MS 1000
+// A worker crashing more often than this within POOL_PERIOD_MS is given up by the pool,
+// and nothing tells the coordinator: keep crashes rare enough or the demo waits forever
+#define POOL_MAX_RESTARTS 5
+#define ECHO_REQUESTS 3
+#define TICKER_STOP 1           // internal tag code
 
-// Crashes right away: the supervisor restarts it MAX_RESTARTS times, then gives up
-TASK(child, Pid report_to) {
-    PRINT("Hello from %s\n", self->__name);
-    SEND(report_to, NULL, 0, MAKE_STR_TAG("started"));
-    EXIT_ERROR();
+typedef struct {
+    int id;
+    int value;
+} Job;
+
+typedef struct {
+    int job_id;
+    long result;
+} JobResult;
+
+typedef struct {
+    Pid pid;
+    int job_id; // -1 when idle
+} WorkerSlot;
+
+typedef struct {
+    WorkerSlot workers[WORKERS * (POOL_MAX_RESTARTS + 1)];
+    int known_workers;
+    int stopped_workers;
+    int next_job;
+    int done;
+    int failed;
+    long sum;
+} Coordinator;
+
+static const char *reason_name(unsigned int reason) {
+    switch (reason) {
+        case EXIT_REASON_NORMAL: return "normal";
+        case EXIT_REASON_ERROR:  return "error";
+        case EXIT_REASON_NOPROC: return "noproc";
+        default:                 return "unknown";
+    }
 }
 
-TASK(task, int argc, char *argv[]) {
-    (void)argc;
-    (void)argv;
+/* ------------------------------------------------------------------ stats */
 
-    Pid sup = SPAWN_SUPERVISOR("sup", SUP_ONE_FOR_ONE, 0, MAX_RESTARTS);
+// Keeps a running total: "stats::add" adds and answers the new total, "stats::get" only answers
+TASK0(stats) {
+    long total = 0;
 
-    Pid pid = SUP_ADD_CHILD(sup, RES_PERMANENT, child, "my_child", 1, self->pid);
-    if (pid == INVALID_PID) {
-        PRINT("Failed to spawn the child process\n");
-        EXIT_ERROR();
+    while (1) {
+        Message *msg = RECEIVE_RAW(NO_TAG);
+        bool stop = MessageMatchFn_SameTag(msg, MAKE_STR_TAG("stats::stop"));
+
+        if (MessageMatchFn_SameTag(msg, MAKE_STR_TAG("stats::add"))) {
+            total += *(long *)msg->payload;
+            SEND(msg->sender_pid, &total, sizeof total, MAKE_STR_TAG("stats::add"));
+        } else if (MessageMatchFn_SameTag(msg, MAKE_STR_TAG("stats::get"))) {
+            SEND(msg->sender_pid, &total, sizeof total, MAKE_STR_TAG("stats::get"));
+        }
+
+        if (msg->payload)
+            FREE(msg->payload);
+        FREE(msg);
+
+        if (stop)
+            break;
     }
 
-    for (int i = 0; i < 1 + MAX_RESTARTS; ++i)
-        RECEIVE(MAKE_STR_TAG("started"));
+    PRINT("[stats] final total %ld\n", total);
+    EXIT_NORMAL();
+}
 
-    exit_in_progress = true;
+/* ----------------------------------------------------------------- ticker */
+
+// Low priority: it only runs when nobody else needs the CPU, and polls for its stop message
+TASK0(ticker) {
+    PRINT("[ticker] started by %ld (my parent)\n", PARENT());
+    NOTIFY(PARENT(), "ticker_up");
+
+    // FETCH returns the payload, or NULL if no message matches: the stop message must carry one
+    long ticks = 0;
+    int *stop;
+    while ((stop = FETCH(MAKE_INTERNAL_TAG(TICKER_STOP))) == NULL) {
+        ++ticks;
+        YIELD();
+    }
+    FREE(stop);
+
+    SEND(PARENT(), &ticks, sizeof ticks, MAKE_STR_TAG("ticker::ticks"));
+    EXIT_NORMAL();
+}
+
+/* ------------------------------------------------------------------- echo */
+
+TASK0(echo) {
+    for (int i = 0; i < ECHO_REQUESTS; ++i) {
+        Message *msg = RECEIVE_RAW(NO_TAG);
+        SEND(msg->sender_pid, msg->payload, msg->size, msg->tag);
+        if (msg->payload)
+            FREE(msg->payload);
+        FREE(msg);
+    }
+    EXIT_NORMAL();
+}
+
+/* ----------------------------------------------------------------- worker */
+
+static long DEF(fibonacci, int n) {
+    long a = 0, b = 1;
+    for (int i = 0; i < n; ++i) {
+        long next = a + b;
+        a = b;
+        b = next;
+        if (i % 10 == 0)
+            YIELD(); // cooperative: let the other processes of this scheduler run
+    }
+    return a;
+}
+
+// Asks the coordinator for work until told to stop; a poison job crashes it
+TASK(worker, Pid coordinator, int index) {
+    Pid stats_pid = WHEREIS("stats");
+
+    while (1) {
+        SEND(coordinator, NULL, 0, MAKE_STR_TAG("worker::ready"));
+
+        Message *msg = RECEIVE_RAW(NO_TAG);
+        if (MessageMatchFn_SameTag(msg, MAKE_STR_TAG("worker::stop"))) {
+            FREE(msg);
+            SEND(coordinator, NULL, 0, MAKE_STR_TAG("worker::bye"));
+            break;
+        }
+
+        Job job = *(Job *)msg->payload;
+        FREE(msg->payload);
+        FREE(msg);
+
+        if ((job.id + 1) % POISON_INTERVAL == 0) {
+            PRINT("[worker %d] job %d is poison, crashing\n", index, job.id);
+            EXIT(EXIT_REASON_ERROR);
+        }
+
+        JobResult result = { job.id, CALL(fibonacci, job.value) };
+        long *total = REQUEST(stats_pid, &result.result, sizeof result.result, MAKE_STR_TAG("stats::add"));
+        if (total)
+            FREE(total);
+
+        SEND(coordinator, &result, sizeof result, MAKE_STR_TAG("worker::result"));
+    }
 
     EXIT_NORMAL();
 }
 
-CLPF_ENTRY(task)
+/* ------------------------------------------------- janitor / spare child */
+
+TASK(janitor, Pid coordinator) {
+    PRINT("[janitor] one-shot cleanup, then crash (temporary: not restarted)\n");
+    NOTIFY(coordinator, "janitor_ran");
+    EXIT_ERROR();
+}
+
+TASK0(spare) {
+    RECEIVE(MAKE_STR_TAG("spare::stop"));
+    PRINT("[spare] stopped after leaving the supervisor\n");
+    EXIT_NORMAL();
+}
+
+/* ------------------------------------------------------------ coordinator */
+
+static WorkerSlot *find_worker(Coordinator *c, Pid pid) {
+    for (int i = 0; i < c->known_workers; ++i) {
+        if (c->workers[i].pid == pid)
+            return &c->workers[i];
+    }
+    return NULL;
+}
+
+// DOWN callback: a crashed worker loses its job. Callbacks run inside RECEIVE and cannot
+// wake it up, so the loop below is driven by messages: after a crash, the restarted worker
+// sends "worker::ready", and a stopping worker says "worker::bye".
+static void on_worker_down(Process *self, Pid from, unsigned int reason, Coordinator *c) {
+    WorkerSlot *slot = find_worker(c, from);
+    if (!slot) {
+        PRINT("[coordinator] process %ld is down (%s)\n", from, reason_name(reason));
+        return;
+    }
+
+    PRINT("[coordinator] worker %ld down (%s)\n", from, reason_name(reason));
+    if (reason != EXIT_REASON_NORMAL && slot->job_id != -1) {
+        c->failed++;
+        c->done++;
+        slot->job_id = -1;
+    }
+}
+
+static void DEF(dispatch, Coordinator *c, Pid worker_pid) {
+    WorkerSlot *slot = find_worker(c, worker_pid);
+    if (!slot) {
+        slot = &c->workers[c->known_workers++];
+        slot->pid = worker_pid;
+        slot->job_id = -1;
+        MONITOR_ADD(worker_pid);
+    }
+
+    if (c->next_job == JOBS) {
+        SEND(worker_pid, NULL, 0, MAKE_STR_TAG("worker::stop"));
+        return;
+    }
+
+    Job job = { c->next_job, 10 + (c->next_job * 3) % (MAX_FIB - 10) };
+    c->next_job++;
+    slot->job_id = job.id;
+    SEND(worker_pid, &job, sizeof job, MAKE_STR_TAG("job"));
+}
+
+static void DEF(run_jobs, Coordinator *c) {
+    // Every job ends as a result or a crash, then every worker is stopped. A crashed
+    // worker is replaced by its restart, so WORKERS workers always end up receiving "stop".
+    while (c->done < JOBS || c->stopped_workers < WORKERS) {
+        Message *msg = RECEIVE_RAW(NO_TAG); // DOWN callbacks run before each receive
+
+        if (MessageMatchFn_SameTag(msg, MAKE_STR_TAG("worker::ready"))) {
+            CALL(dispatch, c, msg->sender_pid);
+        } else if (MessageMatchFn_SameTag(msg, MAKE_STR_TAG("worker::result"))) {
+            JobResult *result = msg->payload;
+            WorkerSlot *slot = find_worker(c, msg->sender_pid);
+            if (slot)
+                slot->job_id = -1;
+            c->sum += result->result;
+            c->done++;
+        } else if (MessageMatchFn_SameTag(msg, MAKE_STR_TAG("worker::bye"))) {
+            c->stopped_workers++;
+        }
+
+        if (msg->payload)
+            FREE(msg->payload);
+        FREE(msg);
+    }
+}
+
+// Selective receive: replies are consumed in the reverse order of arrival
+static void DEF(echo_demo, Pid echo_pid) {
+    for (int i = 1; i <= ECHO_REQUESTS; ++i)
+        SEND(echo_pid, &i, sizeof i, MAKE_INT_TAG(i));
+
+    for (int i = ECHO_REQUESTS; i >= 1; --i) {
+        int *value = RECEIVE(MAKE_INT_TAG(i));
+        PRINT("[coordinator] echo reply %d picked out of order\n", *value);
+        FREE(value);
+    }
+}
+
+TASK(entry, int argc, char *argv[]) {
+    if (argc > 1 && strcmp(argv[1], "-i") == 0) {
+        PRINT("What is your name? ");
+        char *name = GETLINE();
+        if (name) {
+            PRINT("Hello %s", name);
+            FREE(name);
+        }
+    }
+
+    // Name registry: the stats server is reached through its registered name
+    Pid stats_pid = SPAWN0_PRIO_NAMED(stats, "stats_server", PROCESS_PRIORITY_HIGH);
+    REGISTER("stats", stats_pid);
+
+    Pid ticker_pid = SPAWN0_PRIO(ticker, PROCESS_PRIORITY_LOW);
+    WAIT_NOTIF("ticker_up");
+
+    Pid echo_pid = SPAWN0_NAMED(echo, "echo");
+
+    PRINT("[coordinator] %zu children:", NB_CHILDREN());
+    for (size_t i = 0; i < NB_CHILDREN(); ++i)
+        PRINT(" %ld", CHILD(i));
+    PRINT("\n");
+
+    CALL(echo_demo, echo_pid);
+
+    // Supervision tree
+    Coordinator c = {0};
+    MONITOR_INIT(on_worker_down, &c);
+
+    Pid pool = SPAWN_SUPERVISOR("pool", SUP_ONE_FOR_ONE, POOL_PERIOD_MS, POOL_MAX_RESTARTS);
+    for (int i = 0; i < WORKERS; ++i)
+        SUP_ADD_CHILD(pool, RES_TRANSIENT, worker, "worker", 2, self->pid, i);
+
+    SUP_ADD_CHILD(pool, RES_TEMPORARY, janitor, "janitor", 1, self->pid);
+    WAIT_NOTIF("janitor_ran");
+
+    Pid spare_pid = SUP_ADD_CHILD0(pool, RES_PERMANENT, spare, "spare");
+    if (SUP_REMOVE_CHILD(pool, spare_pid) == 0)
+        SEND(spare_pid, NULL, 0, MAKE_STR_TAG("spare::stop"));
+
+    CALL(run_jobs, &c);
+
+    // Results
+    long *total = REQUEST(stats_pid, NULL, 0, MAKE_STR_TAG("stats::get"));
+    char *summary = FORMAT("[coordinator] %d jobs: %d ok, %d lost to crashes, sum %ld (stats says %ld)\n",
+                           JOBS, JOBS - c.failed, c.failed, c.sum, total ? *total : -1L);
+    PRINT("%s", summary);
+    FREE(summary);
+    if (total)
+        FREE(total);
+
+    int stop = 1;
+    SEND(ticker_pid, &stop, sizeof stop, MAKE_INTERNAL_TAG(TICKER_STOP));
+    long *ticks = RECEIVE(MAKE_STR_TAG("ticker::ticks"));
+    PRINT("[coordinator] low priority ticker ran %ld times meanwhile\n", *ticks);
+    FREE(ticks);
+
+    UNREGISTER("stats");
+    SEND(stats_pid, NULL, 0, MAKE_STR_TAG("stats::stop"));
+    PRINT("[coordinator] after UNREGISTER, WHEREIS(\"stats\") = %ld\n", WHEREIS("stats"));
+
+    // Monitoring a process that is gone (echo answered its 3 requests and exited):
+    // the DOWN arrives right away with the "noproc" reason
+    MONITOR_ADD(echo_pid);
+    YIELD();
+
+    exit_in_progress = true; // stop the runtime
+    EXIT_NORMAL();
+}
+
+CLPF_ENTRY(entry)
