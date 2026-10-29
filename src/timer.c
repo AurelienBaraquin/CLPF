@@ -9,8 +9,8 @@ typedef struct {
     uint64_t deadline;
     Pid from;
     Pid to;
-    Tag tag;     // a string tag points to a copy owned by the timer
-    void *data;  // owned copy
+    Tag tag;    // a string tag points to a copy owned by the timer
+    void *data; // owned copy
     size_t size;
 } Timer;
 

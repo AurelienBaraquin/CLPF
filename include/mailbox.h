@@ -11,33 +11,33 @@ typedef enum {
     TAG_KIND_INTEGER,
     TAG_KIND_STRING,
     TAG_KIND_INTERNAL,
-    TAG_KIND_NOTIFY, // A string, distinct from TAG_KIND_STRING (see NOTIFY)
-    TAG_KIND_DOWN,   // int_value is the pid of the process that went down (see MONITOR)
+    TAG_KIND_NOTIFY,  // A string, distinct from TAG_KIND_STRING (see NOTIFY)
+    TAG_KIND_DOWN,    // int_value is the pid of the process that went down (see MONITOR)
     TAG_KIND_TIMEOUT, // int_value is a timer id: internal to RECEIVE_TIMEOUT
     TAG_KIND_EXIT,    // int_value is the pid whose exit signal was trapped (see TRAP_EXIT)
 } TagKind;
 
-#define MAKE_INTERNAL_TAG(code)     ((Tag){ .kind = TAG_KIND_INTERNAL, .internal_code = (code) })
-#define MAKE_INT_TAG(val)           ((Tag){ .kind = TAG_KIND_INTEGER, .int_value = (val) })
+#define MAKE_INTERNAL_TAG(code) ((Tag){.kind = TAG_KIND_INTERNAL, .internal_code = (code)})
+#define MAKE_INT_TAG(val)       ((Tag){.kind = TAG_KIND_INTEGER, .int_value = (val)})
 // Matched by TM_IN_RANGE: min and max are packed as two 32-bit integers
-#define MAKE_RANGE_TAG(min, max)    MAKE_INT_TAG((int64_t)(((uint64_t)(uint32_t)(min) << 32) | (uint32_t)(max)))
+#define MAKE_RANGE_TAG(min, max) MAKE_INT_TAG((int64_t)(((uint64_t)(uint32_t)(min) << 32) | (uint32_t)(max)))
 // The string is copied with the message: it may be a temporary buffer
-#define MAKE_STR_TAG(str)           ((Tag){ .kind = TAG_KIND_STRING,  .str_value = (str) })
-#define MAKE_NOTIFY_TAG(str)        ((Tag){ .kind = TAG_KIND_NOTIFY,  .str_value = (str) })
-#define MAKE_DOWN_TAG(pid)          ((Tag){ .kind = TAG_KIND_DOWN, .int_value = (pid) })
-#define MAKE_EXIT_TAG(pid)          ((Tag){ .kind = TAG_KIND_EXIT, .int_value = (pid) })
-#define MAKE_TIMEOUT_TAG(id)        ((Tag){ .kind = TAG_KIND_TIMEOUT, .int_value = (int64_t)(id) })
-#define MAKE_TAG_KIND(k)            ((Tag){ .kind = (k) })
+#define MAKE_STR_TAG(str)    ((Tag){.kind = TAG_KIND_STRING, .str_value = (str)})
+#define MAKE_NOTIFY_TAG(str) ((Tag){.kind = TAG_KIND_NOTIFY, .str_value = (str)})
+#define MAKE_DOWN_TAG(pid)   ((Tag){.kind = TAG_KIND_DOWN, .int_value = (pid)})
+#define MAKE_EXIT_TAG(pid)   ((Tag){.kind = TAG_KIND_EXIT, .int_value = (pid)})
+#define MAKE_TIMEOUT_TAG(id) ((Tag){.kind = TAG_KIND_TIMEOUT, .int_value = (int64_t)(id)})
+#define MAKE_TAG_KIND(k)     ((Tag){.kind = (k)})
 
-#define NO_TAG                      ((Tag){ .kind = TAG_KIND_NONE })
+#define NO_TAG ((Tag){.kind = TAG_KIND_NONE})
 
 typedef struct Tag_s {
     TagKind kind;
     union {
         int64_t int_value;
-        const char* str_value;
+        const char *str_value;
         uint64_t internal_code;
-        void* custom;
+        void *custom;
     };
 } Tag;
 
@@ -64,12 +64,12 @@ typedef struct Mailbox {
     Message *inbox_tail;
 } Mailbox;
 
-void mailbox_init(Mailbox* mailbox);
+void mailbox_init(Mailbox *mailbox);
 // Messages live in the owner's heap and are released with it
-void mailbox_destroy(Mailbox* mailbox);
+void mailbox_destroy(Mailbox *mailbox);
 // Copies data into dest_heap (the receiver's heap) and queues it, returns -1 if the allocation fails.
 // The caller holds the receiver's slot lock, as for mailbox_transfer_inbox_to_seen.
-int mailbox_send_message(Mailbox* dest, safe_heap_t *dest_heap, void* data, size_t size, Pid sender, Tag tag);
-void mailbox_transfer_inbox_to_seen(Mailbox* mbox);
+int mailbox_send_message(Mailbox *dest, safe_heap_t *dest_heap, void *data, size_t size, Pid sender, Tag tag);
+void mailbox_transfer_inbox_to_seen(Mailbox *mbox);
 // Unlinks and returns the oldest seen message matching pattern, or NULL (owner only)
-Message* mailbox_take_matching(Mailbox* mbox, MessageMatch match, Tag pattern);
+Message *mailbox_take_matching(Mailbox *mbox, MessageMatch match, Tag pattern);

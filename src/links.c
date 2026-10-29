@@ -25,7 +25,8 @@ void add_to_list(links_t **list, Pid pid) {
     }
 
     links_t *new = malloc(sizeof(links_t));
-    if (!new) return;
+    if (!new)
+        return;
 
     new->pid = pid;
     new->next = *list;

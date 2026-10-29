@@ -16,8 +16,7 @@ typedef struct MPSCQ {
     _Atomic(MPSCQNode *) head;
 } MPSCQ;
 
-#define container_of(ptr, type, member) \
-    ((type *)((char *)(ptr) - offsetof(type, member)))
+#define container_of(ptr, type, member) ((type *)((char *)(ptr)-offsetof(type, member)))
 
 void mpscq_init(MPSCQ *q);
 

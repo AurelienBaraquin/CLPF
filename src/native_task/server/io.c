@@ -45,14 +45,10 @@ TASK0(clpf_server_io) {
 
         switch (r) {
             case S_IO_NOTHING:
-            case S_IO_SUCCESS:
-                break;
-            case S_IO_STOP:
-                running = false;
-                break;
+            case S_IO_SUCCESS: break;
+            case S_IO_STOP: running = false; break;
 
-            default:
-                break;
+            default: break;
         }
 
         MSG_FREE(msg);

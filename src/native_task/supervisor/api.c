@@ -1,7 +1,8 @@
 #include <api/supervisor.h>
 #include <api/memory.h>
 
-Pid clpf_sup_add_child(Process *self, char *name, Pid sup, RestartType restart, process_priority prio, void (*func)(), int argc, ...) {
+Pid clpf_sup_add_child(Process *self, char *name, Pid sup, RestartType restart, process_priority prio, void (*func)(),
+                       int argc, ...) {
     Funcall_t taskcall;
 
     va_list ap;

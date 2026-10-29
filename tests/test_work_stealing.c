@@ -3,7 +3,7 @@
 #include <api/message.h>
 #include <utils/time.h>
 
-#define HOGS 8
+#define HOGS    8
 #define WORK_MS 200
 
 // CPU-bound: records every scheduler it ran on
@@ -26,7 +26,7 @@ TASK(entry, int argc, char *argv[]) {
     for (int i = 0; i < HOGS; ++i) {
         Funcall_t call;
         funcall_init(&call, hog, 1, self->pid);
-        TEST_ASSERT(clpf_spawn(self, &call, (SpawnOptions){ .scheduler = 1 }) != INVALID_PID);
+        TEST_ASSERT(clpf_spawn(self, &call, (SpawnOptions){.scheduler = 1}) != INVALID_PID);
     }
 
     unsigned int used = 0;

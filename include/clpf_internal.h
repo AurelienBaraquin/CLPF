@@ -4,13 +4,13 @@
 #include <utils/name_table.h>
 
 #define PID_INDEX_BITS 16
-#define MAX_PROCESSES (1 << PID_INDEX_BITS)
+#define MAX_PROCESSES  (1 << PID_INDEX_BITS)
 #define MAX_SCHEDULERS 64
 
 // A pid is a process table index tagged with the slot generation, so the pid
 // of a dead process never designates the next process created in its slot
 #define PID_MAKE(index, generation) ((Pid)(((generation) << PID_INDEX_BITS) | (index)))
-#define PID_INDEX(pid) ((pid) & (MAX_PROCESSES - 1))
+#define PID_INDEX(pid)              ((pid) & (MAX_PROCESSES - 1))
 
 typedef enum core_message_type_e {
     CORE_MESSAGE_TYPE_PROCESS_EXIT,
@@ -79,7 +79,7 @@ void clpf_post(CoreMessage *msg);
 // Wakes the main thread and every scheduler, so they notice exit_in_progress
 void clpf_wake_all(void);
 // Frees a core message and what it owns
-void clpf_message_destroy(CoreMessage* msg);
+void clpf_message_destroy(CoreMessage *msg);
 
 // Thread-safe. Creates a process on the least loaded scheduler and returns its pid, or INVALID_PID.
 // monitored_by (or INVALID_PID) gets a DOWN message when the new process exits, even if it exits right away
@@ -96,7 +96,7 @@ void yield(Process *self);
 void clpf_reduce(Process *self, int cost);
 
 // Reductions charged by the runtime operations
-#define REDUCTIONS_SEND 10
+#define REDUCTIONS_SEND  10
 #define REDUCTIONS_FETCH 1
 // Detaches the monitors and links of a process that is ending, sends DOWNs and
 // exit signals. Called by the process itself or, for a kill, by its scheduler.
@@ -111,7 +111,6 @@ void process_exit_signal_locked(Process *target, Pid from, unsigned int reason, 
 // Not declared _Noreturn: AddressSanitizer mishandles noreturn calls made on coroutine stacks.
 void exiting(Process *self, exit_reason reason);
 
-
 // Message
 
 Message *clpf_receive(Process *self, MessageMatch match, Tag pattern);
@@ -125,5 +124,3 @@ int clpf_send(Process *self, Pid pid, void *data, size_t size, Tag tag);
 int clpf_deliver(Pid from, Pid pid, void *data, size_t size, Tag tag);
 Message *clpf_request(Process *self, Pid pid, void *data, size_t size, Tag tag);
 void clpf_msg_free(Process *self, Message *msg);
-
-

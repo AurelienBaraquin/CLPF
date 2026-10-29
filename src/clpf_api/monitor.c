@@ -12,7 +12,7 @@ void process_monitor(Process *self, Pid target) {
         process_unlock(process);
 
     // Too late to watch it exit: report it gone right away
-    DownInfo down = { target, EXIT_REASON_NOPROC };
+    DownInfo down = {target, EXIT_REASON_NOPROC};
     clpf_deliver(target, self->pid, &down, sizeof down, MAKE_DOWN_TAG(target));
 }
 

@@ -2,10 +2,10 @@
 #include <scheduler_manager.h>
 #include <stdio.h>
 
-Pid clpf_task_add(Funcall_t *fun, const SpawnOptions *options, Pid parent_pid, Pid monitored_by)
-{
+Pid clpf_task_add(Funcall_t *fun, const SpawnOptions *options, Pid parent_pid, Pid monitored_by) {
     Pid scheduler_index = options->scheduler > 0 && options->scheduler <= clpf.scheduler_count
-        ? options->scheduler - 1 : sch_mg_get_less_process_scheduler();
+                              ? options->scheduler - 1
+                              : sch_mg_get_less_process_scheduler();
     if (scheduler_index == -1) {
         fprintf(stderr, "No scheduler available\n");
         return INVALID_PID;
@@ -62,7 +62,6 @@ Pid clpf_task_add(Funcall_t *fun, const SpawnOptions *options, Pid parent_pid, P
     return pid;
 }
 
-Pid clpf_spawn(Process *self, Funcall_t *fun, SpawnOptions options)
-{
+Pid clpf_spawn(Process *self, Funcall_t *fun, SpawnOptions options) {
     return clpf_task_add(fun, &options, self->pid, options.monitor ? self->pid : INVALID_PID);
 }

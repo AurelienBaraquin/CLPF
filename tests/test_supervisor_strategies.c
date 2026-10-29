@@ -13,7 +13,7 @@ typedef struct {
 
 // Reports its start, then crashes when told to
 TASK(member, Pid report_to, int index) {
-    Started started = { index, self->pid };
+    Started started = {index, self->pid};
     SEND(report_to, &started, sizeof started, MAKE_STR_TAG("started"));
     MSG_FREE(RECEIVE(MAKE_STR_TAG("crash")));
     EXIT_ERROR();

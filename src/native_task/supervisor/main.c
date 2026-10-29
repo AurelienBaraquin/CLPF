@@ -5,7 +5,7 @@
 #include <api/link.h>
 #include <string.h>
 
-#define DEFAULT_PERIOD 1000 // Default period in milliseconds
+#define DEFAULT_PERIOD       1000 // Default period in milliseconds
 #define DEFAULT_MAX_RESTARTS 5
 
 TASK(clpf_supervisor, SUP_STRAT strategy, uint64_t period_ms, int max_restarts) {

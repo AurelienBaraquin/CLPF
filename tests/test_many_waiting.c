@@ -9,7 +9,7 @@
 #else
 #define WAITING_PROCESSES 10000
 #endif
-#define ROUND_TRIPS 5000
+#define ROUND_TRIPS     5000
 #define MAX_DURATION_MS 1500
 
 // Thousands of processes blocked in RECEIVE must not slow down the others:
@@ -42,8 +42,8 @@ TASK(entry, int argc, char *argv[]) {
         MSG_FREE(RECEIVE(MAKE_STR_TAG("pong")));
     }
     uint64_t elapsed = now_ms() - start;
-    fprintf(stderr, "%d round trips next to %d waiting processes in %lu ms\n",
-            ROUND_TRIPS, WAITING_PROCESSES, (unsigned long)elapsed);
+    fprintf(stderr, "%d round trips next to %d waiting processes in %lu ms\n", ROUND_TRIPS, WAITING_PROCESSES,
+            (unsigned long)elapsed);
     TEST_ASSERT(elapsed < MAX_DURATION_MS);
 
     TEST_PASS();

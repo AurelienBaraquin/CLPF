@@ -1,7 +1,6 @@
 #include <scheduler_manager.h>
 
-Pid sch_mg_get_less_process_scheduler(void)
-{
+Pid sch_mg_get_less_process_scheduler(void) {
     if (clpf.scheduler_count == 0)
         return -1;
 

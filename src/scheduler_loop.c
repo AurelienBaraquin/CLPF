@@ -9,7 +9,7 @@
 #include <utils/time.h>
 
 void co_entrypoint() {
-    Process* proc = (Process*)aco_get_arg();
+    Process *proc = (Process *)aco_get_arg();
 
     if (!proc)
         return;
@@ -20,7 +20,7 @@ void co_entrypoint() {
     exiting(proc, EXIT_REASON_NORMAL);
 }
 
-process_state execute_process(Scheduler *scheduler, Process* process) {
+process_state execute_process(Scheduler *scheduler, Process *process) {
     if (!process)
         return PROCESS_EXITING;
 
@@ -45,11 +45,11 @@ process_state execute_process(Scheduler *scheduler, Process* process) {
     return process->state;
 }
 
-void request_process_exit(Process* process) {
-    CoreMessage* msg = malloc(sizeof(CoreMessage));
+void request_process_exit(Process *process) {
+    CoreMessage *msg = malloc(sizeof(CoreMessage));
     if (!msg)
         return;
-    
+
     msg->op = CORE_MESSAGE_TYPE_PROCESS_EXIT;
     msg->data.process_exit.pid = process->pid;
 
@@ -68,7 +68,7 @@ static bool scheduler_has_work(void *arg) {
     return false;
 }
 
-void scheduler_loop(Scheduler* scheduler) {
+void scheduler_loop(Scheduler *scheduler) {
     if (!scheduler)
         return;
 
@@ -91,10 +91,10 @@ void scheduler_loop(Scheduler* scheduler) {
         // 5. Do auxiliary scheduler work
         // 6. If needed check IO and update time
         // 7. While needed pick a port task to execute
-        
+
         // 8. Pick a process to execute
-        Process* process = pick_process(scheduler);
-        
+        Process *process = pick_process(scheduler);
+
         if (!process) {
             bool work_elsewhere = scheduler_request_work(scheduler);
 
@@ -134,8 +134,7 @@ void scheduler_loop(Scheduler* scheduler) {
                 atomic_fetch_sub(&scheduler->process_count, 1);
                 request_process_exit(process);
                 break;
-            default:
-                break;
+            default: break;
         }
     }
 }

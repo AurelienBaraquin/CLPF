@@ -1,7 +1,7 @@
 #include <scheduler.h>
 #include <clpf_internal.h>
 
-int scheduler_init(Scheduler* scheduler, Pid pid) {
+int scheduler_init(Scheduler *scheduler, Pid pid) {
     if (!scheduler)
         return -1;
 
@@ -26,7 +26,7 @@ int scheduler_init(Scheduler* scheduler, Pid pid) {
     return 0;
 }
 
-void scheduler_destroy(Scheduler* scheduler) {
+void scheduler_destroy(Scheduler *scheduler) {
     if (!scheduler)
         return;
 
@@ -40,70 +40,56 @@ void scheduler_destroy(Scheduler* scheduler) {
     idle_destroy(&scheduler->idle);
 }
 
-void scheduler_push_shared(Scheduler* scheduler, Process* process) {
+void scheduler_push_shared(Scheduler *scheduler, Process *process) {
     if (!scheduler || !process)
         return;
 
     switch (process->priority) {
         case PROCESS_PRIORITY_LOW:
-        case PROCESS_PRIORITY_MEDIUM:
-            mpscq_push(&scheduler->shared_rq[2], &process->shared_node);
-            break;
-        case PROCESS_PRIORITY_HIGH:
-            mpscq_push(&scheduler->shared_rq[1], &process->shared_node);
-            break;
-        case PROCESS_PRIORITY_VERY_HIGH:
-            mpscq_push(&scheduler->shared_rq[0], &process->shared_node);
-            break;
-        default:
-            break;
+        case PROCESS_PRIORITY_MEDIUM: mpscq_push(&scheduler->shared_rq[2], &process->shared_node); break;
+        case PROCESS_PRIORITY_HIGH: mpscq_push(&scheduler->shared_rq[1], &process->shared_node); break;
+        case PROCESS_PRIORITY_VERY_HIGH: mpscq_push(&scheduler->shared_rq[0], &process->shared_node); break;
+        default: break;
     }
 
     scheduler_wake(scheduler);
 }
 
-void scheduler_wake(Scheduler* scheduler) {
+void scheduler_wake(Scheduler *scheduler) {
     idle_wake(&scheduler->idle);
 }
 
-void scheduler_push(Scheduler* scheduler, Process* process) {
+void scheduler_push(Scheduler *scheduler, Process *process) {
     if (!scheduler || !process)
         return;
 
     switch (process->priority) {
         case PROCESS_PRIORITY_LOW:
-        case PROCESS_PRIORITY_MEDIUM:
-            runq_push(&scheduler->rq[2], process);
-            break;
-        case PROCESS_PRIORITY_HIGH:
-            runq_push(&scheduler->rq[1], process);
-            break;
-        case PROCESS_PRIORITY_VERY_HIGH:
-            runq_push(&scheduler->rq[0], process);
-            break;
-        default:
-            break;
+        case PROCESS_PRIORITY_MEDIUM: runq_push(&scheduler->rq[2], process); break;
+        case PROCESS_PRIORITY_HIGH: runq_push(&scheduler->rq[1], process); break;
+        case PROCESS_PRIORITY_VERY_HIGH: runq_push(&scheduler->rq[0], process); break;
+        default: break;
     }
 }
 
-void scheduler_drain(Scheduler* scheduler) {
+void scheduler_drain(Scheduler *scheduler) {
     if (!scheduler)
         return;
 
     for (int i = 0; i < NB_RQ; i++) {
-        MPSCQNode* node = mpscq_drain(&scheduler->shared_rq[i]);
+        MPSCQNode *node = mpscq_drain(&scheduler->shared_rq[i]);
         while (node) {
-            Process* process = container_of(node, Process, shared_node);
+            Process *process = container_of(node, Process, shared_node);
             node = node->next;
             runq_push(&scheduler->rq[i], process);
         }
     }
 }
 
-void scheduler_drain_wakeups(Scheduler* scheduler) {
-    MPSCQNode* node = mpscq_drain(&scheduler->wakeups);
+void scheduler_drain_wakeups(Scheduler *scheduler) {
+    MPSCQNode *node = mpscq_drain(&scheduler->wakeups);
     while (node) {
-        Process* process = container_of(node, Process, wake_node);
+        Process *process = container_of(node, Process, wake_node);
         node = node->next;
 
         // Cleared before looking at the state: a later delivery queues the process again
@@ -115,11 +101,11 @@ void scheduler_drain_wakeups(Scheduler* scheduler) {
     }
 }
 
-bool scheduler_request_work(Scheduler* thief) {
-    Scheduler* victim = NULL;
+bool scheduler_request_work(Scheduler *thief) {
+    Scheduler *victim = NULL;
     int most = 1; // with a single ready process, its scheduler is not overloaded
     for (int i = 0; i < clpf.scheduler_count; i++) {
-        Scheduler* candidate = &clpf.scheduler_table[i];
+        Scheduler *candidate = &clpf.scheduler_table[i];
         int ready = atomic_load(&candidate->ready_count);
         if (candidate != thief && ready > most) {
             victim = candidate;
@@ -134,7 +120,7 @@ bool scheduler_request_work(Scheduler* thief) {
 
 // Moves a ready process to another scheduler; it must be in no queue of this one.
 // A process with a wakeup queued here stays: this scheduler will still read its state.
-static bool migrate(Scheduler* from, Scheduler* to, Process* process) {
+static bool migrate(Scheduler *from, Scheduler *to, Process *process) {
     pthread_mutex_lock(&process->lock);
     bool movable = !atomic_load(&process->wake_pending);
     if (movable) {
@@ -153,7 +139,7 @@ static bool migrate(Scheduler* from, Scheduler* to, Process* process) {
     return movable;
 }
 
-static size_t ready_processes(Scheduler* scheduler) {
+static size_t ready_processes(Scheduler *scheduler) {
     size_t ready = 0;
     for (int i = 0; i < NB_RQ; i++)
         ready += runq_size(&scheduler->rq[i]);
@@ -161,20 +147,20 @@ static size_t ready_processes(Scheduler* scheduler) {
 }
 
 // Shares the ready processes evenly with the thieves, least urgent first
-static void give_work(Scheduler* scheduler, uint64_t thieves) {
+static void give_work(Scheduler *scheduler, uint64_t thieves) {
     size_t share = ready_processes(scheduler) / ((size_t)__builtin_popcountll(thieves) + 1);
 
     for (int t = 0; t < clpf.scheduler_count && share > 0; t++) {
         if (!(thieves & ((uint64_t)1 << t)))
             continue;
 
-        Scheduler* thief = &clpf.scheduler_table[t];
+        Scheduler *thief = &clpf.scheduler_table[t];
         size_t to_give = share;
         for (int i = NB_RQ - 1; i >= 0 && to_give > 0; i--) {
-            RunQueue* rq = &scheduler->rq[i];
+            RunQueue *rq = &scheduler->rq[i];
             size_t n = runq_size(rq);
             for (size_t j = 0; j < n && to_give > 0; j++) {
-                Process* process = runq_pop(rq);
+                Process *process = runq_pop(rq);
                 if (migrate(scheduler, thief, process))
                     to_give--;
                 else
@@ -184,9 +170,9 @@ static void give_work(Scheduler* scheduler, uint64_t thieves) {
     }
 }
 
-static Process* pick_ready(Scheduler* scheduler);
+static Process *pick_ready(Scheduler *scheduler);
 
-Process* pick_process(Scheduler* scheduler) {
+Process *pick_process(Scheduler *scheduler) {
     if (!scheduler)
         return NULL;
 
@@ -197,14 +183,14 @@ Process* pick_process(Scheduler* scheduler) {
     if (thieves)
         give_work(scheduler, thieves);
 
-    Process* picked = pick_ready(scheduler);
+    Process *picked = pick_ready(scheduler);
     int ready = (int)ready_processes(scheduler);
     atomic_store(&scheduler->ready_count, ready);
 
     // Overloaded: wake the sleeping schedulers so that they come and take some
     if (ready >= 2) {
         for (int i = 0; i < clpf.scheduler_count; i++) {
-            Scheduler* other = &clpf.scheduler_table[i];
+            Scheduler *other = &clpf.scheduler_table[i];
             if (other != scheduler && atomic_load(&other->idle.sleeping))
                 scheduler_wake(other);
         }
@@ -212,13 +198,13 @@ Process* pick_process(Scheduler* scheduler) {
     return picked;
 }
 
-static Process* pick_ready(Scheduler* scheduler) {
+static Process *pick_ready(Scheduler *scheduler) {
     for (int i = 0; i < NB_RQ; ++i) {
-        RunQueue* rq = &scheduler->rq[i];
+        RunQueue *rq = &scheduler->rq[i];
 
         size_t n = runq_size(rq);
         for (size_t j = 0; j < n; ++j) {
-            Process* process = runq_pop(rq);
+            Process *process = runq_pop(rq);
 
             // Only low priority processes are ever delayed
             if (process->schedule_count > 0) {
@@ -235,7 +221,7 @@ static Process* pick_ready(Scheduler* scheduler) {
     }
 
     // Only delayed low priority processes are ready: run one rather than sleep
-    Process* process = runq_pop(&scheduler->rq[NB_RQ - 1]);
+    Process *process = runq_pop(&scheduler->rq[NB_RQ - 1]);
     if (process)
         process->schedule_count = LOW_PRIORITY_SKIPS;
     return process;

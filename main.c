@@ -21,16 +21,16 @@
 #include <api/supervisor.h>
 #include <string.h>
 
-#define WORKERS 3
-#define JOBS 100
-#define POISON_INTERVAL 37      // every 37th job crashes its worker
-#define MAX_FIB 90              // fib(n) fits in a long up to n = 92
-#define POOL_PERIOD_MS 1000
+#define WORKERS         3
+#define JOBS            100
+#define POISON_INTERVAL 37 // every 37th job crashes its worker
+#define MAX_FIB         90 // fib(n) fits in a long up to n = 92
+#define POOL_PERIOD_MS  1000
 // A worker crashing more often than this within POOL_PERIOD_MS is given up by the pool,
 // and nothing tells the coordinator: keep crashes rare enough or the demo waits forever
 #define POOL_MAX_RESTARTS 5
-#define ECHO_REQUESTS 3
-#define TICKER_STOP 1           // internal tag code
+#define ECHO_REQUESTS     3
+#define TICKER_STOP       1 // internal tag code
 
 typedef struct {
     int id;
@@ -60,9 +60,9 @@ typedef struct {
 static const char *reason_name(unsigned int reason) {
     switch (reason) {
         case EXIT_REASON_NORMAL: return "normal";
-        case EXIT_REASON_ERROR:  return "error";
+        case EXIT_REASON_ERROR: return "error";
         case EXIT_REASON_NOPROC: return "noproc";
-        default:                 return "unknown";
+        default: return "unknown";
     }
 }
 
@@ -159,7 +159,7 @@ TASK(worker, Pid coordinator, int index) {
             EXIT(EXIT_REASON_ERROR);
         }
 
-        JobResult result = { job.id, CALL(fibonacci, job.value) };
+        JobResult result = {job.id, CALL(fibonacci, job.value)};
         MSG_FREE(REQUEST(stats_pid, &result.result, sizeof result.result, MAKE_STR_TAG("stats::add")));
 
         SEND(coordinator, &result, sizeof result, MAKE_STR_TAG("worker::result"));
@@ -222,7 +222,7 @@ static void DEF(dispatch, Coordinator *c, Pid worker_pid) {
         return;
     }
 
-    Job job = { c->next_job, 10 + (c->next_job * 3) % (MAX_FIB - 10) };
+    Job job = {c->next_job, 10 + (c->next_job * 3) % (MAX_FIB - 10)};
     c->next_job++;
     slot->job_id = job.id;
     SEND(worker_pid, &job, sizeof job, MAKE_STR_TAG("job"));
@@ -307,8 +307,8 @@ TASK(entry, int argc, char *argv[]) {
 
     // Results
     Message *total = REQUEST(stats_pid, NULL, 0, MAKE_STR_TAG("stats::get"));
-    char *summary = FORMAT("[coordinator] %d jobs: %d ok, %d lost to crashes, sum %ld (stats says %ld)\n",
-                           JOBS, JOBS - c.failed, c.failed, c.sum, total ? *(long *)total->payload : -1L);
+    char *summary = FORMAT("[coordinator] %d jobs: %d ok, %d lost to crashes, sum %ld (stats says %ld)\n", JOBS,
+                           JOBS - c.failed, c.failed, c.sum, total ? *(long *)total->payload : -1L);
     PRINT("%s", summary);
     FREE(summary);
     MSG_FREE(total);

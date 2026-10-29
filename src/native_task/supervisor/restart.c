@@ -9,12 +9,9 @@
 
 static bool should_restart(RestartType restart, unsigned int reason) {
     switch (restart) {
-        case RES_PERMANENT:
-            return true;
-        case RES_TRANSIENT:
-            return reason != EXIT_REASON_NORMAL;
-        default:
-            return false;
+        case RES_PERMANENT: return true;
+        case RES_TRANSIENT: return reason != EXIT_REASON_NORMAL;
+        default: return false;
     }
 }
 
@@ -116,9 +113,7 @@ void DEF(sup_on_child_down, Pid from, unsigned int reason, supervisor_t *sv) {
     }
 
     switch (sv->strategy) {
-        case SUP_ONE_FOR_ONE:
-            CALL(restart_from, sv, child);
-            break;
+        case SUP_ONE_FOR_ONE: CALL(restart_from, sv, child); break;
         case SUP_ONE_FOR_ALL:
             CALL(sup_stop_all, sv);
             CALL(restart_from, sv, TAILQ_FIRST(&sv->sup_childs));

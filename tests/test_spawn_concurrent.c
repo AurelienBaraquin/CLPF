@@ -18,7 +18,7 @@ typedef struct {
 } Hello;
 
 TASK(child, Pid report_to) {
-    Hello hello = { self->pid, self->scheduler_pid };
+    Hello hello = {self->pid, self->scheduler_pid};
     SEND(report_to, &hello, sizeof hello, MAKE_STR_TAG("hello"));
     EXIT_NORMAL();
 }

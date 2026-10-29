@@ -7,8 +7,8 @@
 #include <sys/resource.h>
 #include <time.h>
 
-#define SETTLE_MS 100
-#define WINDOW_MS 500
+#define SETTLE_MS       100
+#define WINDOW_MS       500
 #define MAX_IDLE_CPU_US 10000 // 2% of a core over the window
 
 #ifdef CLPF_SANITIZED
@@ -21,15 +21,14 @@
 static _Atomic Pid entry_pid = INVALID_PID;
 
 static void sleep_ms(long ms) {
-    struct timespec ts = { ms / 1000, (ms % 1000) * 1000000L };
+    struct timespec ts = {ms / 1000, (ms % 1000) * 1000000L};
     nanosleep(&ts, NULL);
 }
 
 static long cpu_time_us(void) {
     struct rusage usage;
     getrusage(RUSAGE_SELF, &usage);
-    return (usage.ru_utime.tv_sec + usage.ru_stime.tv_sec) * 1000000L
-         + usage.ru_utime.tv_usec + usage.ru_stime.tv_usec;
+    return (usage.ru_utime.tv_sec + usage.ru_stime.tv_sec) * 1000000L + usage.ru_utime.tv_usec + usage.ru_stime.tv_usec;
 }
 
 // Runs outside the runtime: measures the CPU used while every process is blocked

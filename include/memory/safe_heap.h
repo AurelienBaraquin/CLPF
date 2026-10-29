@@ -5,10 +5,10 @@
 #include <tlsf/tlsf.h>
 #include <utils/spinlock.h>
 
-#define MINIMAL_HEAP_POOL_SIZE (16 * 1024)  // ~16  Ko
+#define MINIMAL_HEAP_POOL_SIZE (16 * 1024) // ~16  Ko
 
 typedef struct safe_heap_pool_s {
-    void* base;
+    void *base;
     size_t size;
     SLIST_ENTRY(safe_heap_pool_s) next;
 } safe_heap_pool_t;
@@ -19,9 +19,9 @@ typedef struct safe_heap_s {
     spinlock_t lock; // Spinlock for thread-safe access
 } safe_heap_t;
 
-int safe_heap_create(safe_heap_t* safe_heap, size_t initial_size);
-int safe_heap_grow(safe_heap_t* safe_heap, size_t size);
-void safe_heap_destroy(safe_heap_t* safe_heap);
-void* safe_heap_alloc(safe_heap_t* safe_heap, size_t size);
-void* safe_heap_realloc(safe_heap_t* safe_heap, void* ptr, size_t size);
-void safe_heap_free(safe_heap_t* safe_heap, void* ptr);
+int safe_heap_create(safe_heap_t *safe_heap, size_t initial_size);
+int safe_heap_grow(safe_heap_t *safe_heap, size_t size);
+void safe_heap_destroy(safe_heap_t *safe_heap);
+void *safe_heap_alloc(safe_heap_t *safe_heap, size_t size);
+void *safe_heap_realloc(safe_heap_t *safe_heap, void *ptr, size_t size);
+void safe_heap_free(safe_heap_t *safe_heap, void *ptr);

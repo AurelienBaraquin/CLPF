@@ -72,7 +72,7 @@ void stack_guard_thread_init(void) {
     if (sigaltstack(NULL, &current) == 0 && !(current.ss_flags & SS_DISABLE))
         return;
 
-    stack_t stack = { .ss_sp = alt_stack, .ss_size = ALT_STACK_SIZE, .ss_flags = 0 };
+    stack_t stack = {.ss_sp = alt_stack, .ss_size = ALT_STACK_SIZE, .ss_flags = 0};
     sigaltstack(&stack, NULL);
 }
 

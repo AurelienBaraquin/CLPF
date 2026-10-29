@@ -13,9 +13,9 @@ typedef enum restart_type_e {
 #define SUP_SHUTDOWN_TIMEOUT_MS 5000
 
 typedef enum sup_strat_e {
-    SUP_ONE_FOR_ONE,    // Restart the child that died
-    SUP_ONE_FOR_ALL,    // Stop every other child, then restart them all
-    SUP_REST_FOR_ONE,   // Stop the children started after it, then restart it and them
+    SUP_ONE_FOR_ONE,  // Restart the child that died
+    SUP_ONE_FOR_ALL,  // Stop every other child, then restart them all
+    SUP_REST_FOR_ONE, // Stop the children started after it, then restart it and them
 } SUP_STRAT;
 
 #define MAGIC_SUP_CHILD 0xC5C1D4C1
@@ -58,7 +58,7 @@ typedef struct supervisor_s {
 
 TASK(clpf_supervisor, SUP_STRAT strategy, uint64_t period_ms, int max_restarts);
 
-SupChildSlot* DEF(sup_child_list_insert, SupChildList *list, SupChildSpec *child);
+SupChildSlot *DEF(sup_child_list_insert, SupChildList *list, SupChildSpec *child);
 void DEF(sup_child_list_remove, SupChildList *list, SupChildSlot *child);
 SupChildSlot *sup_child_find_by_pid(supervisor_t *sv, Pid pid);
 
