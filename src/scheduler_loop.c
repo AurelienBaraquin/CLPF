@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <clpf_internal.h>
 #include <assert.h>
+#include <unistd.h>
 
 void co_entrypoint() {
     Process* proc = (Process*)aco_get_arg();
@@ -82,16 +83,6 @@ void scheduler_loop(Scheduler* scheduler) {
     scheduler->scheduler_acoro = aco_create(NULL, NULL, 0, NULL, NULL);
 
     while (1) {
-        #ifdef RUNNING_ON_VALGRIND
-        usleep(1000); // Sleep for 1ms to avoid busy waiting
-        #else
-        LOCK_UNTIL(runq_empty(&scheduler->rq[0]) ||
-                   runq_empty(&scheduler->rq[1]) ||
-                   runq_empty(&scheduler->rq[2]) ||
-                   !exit_in_progress,
-                   &scheduler->cond, &scheduler->mutex);
-        #endif
-
         if (UNLIKELY(exit_in_progress)) {
             break;
         }
@@ -110,7 +101,7 @@ void scheduler_loop(Scheduler* scheduler) {
         Process* process = pick_process(scheduler);
         
         if (!process) {
-            // printf("No process to execute in scheduler %ld\n", scheduler->pid);
+            usleep(SCHEDULER_IDLE_SLEEP_US);
             continue;
         }
 

@@ -1,7 +1,5 @@
 #pragma once
 
-#define RUNNING_ON_VALGRIND
-
 #include <memory/safe_heap.h>
 #include <memory/stack.h>
 #include <utils/mpscq.h>
@@ -13,6 +11,10 @@
 #include <mailbox.h>
 
 #define NAME_MAX_LENGTH 64
+
+// A low priority process is skipped this many times before being picked,
+// so it runs once for every 8 passes over its run queue
+#define LOW_PRIORITY_SKIPS 7
 
 typedef void (*Task)();
 
@@ -49,8 +51,8 @@ typedef struct process_s {
     process_state state;
     process_priority priority;
 
-    // == 1 for VH, H, M and == 8 for Low
-    unsigned short schedule_count; // Decremented each time the process is picked from the front of the queue, and scheduled if == 0 otherwise it goes to the back of the queue
+    // Remaining skips before a low priority process is scheduled (always 0 for other priorities)
+    unsigned short schedule_count;
 
     Funcall_t taskcall;
 

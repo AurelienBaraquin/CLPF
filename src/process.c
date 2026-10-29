@@ -18,18 +18,7 @@ int process_init(Process *process, char *name, Funcall_t *taskcall, process_prio
     process->state = PROCESS_INIT,
     process->priority = priority;
 
-    switch (priority) {
-        case PROCESS_PRIORITY_LOW:
-            process->schedule_count = 8;
-            break;
-        case PROCESS_PRIORITY_MEDIUM:
-        case PROCESS_PRIORITY_HIGH:
-        case PROCESS_PRIORITY_VERY_HIGH:
-            process->schedule_count = 1;
-            break;
-        default:
-            return -1;
-    } 
+    process->schedule_count = priority == PROCESS_PRIORITY_LOW ? LOW_PRIORITY_SKIPS : 0;
 
     Funcall_t funcall = {0};
     funcall.func = taskcall->func;

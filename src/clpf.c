@@ -114,13 +114,6 @@ void __clpf_main(Task entry_point, int argc, char *argv[])
         }
     }
 
-    for (int i = 0; i < clpf.scheduler_count; ++i) {
-        Scheduler* scheduler = &clpf.scheduler_table[i];
-        pthread_mutex_lock(&scheduler->mutex);
-        pthread_cond_signal(&scheduler->cond);
-        pthread_mutex_unlock(&scheduler->mutex);
-    }
-
     for (int i = 0; i < clpf.scheduler_count; i++) {
         Scheduler* scheduler = &clpf.scheduler_table[i];
         pthread_join(scheduler->system_thread_id, NULL);
