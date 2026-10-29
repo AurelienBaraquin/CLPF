@@ -25,9 +25,10 @@ typedef enum process_state_e {
     PROCESS_EXITING,
 } process_state;
 
+// MEDIUM comes first so that zero-initialised SpawnOptions get it
 typedef enum process_priority_e {
-    PROCESS_PRIORITY_LOW,
     PROCESS_PRIORITY_MEDIUM,
+    PROCESS_PRIORITY_LOW,
     PROCESS_PRIORITY_HIGH,
     PROCESS_PRIORITY_VERY_HIGH,
 } process_priority;
@@ -69,7 +70,16 @@ typedef struct process_s {
     atomic_bool wake_pending; // wake_node is queued: no need to queue it again
 } Process;
 
-int process_init(Process *process, const char *name, Funcall_t *taskcall, process_priority priority, Pid pid, Pid parent_pid);
+// How to start a process (zero-initialised fields take the defaults)
+typedef struct {
+    const char *name;            // label for logs, "" by default
+    process_priority priority;   // PROCESS_PRIORITY_MEDIUM by default
+    bool monitor;                // the spawner monitors the new process from its very start
+    const void *arg_block;       // copied into the new process heap and passed as its argument
+    size_t arg_block_size;
+} SpawnOptions;
+
+int process_init(Process *process, Funcall_t *taskcall, const SpawnOptions *options, Pid pid, Pid parent_pid);
 void process_destroy(Process *process);
 
 void co_entrypoint();

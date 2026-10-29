@@ -75,10 +75,10 @@ void clpf_message_destroy(CoreMessage* msg);
 
 // Thread-safe. Creates a process on the least loaded scheduler and returns its pid, or INVALID_PID.
 // monitored_by (or INVALID_PID) gets a DOWN message when the new process exits, even if it exits right away
-Pid clpf_task_add(const char *name, Funcall_t *fun, process_priority priority, Pid parent_pid, Pid monitored_by);
+Pid clpf_task_add(Funcall_t *fun, const SpawnOptions *options, Pid parent_pid, Pid monitored_by);
 
-// Spawns a child of self; with monitor, self is monitoring it from its very start
-Pid clpf_spawn(Process *self, const char *name, Funcall_t *fun, process_priority priority, bool monitor);
+// Spawns a child of self (see SpawnOptions)
+Pid clpf_spawn(Process *self, Funcall_t *fun, SpawnOptions options);
 
 typedef enum exit_reason_e exit_reason;
 

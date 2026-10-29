@@ -8,6 +8,10 @@
 #define TASK(_name, ...) \
     void _name(Process *self, __VA_ARGS__) \
 
+// A task receiving a copied argument block (see SPAWN_WITH)
+#define TASK_WITH(_name, type, var) \
+    void _name(Process *self, type *var) \
+
 #define DEF(_name, ...) \
     _name(Process *self, __VA_ARGS__) \
 
