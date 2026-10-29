@@ -5,6 +5,9 @@
 #include <utils/run_queue.h>
 #include <utils/idle.h>
 
+// Times an idle scheduler polls for work before going to sleep
+#define SCHEDULER_IDLE_SPINS 2000
+
 #define NB_RQ 3 // Number of run queues
 
 typedef struct scheduler_s {
