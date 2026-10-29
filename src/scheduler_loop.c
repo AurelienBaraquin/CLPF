@@ -2,7 +2,7 @@
 #include <flags_internal.h>
 #include <utils/ox.h>
 #include <stdio.h>
-#include <clpf_internal.h>
+#include <api/base.h>
 #include <assert.h>
 #include <unistd.h>
 
@@ -14,9 +14,8 @@ void co_entrypoint() {
 
     funcall_call(&proc->taskcall);
 
-    if (proc->state == PROCESS_EXITING)
-        aco_exit();
-    aco_yield();
+    // The task returned without calling EXIT: that is a normal exit
+    exiting(proc, EXIT_REASON_NORMAL);
 }
 
 void handle_signals(Process* process) {
