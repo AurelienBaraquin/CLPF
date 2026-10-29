@@ -42,11 +42,9 @@ int process_init(Process *process, char *name, Funcall_t *taskcall, process_prio
     links_init(&process->links);
     monitor_init(&process->monitor);
 
-    Process *parent = process_get(parent_pid);
-    if (parent) {
-        process->links.parent = parent_pid;
-        link_add_child(&parent->links, pid);
-    }
+    process->links.parent = parent_pid;
+    process->exit_notified = false;
+    process->callbacks_blocked = 0;
 
     mpscq_init(&process->signal_queue);
     mailbox_init(&process->mailbox);
@@ -109,9 +107,21 @@ Pid process_get_parent_pid(Process *self) {
 }
 
 size_t process_get_child_count(Process *self) {
-    return self ? link_count(self->links.children) : 0;
+    if (!self)
+        return 0;
+
+    pthread_mutex_lock(&self->lock);
+    size_t count = link_count(self->links.children);
+    pthread_mutex_unlock(&self->lock);
+    return count;
 }
 
 Pid process_get_child_pid(Process *self, size_t index) {
-    return self ? link_get_nth(self->links.children, index) : -1;
+    if (!self)
+        return INVALID_PID;
+
+    pthread_mutex_lock(&self->lock);
+    Pid child = link_get_nth(self->links.children, index);
+    pthread_mutex_unlock(&self->lock);
+    return child;
 }

@@ -10,7 +10,7 @@
 // crosses threads. A lost wakeup leaves a process waiting forever and the
 // test hits its timeout.
 static Pid spawn_root(Process *self, Funcall_t *taskcall) {
-    __clpf_request_task_add(self, "", true, taskcall, PROCESS_PRIORITY_MEDIUM, INVALID_PID);
+    __clpf_request_task_add(self, "", true, false, taskcall, PROCESS_PRIORITY_MEDIUM, INVALID_PID);
     Pid *pid = RECEIVE(CORE_MESSAGE_TYPE_SPAWN_TAG);
     Pid result = *pid;
     FREE(pid);

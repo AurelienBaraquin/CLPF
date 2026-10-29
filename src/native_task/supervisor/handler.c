@@ -26,13 +26,12 @@ SUP_ST DEF(__sup_handler_spawn, Message *msg, __supervisor_t *sup) {
         fprintf(stderr, "[SUPERVISOR] Failed to insert child into list\n");
         return SUP_NOTHING;
     }
-    child->pid = VSPAWN_NAMED(&spec->taskcall, spec->name, spec->priority);
+    child->pid = VSPAWN_MONITOR_NAMED(&spec->taskcall, spec->name, spec->priority);
     if (child->pid == -1) {
         fprintf(stderr, "[SUPERVISOR] Failed to spawn child process\n");
         return SUP_NOTHING;
     }
     sup->child_count++;
-    MONITOR_ADD(child->pid);
     SEND(msg->sender_pid, &child->pid, sizeof(Pid), MAKE_STR_TAG("supervisor::spawn"));
     return SUP_SUCCESS;
 }

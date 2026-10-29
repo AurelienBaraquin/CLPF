@@ -33,6 +33,7 @@ typedef struct {
             Funcall_t *taskcall;
             process_priority priority;
             Pid parent_pid;
+            bool monitor; // The sender monitors the new process from its very start
         } spawn;
 
         struct {
@@ -85,10 +86,11 @@ void __clpf_main(Task entry_point, int argc, char *argv[]);
 int __clpf_main_update();
 
 // This function is not thread-safe and should be used with caution only in the main thread (use __clpf_request_task_add for thread-safe task creation)
-Pid __clpf_task_add(char *name, Funcall_t *fun, process_priority priority, Pid parent_pid);
+// monitored_by (or INVALID_PID) gets a DOWN signal when the new process exits, even if it exits right away
+Pid __clpf_task_add(char *name, Funcall_t *fun, process_priority priority, Pid parent_pid, Pid monitored_by);
 
 // Thread-safe task creation
-int __clpf_request_task_add(Process *self, char *name, bool need_reply, Funcall_t *fun, process_priority priority, Pid parent_pid);
+int __clpf_request_task_add(Process *self, char *name, bool need_reply, bool monitor, Funcall_t *fun, process_priority priority, Pid parent_pid);
 
 typedef enum exit_reason_e exit_reason;
 
@@ -116,5 +118,5 @@ void* request(Process *self, Pid pid, void* data, size_t size, Tag tag);
 
 
 
-// Process callbacks
+// Runs the monitor callbacks of pending signals, unless callbacks_blocked is set
 void handle_callbacks(Process *self);

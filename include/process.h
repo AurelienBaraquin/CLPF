@@ -60,8 +60,12 @@ typedef struct process_s {
 
     Funcall_t taskcall;
 
-    ProcessLinks links;
-    Monitor monitor;
+    ProcessLinks links; // children is guarded by lock
+    Monitor monitor; // monitored_by is guarded by lock
+    bool exit_notified; // Guarded by lock: monitors were already sent DOWN, new ones get NOPROC
+
+    // While non-zero, monitor callbacks are not run (owner thread only)
+    int callbacks_blocked;
 
     MPSCQ signal_queue;
     Mailbox mailbox;

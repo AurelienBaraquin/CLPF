@@ -23,6 +23,7 @@
 typedef enum exit_reason_e {
     EXIT_REASON_NORMAL,
     EXIT_REASON_ERROR,
+    EXIT_REASON_NOPROC, // The monitored process did not exist (anymore) when the monitor was set
 } exit_reason;
 
 #define EXIT(reason) \

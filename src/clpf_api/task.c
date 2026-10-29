@@ -4,7 +4,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-Pid __clpf_task_add(char *name, Funcall_t *fun, process_priority priority, Pid parent_pid)
+Pid __clpf_task_add(char *name, Funcall_t *fun, process_priority priority, Pid parent_pid, Pid monitored_by)
 {
     // find a free slot
     int index = -1;
@@ -29,6 +29,8 @@ Pid __clpf_task_add(char *name, Funcall_t *fun, process_priority priority, Pid p
     int init_status = process_init(process, name, fun, priority, pid, parent_pid);
     if (init_status != 0)
         process->pid = INVALID_PID;
+    else if (monitored_by != INVALID_PID)
+        monitored_by_add(&process->monitor, monitored_by);
     pthread_mutex_unlock(&process->lock);
 
     if (init_status != 0) {
@@ -38,10 +40,12 @@ Pid __clpf_task_add(char *name, Funcall_t *fun, process_priority priority, Pid p
 
     Scheduler *scheduler = NULL;
 
-    Process *parent = process_get(parent_pid);
+    Process *parent = process_lock(parent_pid);
     if (parent) {
+        link_add_child(&parent->links, pid);
         // a child runs on the scheduler of its parent
         scheduler = &clpf.scheduler_table[parent->scheduler_pid];
+        process_unlock(parent);
     } else {
         Pid less_process_scheduler = sch_mg_get_less_process_scheduler();
         if (less_process_scheduler == -1) {
@@ -63,7 +67,7 @@ Pid __clpf_task_add(char *name, Funcall_t *fun, process_priority priority, Pid p
     return pid;
 }
 
-int __clpf_request_task_add(Process *self, char *name, bool need_reply, Funcall_t *fun, process_priority priority, Pid parent_pid) {
+int __clpf_request_task_add(Process *self, char *name, bool need_reply, bool monitor, Funcall_t *fun, process_priority priority, Pid parent_pid) {
     CoreMessage *msg = malloc(sizeof(CoreMessage));
     if (!msg)
         return -1;
@@ -81,6 +85,7 @@ int __clpf_request_task_add(Process *self, char *name, bool need_reply, Funcall_
 
     msg->data.spawn.priority = priority;
     msg->data.spawn.parent_pid = parent_pid;
+    msg->data.spawn.monitor = monitor;
 
     mpscq_push(&clpf.message_queue, msg);
 

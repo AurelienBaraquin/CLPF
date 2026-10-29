@@ -30,7 +30,8 @@ int __clpf_main_update()
         CoreMessage* msg = (CoreMessage*)n->data;
         switch (msg->op) {
             case CORE_MESSAGE_TYPE_SPAWN:
-                Pid new_pid = __clpf_task_add(msg->data.spawn.name, msg->data.spawn.taskcall, msg->data.spawn.priority, msg->data.spawn.parent_pid);
+                Pid new_pid = __clpf_task_add(msg->data.spawn.name, msg->data.spawn.taskcall, msg->data.spawn.priority, msg->data.spawn.parent_pid,
+                                              msg->data.spawn.monitor ? msg->sender : INVALID_PID);
                 if (msg->reply_to != -1)
                     send(NULL, msg->reply_to, &new_pid, sizeof(Pid), CORE_MESSAGE_TYPE_SPAWN_TAG);
                 break;
@@ -66,6 +67,11 @@ int __clpf_main_update()
                 // The name may already belong to a restarted process
                 if (name_table_lookup(clpf.name_table, process->__name) == process->pid)
                     name_table_remove(clpf.name_table, process->__name);
+                Process *parent = process_lock(process->links.parent);
+                if (parent) {
+                    link_remove_child(&parent->links, process->pid);
+                    process_unlock(parent);
+                }
                 process_destroy(process);
                 clpf.process_count--;
                 break;

@@ -21,6 +21,7 @@ Message* __receive_internal(Process *self, Tag userdata) {
     Message* msg;
 
     while (1) {
+        handle_callbacks(self);
         msg = __receive_internal_fetch(self, userdata);
 
         if (msg)
@@ -42,6 +43,7 @@ void* receive(Process* self, Tag userdata) {
 }
 
 void *fetch(Process* self, Tag userdata) {
+    handle_callbacks(self);
     Message *msg = __receive_internal_fetch(self, userdata);
     if (!msg)
         return NULL;

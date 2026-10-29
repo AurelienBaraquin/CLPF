@@ -40,7 +40,7 @@ static bool DEF(restart_child_impl, __supervisor_t *sv, SupChildSlot *child) {
         return false;
     }
 
-    Pid new_pid = VSPAWN_NAMED(&child->spec.taskcall, child->spec.name, child->spec.priority);
+    Pid new_pid = VSPAWN_MONITOR_NAMED(&child->spec.taskcall, child->spec.name, child->spec.priority);
     if (new_pid == INVALID_PID) {
         PRINT("Failed to restart child '%s'\n", child->pid);
         return false;
@@ -48,7 +48,6 @@ static bool DEF(restart_child_impl, __supervisor_t *sv, SupChildSlot *child) {
 
     child->pid = new_pid;
     child->restart_count++;
-    MONITOR_ADD(child->pid);
     return true;
 }
 

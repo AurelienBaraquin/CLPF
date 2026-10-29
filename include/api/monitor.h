@@ -12,6 +12,6 @@
 #define MONITOR_REMOVE(target) \
     process_demonitor(self, target)
 
-// Ask to receive a DOWN signal when target exits (no-op if target is already gone)
+// Ask to receive a DOWN signal when target exits (immediately, with EXIT_REASON_NOPROC, if it is already gone)
 void process_monitor(Process *self, Pid target);
 void process_demonitor(Process *self, Pid target);

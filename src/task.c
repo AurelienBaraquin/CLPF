@@ -8,6 +8,6 @@ void init_task(Task entry, int argc, char *argv[])
     Pid pid;
     
     funcall_init(&funcall, __server_launcher__, 3, entry, argc, argv);
-    pid = __clpf_task_add("server::launcher", &funcall, PROCESS_PRIORITY_VERY_HIGH, -1);
+    pid = __clpf_task_add("server::launcher", &funcall, PROCESS_PRIORITY_VERY_HIGH, INVALID_PID, INVALID_PID);
     assert(pid != -1);
 }

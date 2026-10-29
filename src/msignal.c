@@ -1,7 +1,7 @@
 #include <msignal.h>
 #include <clpf_internal.h>
 
-void signal_send(Process *self, Pid to, SignalType type, unsigned int reason) {
+void signal_send(Pid to, Pid from, SignalType type, unsigned int reason) {
     Process *target_process = process_lock(to);
     if (!target_process)
         return;
@@ -14,14 +14,11 @@ void signal_send(Process *self, Pid to, SignalType type, unsigned int reason) {
     }
 
     signal->type = type;
-    signal->from = self->pid;
+    signal->from = from;
     signal->reason = reason;
 
     mpscq_push(&target_process->signal_queue, signal);
     process_unlock(target_process);
-
-    if (self && type != SIGNAL_DOWN)
-        yield(self);
 }
 
 MPSCQNode *signal_drain(Process *self) {
