@@ -5,6 +5,7 @@
 void runq_init(RunQueue *rq) {
     rq->head = NULL;
     rq->tail = NULL;
+    rq->size = 0;
 }
 
 // Ajout en fin
@@ -18,6 +19,7 @@ void runq_push(RunQueue *rq, Process *p) {
     else
         rq->head = p;
     rq->tail = p;
+    rq->size++;
 }
 
 // Extraction en tête
@@ -29,6 +31,7 @@ Process *runq_pop(RunQueue *rq) {
     if (!rq->head)
         rq->tail = NULL;
     p->next = NULL;
+    rq->size--;
     return p;
 }
 
@@ -48,11 +51,9 @@ void runq_clear(RunQueue *rq, void (*destroy)(Process *)) {
     }
     rq->head = NULL;
     rq->tail = NULL;
+    rq->size = 0;
 }
 
 size_t runq_size(RunQueue *rq) {
-    size_t count = 0;
-    for (Process *p = rq->head; p; p = p->next)
-        ++count;
-    return count;
+    return rq->size;
 }
