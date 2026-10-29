@@ -9,3 +9,4 @@ endfunction()
 
 clpf_add_test(test_smoke)
 clpf_add_test(test_stack_alignment)
+clpf_add_test(test_name_table)

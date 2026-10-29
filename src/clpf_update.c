@@ -41,10 +41,14 @@ int __clpf_main_update()
                     strcpy(clpf.process_table[msg->data.name_register.pid].__name, msg->data.name_register.name);
                 }
                 break;
-            case CORE_MESSAGE_TYPE_NAME_UNREGISTER:
-                memset(clpf.process_table[name_table_lookup(clpf.name_table, msg->data.name_unregister.name)].__name, 0, NAME_MAX_LENGTH);
+            case CORE_MESSAGE_TYPE_NAME_UNREGISTER: {
+                Pid registered = name_table_lookup(clpf.name_table, msg->data.name_unregister.name);
+                if (registered == INVALID_PID)
+                    break;
+                memset(clpf.process_table[registered].__name, 0, NAME_MAX_LENGTH);
                 name_table_remove(clpf.name_table, msg->data.name_unregister.name);
                 break;
+            }
             case CORE_MESSAGE_TYPE_NAME_LOOKUP:
                 Pid pid = name_table_lookup(clpf.name_table, msg->data.name_lookup.name);
                 if (msg->reply_to == -1) {
