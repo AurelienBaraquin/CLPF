@@ -3,6 +3,7 @@
 #include <process.h>
 #include <pthread.h>
 #include <utils/run_queue.h>
+#include <utils/idle.h>
 
 #define NB_RQ 3 // Number of run queues
 
@@ -22,11 +23,11 @@ typedef struct scheduler_s {
 
     atomic_int process_count;
 
+    IdleWaiter idle; // The scheduler sleeps here when none of its processes is ready
+
     aco_t* scheduler_acoro;
 } Scheduler;
 
-// Time a scheduler sleeps when none of its processes is ready
-#define SCHEDULER_IDLE_SLEEP_US 1000
 
 int scheduler_init(Scheduler* scheduler, Pid pid);
 void scheduler_destroy(Scheduler* scheduler);
@@ -34,6 +35,9 @@ void scheduler_loop(Scheduler* scheduler);
 
 // Thread-safe push to the scheduler
 void scheduler_push_shared(Scheduler* scheduler, Process* process);
+
+// Thread-safe: wakes the scheduler if it sleeps, after work was published for it
+void scheduler_wake(Scheduler* scheduler);
 
 // Non-thread-safe push to the scheduler (only in the scheduler thread)
 void scheduler_push(Scheduler* scheduler, Process* process);

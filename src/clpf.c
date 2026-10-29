@@ -1,7 +1,6 @@
 #include <clpf_internal.h>
 #include <stdio.h>
 #include <pthread.h>
-#include <unistd.h>
 #include <utils/cpu.h>
 #include <flags_internal.h>
 
@@ -35,6 +34,7 @@ void clpf_init()
     }
 
     mpscq_init(&clpf.message_queue);
+    idle_init(&clpf.main_idle);
 }
 
 void clpf_destroy()
@@ -58,6 +58,27 @@ void clpf_destroy()
         __clpf_message_destroy(container_of(n, CoreMessage, node));
         n = next;
     }
+
+    idle_destroy(&clpf.main_idle);
+}
+
+void clpf_post(CoreMessage *msg)
+{
+    mpscq_push(&clpf.message_queue, &msg->node);
+    idle_wake(&clpf.main_idle);
+}
+
+void clpf_wake_all(void)
+{
+    idle_wake(&clpf.main_idle);
+    for (int i = 0; i < clpf.scheduler_count; i++)
+        scheduler_wake(&clpf.scheduler_table[i]);
+}
+
+static bool main_has_work(void *arg)
+{
+    (void)arg;
+    return exit_in_progress || !mpscq_empty(&clpf.message_queue);
 }
 
 void __clpf_main(Task entry_point, int argc, char *argv[])
@@ -98,8 +119,6 @@ void __clpf_main(Task entry_point, int argc, char *argv[])
     init_task(entry_point, argc, argv);
 
     while (exit_in_progress == 0) {
-        usleep(1000); // Sleep for 1ms to avoid busy waiting
-
         size_t total_process_count = 0;
 
         for (int i = 0; i < clpf.scheduler_count; ++i) {
@@ -112,9 +131,13 @@ void __clpf_main(Task entry_point, int argc, char *argv[])
         if (total_process_count <= 0 && mpscq_empty(&clpf.message_queue) && updated == 0) {
             break;
         }
+
+        if (updated == 0)
+            idle_wait(&clpf.main_idle, main_has_work, NULL);
     }
 
     exit_in_progress = 1;
+    clpf_wake_all();
 
     for (int i = 0; i < MAX_PROCESSES; ++i) {
         Process* process = &clpf.process_table[i];

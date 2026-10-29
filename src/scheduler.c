@@ -11,6 +11,7 @@ int scheduler_init(Scheduler* scheduler, Pid pid) {
         mpscq_init(&scheduler->shared_rq[i]);
     }
     mpscq_init(&scheduler->wakeups);
+    idle_init(&scheduler->idle);
     for (int i = 0; i < NB_RQ; i++) {
         runq_init(&scheduler->rq[i]);
     }
@@ -32,6 +33,8 @@ void scheduler_destroy(Scheduler* scheduler) {
 
     if (scheduler->scheduler_acoro)
         aco_destroy(scheduler->scheduler_acoro);
+
+    idle_destroy(&scheduler->idle);
 }
 
 void scheduler_push_shared(Scheduler* scheduler, Process* process) {
@@ -52,6 +55,12 @@ void scheduler_push_shared(Scheduler* scheduler, Process* process) {
         default:
             break;
     }
+
+    scheduler_wake(scheduler);
+}
+
+void scheduler_wake(Scheduler* scheduler) {
+    idle_wake(&scheduler->idle);
 }
 
 void scheduler_push(Scheduler* scheduler, Process* process) {

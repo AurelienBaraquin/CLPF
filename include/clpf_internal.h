@@ -65,6 +65,7 @@ typedef struct {
     TrieNode *name_table;
 
     MPSCQ message_queue;
+    IdleWaiter main_idle; // The main thread sleeps here while it has no core message
 } CLPF;
 
 extern CLPF clpf;
@@ -81,6 +82,10 @@ void process_notify_locked(Process *process);
 
 void __clpf_main(Task entry_point, int argc, char *argv[]);
 int __clpf_main_update();
+// Thread-safe: queues a core message for the main thread and wakes it
+void clpf_post(CoreMessage *msg);
+// Wakes the main thread and every scheduler, so they notice exit_in_progress
+void clpf_wake_all(void);
 // Frees a core message and what it owns
 void __clpf_message_destroy(CoreMessage* msg);
 

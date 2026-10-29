@@ -116,6 +116,7 @@ void process_notify_locked(Process *process) {
 
     Scheduler *scheduler = &clpf.scheduler_table[process->scheduler_pid];
     mpscq_push(&scheduler->wakeups, &process->wake_node);
+    scheduler_wake(scheduler);
 }
 
 Pid process_get_parent_pid(Process *self) {

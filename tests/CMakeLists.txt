@@ -22,6 +22,7 @@ clpf_add_test(test_monitor)
 clpf_add_test(test_exit_semantics)
 clpf_add_test(test_supervisor_policies)
 clpf_add_test(test_many_waiting)
+clpf_add_test(test_idle)
 
 # The runtime must still start a scheduler when only one CPU is usable
 find_program(TASKSET taskset)

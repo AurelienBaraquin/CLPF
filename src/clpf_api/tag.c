@@ -19,7 +19,7 @@ void __clpf_request_register(Process *self, const char* name, Pid pid)
     strncpy(msg->data.name_register.name, name, sizeof(msg->data.name_register.name) - 1);
     msg->data.name_register.name[sizeof(msg->data.name_register.name) - 1] = '\0';
 
-    mpscq_push(&clpf.message_queue, &msg->node);
+    clpf_post(msg);
 }
 
 void __clpf_request_unregister(Process *self, const char* name)
@@ -36,7 +36,7 @@ void __clpf_request_unregister(Process *self, const char* name)
     strncpy(msg->data.name_unregister.name, name, sizeof(msg->data.name_unregister.name) - 1);
     msg->data.name_unregister.name[sizeof(msg->data.name_unregister.name) - 1] = '\0';
 
-    mpscq_push(&clpf.message_queue, &msg->node);
+    clpf_post(msg);
 }
 
 void __clpf_request_lookup(Process *self, const char* name)
@@ -53,5 +53,5 @@ void __clpf_request_lookup(Process *self, const char* name)
     strncpy(msg->data.name_lookup.name, name, sizeof(msg->data.name_lookup.name) - 1);
     msg->data.name_lookup.name[sizeof(msg->data.name_lookup.name) - 1] = '\0';
 
-    mpscq_push(&clpf.message_queue, &msg->node);
+    clpf_post(msg);
 }

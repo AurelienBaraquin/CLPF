@@ -4,7 +4,6 @@
 #include <stdio.h>
 #include <api/base.h>
 #include <assert.h>
-#include <unistd.h>
 
 void co_entrypoint() {
     Process* proc = (Process*)aco_get_arg();
@@ -66,7 +65,19 @@ void request_process_exit(Process* process) {
     msg->reply_to = -1;
     msg->data.process_exit.pid = process->pid;
 
-    mpscq_push(&clpf.message_queue, &msg->node);
+    clpf_post(msg);
+}
+
+static bool scheduler_has_work(void *arg) {
+    Scheduler *scheduler = arg;
+
+    if (exit_in_progress || !mpscq_empty(&scheduler->wakeups))
+        return true;
+    for (int i = 0; i < NB_RQ; i++) {
+        if (!mpscq_empty(&scheduler->shared_rq[i]))
+            return true;
+    }
+    return false;
 }
 
 void scheduler_loop(Scheduler* scheduler) {
@@ -78,6 +89,7 @@ void scheduler_loop(Scheduler* scheduler) {
 
     while (1) {
         if (UNLIKELY(exit_in_progress)) {
+            clpf_wake_all();
             break;
         }
         // Process scheduling logic goes here
@@ -95,7 +107,7 @@ void scheduler_loop(Scheduler* scheduler) {
         Process* process = pick_process(scheduler);
         
         if (!process) {
-            usleep(SCHEDULER_IDLE_SLEEP_US);
+            idle_wait(&scheduler->idle, scheduler_has_work, scheduler);
             continue;
         }
 
