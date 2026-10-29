@@ -28,7 +28,7 @@ typedef struct sup_child_spec_s {
     RestartType restart;
 } SupChildSpec;
 
-typedef enum __supervisor_state__e {
+typedef enum supervisor_state_e {
     SUP_NOTHING,
     SUP_STOP,
     SUP_SUCCESS,
@@ -47,19 +47,19 @@ typedef struct SupChildSlot {
 
 typedef TAILQ_HEAD(SupChildList, SupChildSlot) SupChildList;
 
-typedef struct __supervisor_s {
+typedef struct supervisor_s {
     SUP_STRAT strategy;
     SupChildList sup_childs;
     int child_count;
 
     uint64_t period_ms;
     int max_restarts;
-} __supervisor_t;
+} supervisor_t;
 
-TASK(__supervisor__, SUP_STRAT strategy, uint64_t period_ms, int max_restarts);
+TASK(clpf_supervisor, SUP_STRAT strategy, uint64_t period_ms, int max_restarts);
 
-SupChildSlot* DEF(__sup_child_list_insert, SupChildList *list, SupChildSpec *child);
-void DEF(__sup_child_list_remove, SupChildList *list, SupChildSlot *child);
-SupChildSlot *__sup_child_find_by_pid(__supervisor_t *sv, Pid pid);
+SupChildSlot* DEF(sup_child_list_insert, SupChildList *list, SupChildSpec *child);
+void DEF(sup_child_list_remove, SupChildList *list, SupChildSlot *child);
+SupChildSlot *sup_child_find_by_pid(supervisor_t *sv, Pid pid);
 
-SUP_ST DEF(__supervisor_handler, Message *msg, __supervisor_t *sup);
+SUP_ST DEF(supervisor_handler, Message *msg, supervisor_t *sup);

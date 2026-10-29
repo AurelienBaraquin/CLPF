@@ -8,6 +8,10 @@
 #define TASK(_name, ...) \
     void _name(Process *self, __VA_ARGS__) \
 
+// A task receiving a copied argument block (see SPAWN_WITH)
+#define TASK_WITH(_name, type, var) \
+    void _name(Process *self, type *var) \
+
 #define DEF(_name, ...) \
     _name(Process *self, __VA_ARGS__) \
 
@@ -16,7 +20,7 @@
 
 #define CLPF_ENTRY(task) \
     int main(int argc, char *argv[]) { \
-        __clpf_main(task, argc, argv); \
+        clpf_main(task, argc, argv); \
         return 0; \
     }
 

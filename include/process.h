@@ -4,7 +4,6 @@
 #include <memory/stack.h>
 #include <utils/mpscq.h>
 #include <utils/pid.h>
-#include <msignal.h>
 #include <monitor.h>
 #include <utils/funcall.h>
 #include <libaco/aco.h>
@@ -26,9 +25,10 @@ typedef enum process_state_e {
     PROCESS_EXITING,
 } process_state;
 
+// MEDIUM comes first so that zero-initialised SpawnOptions get it
 typedef enum process_priority_e {
-    PROCESS_PRIORITY_LOW,
     PROCESS_PRIORITY_MEDIUM,
+    PROCESS_PRIORITY_LOW,
     PROCESS_PRIORITY_HIGH,
     PROCESS_PRIORITY_VERY_HIGH,
 } process_priority;
@@ -43,11 +43,13 @@ typedef struct process_s {
     unsigned long generation; // Incremented each time the slot is reused, kept across reuses
     Pid scheduler_pid;
 
-    ProcessName __name;
+    ProcessName name; // Label given at spawn, for logs only
+    ProcessName registered_name; // Name in the registry, empty if none (guarded by clpf.table_lock)
 
     safe_heap_t heap;
     aco_t *acoro;
     aco_share_stack_t *share_stack;
+    size_t stack_size;
 
     process_state state;
     process_priority priority;
@@ -61,10 +63,6 @@ typedef struct process_s {
     Monitor monitor; // monitored_by is guarded by lock
     bool exit_notified; // Guarded by lock: monitors were already sent DOWN, new ones get NOPROC
 
-    // While non-zero, monitor callbacks are not run (owner thread only)
-    int callbacks_blocked;
-
-    MPSCQ signal_queue;
     Mailbox mailbox;
 
     struct process_s *next; // For the scheduler's private run queues
@@ -73,7 +71,17 @@ typedef struct process_s {
     atomic_bool wake_pending; // wake_node is queued: no need to queue it again
 } Process;
 
-int process_init(Process *process, const char *name, Funcall_t *taskcall, process_priority priority, Pid pid, Pid parent_pid);
+// How to start a process (zero-initialised fields take the defaults)
+typedef struct {
+    const char *name;            // label for logs, "" by default
+    process_priority priority;   // PROCESS_PRIORITY_MEDIUM by default
+    bool monitor;                // the spawner monitors the new process from its very start
+    const void *arg_block;       // copied into the new process heap and passed as its argument
+    size_t arg_block_size;
+    size_t stack_size;           // CLPF_DEFAULT_STACK_SIZE by default
+} SpawnOptions;
+
+int process_init(Process *process, Funcall_t *taskcall, const SpawnOptions *options, Pid pid, Pid parent_pid);
 void process_destroy(Process *process);
 
 void co_entrypoint();

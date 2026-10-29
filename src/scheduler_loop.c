@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <api/base.h>
 #include <assert.h>
+#include <utils/stack_guard.h>
 
 void co_entrypoint() {
     Process* proc = (Process*)aco_get_arg();
@@ -17,27 +18,12 @@ void co_entrypoint() {
     exiting(proc, EXIT_REASON_NORMAL);
 }
 
-void handle_signals(Process* process) {
-    if (!process)
-        return;
-
-    MPSCQNode *node = mpscq_drain(&process->signal_queue);
-    while (node) {
-        Signal *signal = container_of(node, Signal, node);
-        node = node->next;
-        if (signal->type == SIGNAL_DOWN) {
-            send(NULL, process->pid, signal, sizeof(Signal), MAKE_STR_TAG("scheduler::event::signal"));
-        }
-        safe_heap_free(&process->heap, signal);
-    }
-}
-
 process_state execute_process(Scheduler *scheduler, Process* process) {
     if (!process)
         return PROCESS_EXITING;
 
     if (!process->acoro && process->state == PROCESS_INIT) {
-        process->share_stack = aco_share_stack_new(STACK_SIZE);
+        process->share_stack = aco_share_stack_new(process->stack_size);
         process->acoro = aco_create(scheduler->scheduler_acoro, process->share_stack, 0, &co_entrypoint, process);
         aco_assertptr(process->acoro);
     }
@@ -50,7 +36,9 @@ process_state execute_process(Scheduler *scheduler, Process* process) {
     process->state = PROCESS_RUNNING;
     assert(process->acoro);
     assert(process->acoro->is_end == 0);
+    stack_guard_set_running(process);
     aco_resume(process->acoro);
+    stack_guard_set_running(NULL);
 
     return process->state;
 }
@@ -61,8 +49,6 @@ void request_process_exit(Process* process) {
         return;
     
     msg->op = CORE_MESSAGE_TYPE_PROCESS_EXIT;
-    msg->sender = process->pid;
-    msg->reply_to = -1;
     msg->data.process_exit.pid = process->pid;
 
     clpf_post(msg);
@@ -85,6 +71,7 @@ void scheduler_loop(Scheduler* scheduler) {
         return;
 
     aco_thread_init(NULL);
+    stack_guard_thread_init();
     scheduler->scheduler_acoro = aco_create(NULL, NULL, 0, NULL, NULL);
 
     while (1) {
@@ -110,9 +97,6 @@ void scheduler_loop(Scheduler* scheduler) {
             idle_wait(&scheduler->idle, scheduler_has_work, scheduler);
             continue;
         }
-
-        // 9. Handle signals of the process (exemple : EXIT, DOWN, MONITOR, UNLINK ect...)
-        handle_signals(process);
 
         // 10. Execute the process
         process->state = execute_process(scheduler, process);

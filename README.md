@@ -6,12 +6,12 @@
 
 ## Features
 
-- **Lightweight processes:** each one is a coroutine with its own 16 KiB stack, a private heap, a mailbox and a priority. There can be up to 65,536 processes at once.
+- **Lightweight processes:** each one is a coroutine with its own stack (16 KiB by default, configurable per spawn, overflows are reported by process name), a private heap, a mailbox and a priority. There can be up to 65,536 processes at once. Arguments are up to 5 integers, or any block of data copied with `SPAWN_WITH`.
 - **M:N scheduling:** processes are multiplexed onto one OS thread per usable core, minus 2 (at least one). Scheduling is cooperative. A process gives up the CPU on `YIELD()`, `SEND()` or a blocking `RECEIVE()`.
-- **Message passing with selective receive:** payloads are copied into the receiver's heap. `RECEIVE(tag)` waits for the first message whose tag matches. Tags can be ints, strings or internal codes, with matchers for prefix, range and kind.
+- **Message passing with selective receive:** a message (payload and tag string included) is copied into the receiver's heap, so pointers inside a payload mean nothing to the receiver. `RECEIVE(tag)` returns the oldest message with that tag, `RECEIVE_IF(TM_PREFIX | TM_GTE | TM_LTE | TM_IN_RANGE | TM_KIND, pattern)` the oldest accepted by a matcher, `FETCH`/`FETCH_IF` the same without blocking; release a message with `MSG_FREE`. Tags can be ints, strings, notification names or internal codes.
 - **Supervision trees:** `SPAWN_SUPERVISOR` + `SUP_ADD_CHILD`, with permanent, transient and temporary children. Restart limits use a sliding window (max N restarts per period).
-- **Monitors:** a process can watch another one and gets a `DOWN` callback with the exit reason when it dies (`EXIT_REASON_NOPROC` if it was already gone). Supervisors are built on this.
-- **Name registry:** `REGISTER` / `WHEREIS` / `UNREGISTER`, backed by a trie.
+- **Monitors:** `MONITOR(pid)` makes a `DOWN` message (tag `MAKE_DOWN_TAG(pid)`, payload `DownInfo { from, reason }`) arrive when the process exits, or right away with `EXIT_REASON_NOPROC` if it is already gone. Supervisors are built on this.
+- **Name registry:** `REGISTER(name, pid)` / `WHEREIS` / `UNREGISTER`, synchronous, one name per process, released at exit. Spawn names are only labels.
 - **Built-in system processes:** a launcher boots a supervised I/O server. `PRINT` / `GETLINE` go through it, so output from different threads never interleaves.
 
 ## Quick example
@@ -24,40 +24,40 @@
 #include <flags_internal.h>
 
 TASK(pong, Pid parent) {
-    int *n = RECEIVE(MAKE_STR_TAG("ping"));       // blocks (yields) until a matching message
-    int reply = *n + 1;
+    Message *ping = RECEIVE(MAKE_STR_TAG("ping"));      // blocks (yields) until a matching message
+    int reply = *(int *)ping->payload + 1;
+    MSG_FREE(ping);                                     // messages live in the receiver's heap
     SEND(parent, &reply, sizeof reply, MAKE_STR_TAG("pong"));
-    FREE(n);                                      // payloads live in the receiver's heap
     EXIT_NORMAL();
 }
 
 TASK(worker, Pid parent) {
-    PRINT("%s started, crashing\n", self->__name);
+    PRINT("%s started, crashing\n", self->name);
     SEND(parent, NULL, 0, MAKE_STR_TAG("started"));
-    EXIT_ERROR();                                 // the supervisor restarts it
+    EXIT_ERROR();                                       // the supervisor restarts it
 }
 
 TASK(entry, int argc, char *argv[]) {
-    Pid p = SPAWN(pong, 1, self->pid);            // SPAWN(fn, argc, args...), up to 5 args
+    Pid p = SPAWN(pong, 1, self->pid);                  // SPAWN(fn, argc, args...), up to 5 args
     int n = 41;
     SEND(p, &n, sizeof n, MAKE_STR_TAG("ping"));
-    int *r = RECEIVE(MAKE_STR_TAG("pong"));
-    PRINT("entry got %d\n", *r);                  // -> entry got 42
-    FREE(r);
+    Message *reply = RECEIVE(MAKE_STR_TAG("pong"));
+    PRINT("entry got %d\n", *(int *)reply->payload);    // -> entry got 42
+    MSG_FREE(reply);
 
     Pid sup = SPAWN_SUPERVISOR("sup", SUP_ONE_FOR_ONE, 1000 /* ms */, 3 /* max restarts */);
     SUP_ADD_CHILD(sup, RES_PERMANENT, worker, "worker", 1, self->pid);
 
-    for (int i = 0; i < 1 + 3; ++i)               // first start + 3 restarts
-        RECEIVE(MAKE_STR_TAG("started"));
-    exit_in_progress = true;                      // ask the runtime to shut down
+    for (int i = 0; i < 1 + 3; ++i)                     // first start + 3 restarts
+        MSG_FREE(RECEIVE(MAKE_STR_TAG("started")));
+    exit_in_progress = true;                            // ask the runtime to shut down
     EXIT_NORMAL();
 }
 
-CLPF_ENTRY(entry)                                 // generates main()
+CLPF_ENTRY(entry)                                       // generates main()
 ```
 
-`TASK` / `TASK0` declare a process body. Every body gets an implicit `Process *self`, and every macro uses it. `EXIT_NORMAL()` / `EXIT_ERROR()` end the process on the spot; returning from the body is a normal exit.
+`TASK` / `TASK0` / `TASK_WITH` declare a process body. Every body gets an implicit `Process *self`, and every macro uses it. `EXIT_NORMAL()` / `EXIT_ERROR()` end the process on the spot; returning from the body is a normal exit.
 
 ## Architecture
 
@@ -66,11 +66,12 @@ CLPF_ENTRY(entry)                                 // generates main()
 - **Cross-thread handoff:** other threads push onto intrusive lock-free MPSC queues (a CAS-push Treiber stack whose node lives in the queued element, drained with a single atomic exchange and reversed for FIFO order). Pushing never allocates.
 - **Wakeups:** senders never touch another process's state. Waiting processes are in no queue; a delivery pushes the receiver once onto its scheduler's wakeup queue, so a scheduler only looks at processes that actually received something, however many are blocked.
 - **Spawning:** a spawn runs directly on the calling thread (slot allocation and the name registry are guarded by a table lock) and places the process on the least loaded scheduler. `SPAWN` never yields.
-- **Control plane:** exit, register and lookup requests are posted to the main thread, which destroys exited processes and answers lookups with a message.
+- **Control plane:** the main thread only destroys exited processes; spawning and the registry run on the caller's thread under a table lock.
 - **Pids:** a pid is a process table index tagged with a per-slot generation, so the pid of a dead process never designates a later one. Each slot has a lock that senders hold while delivering, so a message either reaches a live process or `SEND` returns -1.
 - **Memory:** each process has its own [TLSF](http://www.gii.upv.es/tlsf/) heap on `mmap`'d pools, which grow on demand. A spinlock guards the heap, because senders on other threads allocate into it. When a process exits, its whole heap is unmapped at once, with no per-object cleanup.
 - **Mailboxes:** a two-stage design. The inbox takes writes from any thread under the receiver's slot lock. A private "seen" list lets the owning process scan for selective receive without taking the lock.
-- **Signals and monitors:** a process's exit sends `DOWN` signals through a per-process MPSC signal queue. The scheduler turns them into messages, and they run the monitor callback the next time the target is scheduled. Supervisors spawn and monitor a child in one step, so a child that crashes immediately is still seen.
+- **Monitors:** an exiting process detaches its watcher list under its slot lock and delivers a `DOWN` message to each watcher. Supervisors spawn and monitor a child in one step, so a child that crashes immediately is still seen.
+- **Messages:** one allocation per message in the receiver's heap: header, 16-byte aligned payload, then the copied tag string.
 
 ## Build & run
 
@@ -81,15 +82,15 @@ git clone --recursive https://github.com/AurelienBaraquin/CLPF.git
 cd CLPF                       # if already cloned: git submodule update --init
 cmake -S . -B build
 cmake --build build -j
-./build/cbeam_main            # demo: a supervised child that crashes and is restarted
+./build/clpf_demo            # demo: a supervised child that crashes and is restarted
 ctest --test-dir build --output-on-failure
 ```
 
-The build produces `build/libcbeam.a` plus `libtlsf.a`, `liblibaco.a` and `libstb_sprintf.a`. To build your own program against them:
+The build produces `build/libclpf.a` plus `libtlsf.a`, `liblibaco.a` and `libstb_sprintf.a`. To build your own program against them:
 
 ```sh
 gcc -std=gnu11 -Iinclude -Iexternal my_app.c \
-    -Lbuild -lcbeam -ltlsf -llibaco -lstb_sprintf -lpthread -o my_app
+    -Lbuild -lclpf -ltlsf -llibaco -lstb_sprintf -lpthread -o my_app
 ```
 
 CMake options:

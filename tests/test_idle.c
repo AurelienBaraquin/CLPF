@@ -43,15 +43,15 @@ static void *idle_probe(void *arg) {
     sleep_ms(WINDOW_MS);
     long used = cpu_time_us() - start;
 
-    send(NULL, atomic_load(&entry_pid), &used, sizeof used, MAKE_STR_TAG("cpu"));
+    clpf_send(NULL, atomic_load(&entry_pid), &used, sizeof used, MAKE_STR_TAG("cpu"));
     return NULL;
 }
 
 TASK0(echo) {
     for (int i = 0; i < ROUND_TRIPS; ++i) {
-        Message *msg = RECEIVE_RAW(MAKE_STR_TAG("ping"));
+        Message *msg = RECEIVE(MAKE_STR_TAG("ping"));
         SEND(msg->sender_pid, NULL, 0, MAKE_STR_TAG("pong"));
-        FREE(msg);
+        MSG_FREE(msg);
     }
     EXIT_NORMAL();
 }
@@ -62,10 +62,11 @@ TASK(entry, int argc, char *argv[]) {
 
     // An idle runtime sleeps instead of polling
     atomic_store(&entry_pid, self->pid);
-    long *used = RECEIVE(MAKE_STR_TAG("cpu"));
-    fprintf(stderr, "idle runtime used %ld us of CPU in %d ms\n", *used, WINDOW_MS);
-    TEST_ASSERT(*used < MAX_IDLE_CPU_US);
-    FREE(used);
+    Message *msg = RECEIVE(MAKE_STR_TAG("cpu"));
+    long used = *(long *)msg->payload;
+    MSG_FREE(msg);
+    fprintf(stderr, "idle runtime used %ld us of CPU in %d ms\n", used, WINDOW_MS);
+    TEST_ASSERT(used < MAX_IDLE_CPU_US);
 
     // ...and a sleeping scheduler wakes up as soon as a message reaches it
     Pid echo_pid = SPAWN0(echo);
@@ -73,7 +74,7 @@ TASK(entry, int argc, char *argv[]) {
     uint64_t start = now_ms();
     for (int i = 0; i < ROUND_TRIPS; ++i) {
         SEND(echo_pid, NULL, 0, MAKE_STR_TAG("ping"));
-        RECEIVE(MAKE_STR_TAG("pong"));
+        MSG_FREE(RECEIVE(MAKE_STR_TAG("pong")));
     }
     uint64_t elapsed = now_ms() - start;
     fprintf(stderr, "%d cross-scheduler round trips in %lu ms\n", ROUND_TRIPS, (unsigned long)elapsed);
@@ -88,7 +89,7 @@ _Atomic TestStatus test_status = TEST_RUNNING;
 int main(int argc, char *argv[]) {
     pthread_t probe;
     pthread_create(&probe, NULL, idle_probe, NULL);
-    __clpf_main(entry, argc, argv);
+    clpf_main(entry, argc, argv);
     pthread_join(probe, NULL);
     return atomic_load(&test_status) == TEST_PASSED ? 0 : 1;
 }

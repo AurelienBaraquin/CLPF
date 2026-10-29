@@ -1,18 +1,17 @@
 #include <clpf_internal.h>
-#include <clpf_const.h>
 #include <stdio.h>
 #include <api/message.h>
 #include <stdlib.h>
 #include <string.h>
 
-void __clpf_message_destroy(CoreMessage* msg)
+void clpf_message_destroy(CoreMessage* msg)
 {
     if (msg) {
         free(msg);
     }
 }
 
-int __clpf_main_update()
+int clpf_main_update()
 {
     MPSCQNode* node = mpscq_drain(&clpf.message_queue);
     if (node == NULL) return 0;
@@ -22,43 +21,6 @@ int __clpf_main_update()
     for (MPSCQNode* n = node; n != NULL; n = n->next) {
         CoreMessage* msg = container_of(n, CoreMessage, node);
         switch (msg->op) {
-            case CORE_MESSAGE_TYPE_NAME_REGISTER: {
-                Process *process = process_lock(msg->data.name_register.pid);
-                if (!process)
-                    break;
-                pthread_mutex_lock(&clpf.table_lock);
-                if (name_table_insert(clpf.name_table, msg->data.name_register.name, process->pid) == 0) {
-                    memset(process->__name, 0, NAME_MAX_LENGTH);
-                    strcpy(process->__name, msg->data.name_register.name);
-                }
-                pthread_mutex_unlock(&clpf.table_lock);
-                process_unlock(process);
-                break;
-            }
-            case CORE_MESSAGE_TYPE_NAME_UNREGISTER: {
-                pthread_mutex_lock(&clpf.table_lock);
-                Pid registered_pid = name_table_lookup(clpf.name_table, msg->data.name_unregister.name);
-                name_table_remove(clpf.name_table, msg->data.name_unregister.name);
-                pthread_mutex_unlock(&clpf.table_lock);
-
-                Process *registered = process_lock(registered_pid);
-                if (registered) {
-                    memset(registered->__name, 0, NAME_MAX_LENGTH);
-                    process_unlock(registered);
-                }
-                break;
-            }
-            case CORE_MESSAGE_TYPE_NAME_LOOKUP:
-                pthread_mutex_lock(&clpf.table_lock);
-                Pid pid = name_table_lookup(clpf.name_table, msg->data.name_lookup.name);
-                pthread_mutex_unlock(&clpf.table_lock);
-                if (msg->reply_to == -1) {
-                    fprintf(stderr, "[ERROR] No reply_to for name lookup\n");
-                    break;
-                }
-                send(NULL, msg->reply_to, &pid, sizeof(Pid), CORE_MESSAGE_TYPE_NAME_LOOKUP_TAG);
-                break;
-
             case CORE_MESSAGE_TYPE_PROCESS_EXIT: {
                 // Only the main thread destroys processes: once found, this one stays alive until destroyed below
                 Process *process = process_lock(msg->data.process_exit.pid);
@@ -69,9 +31,9 @@ int __clpf_main_update()
                 process_unlock(process);
 
                 pthread_mutex_lock(&clpf.table_lock);
-                // The name may already belong to a restarted process
-                if (name_table_lookup(clpf.name_table, process->__name) == pid)
-                    name_table_remove(clpf.name_table, process->__name);
+                // The name may already belong to another process if REGISTER reclaimed it
+                if (process->registered_name[0] && name_table_lookup(clpf.name_table, process->registered_name) == pid)
+                    name_table_remove(clpf.name_table, process->registered_name);
                 clpf.process_count--;
                 pthread_mutex_unlock(&clpf.table_lock);
 
@@ -92,7 +54,7 @@ int __clpf_main_update()
 
     for (MPSCQNode* n = node; n != NULL; ) {
         MPSCQNode* next = n->next;
-        __clpf_message_destroy(container_of(n, CoreMessage, node));
+        clpf_message_destroy(container_of(n, CoreMessage, node));
         n = next;
     }
 

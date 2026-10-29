@@ -1,7 +1,7 @@
 #include <api/supervisor.h>
 #include <api/memory.h>
 
-Pid __sup_add_child(Process *self, char *name, Pid sup, RestartType restart, process_priority prio, void (*func)(), int argc, ...) {
+Pid clpf_sup_add_child(Process *self, char *name, Pid sup, RestartType restart, process_priority prio, void (*func)(), int argc, ...) {
     Funcall_t taskcall;
 
     va_list ap;
@@ -21,21 +21,21 @@ Pid __sup_add_child(Process *self, char *name, Pid sup, RestartType restart, pro
     spec.priority = prio;
     spec.restart = restart;
 
-    Pid *pid = REQUEST(sup, &spec, sizeof(SupChildSpec), MAKE_STR_TAG("supervisor::spawn"));
-    if (!pid)
+    Message *reply = REQUEST(sup, &spec, sizeof(SupChildSpec), MAKE_STR_TAG("supervisor::spawn"));
+    if (!reply)
         return INVALID_PID;
 
-    Pid child_pid = *pid;
-    FREE(pid);
+    Pid child_pid = *(Pid *)reply->payload;
+    MSG_FREE(reply);
     return child_pid;
 }
 
-int __sup_remove_child(Process *self, Pid sup, Pid child) {
-    int *removed = REQUEST(sup, &child, sizeof(Pid), MAKE_STR_TAG("supervisor::remove"));
-    if (!removed)
+int clpf_sup_remove_child(Process *self, Pid sup, Pid child) {
+    Message *reply = REQUEST(sup, &child, sizeof(Pid), MAKE_STR_TAG("supervisor::remove"));
+    if (!reply)
         return -1;
 
-    int result = *removed;
-    FREE(removed);
+    int result = *(int *)reply->payload;
+    MSG_FREE(reply);
     return result;
 }

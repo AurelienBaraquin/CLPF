@@ -3,6 +3,7 @@
 #include <pthread.h>
 #include <utils/cpu.h>
 #include <flags_internal.h>
+#include <utils/stack_guard.h>
 
 void init_task(Task entry, int argc, char *argv[]);
 
@@ -88,7 +89,7 @@ static void clpf_destroy(void)
 
     for (MPSCQNode *n = mpscq_drain(&clpf.message_queue); n != NULL; ) {
         MPSCQNode *next = n->next;
-        __clpf_message_destroy(container_of(n, CoreMessage, node));
+        clpf_message_destroy(container_of(n, CoreMessage, node));
         n = next;
     }
 
@@ -114,7 +115,7 @@ static bool main_has_work(void *arg)
     return exit_in_progress || !mpscq_empty(&clpf.message_queue);
 }
 
-void __clpf_main(Task entry_point, int argc, char *argv[])
+void clpf_main(Task entry_point, int argc, char *argv[])
 {
     if (!entry_point) {
         fprintf(stderr, "Entry point is NULL\n");
@@ -123,6 +124,7 @@ void __clpf_main(Task entry_point, int argc, char *argv[])
 
     if (clpf_init() != 0)
         return;
+    stack_guard_install();
 
     int cpus = nb_cpu();
     if (cpus <= 0) {
@@ -159,7 +161,7 @@ void __clpf_main(Task entry_point, int argc, char *argv[])
             total_process_count += atomic_load(&clpf.scheduler_table[i].process_count);
         }
 
-        int updated = __clpf_main_update();
+        int updated = clpf_main_update();
 
         // Check if all processes are finished
         if (total_process_count <= 0 && mpscq_empty(&clpf.message_queue) && updated == 0) {
@@ -176,7 +178,7 @@ void __clpf_main(Task entry_point, int argc, char *argv[])
     for (int i = 0; i < MAX_PROCESSES; ++i) {
         Process* process = &clpf.process_table[i];
         if (process->pid != INVALID_PID) {
-            send(NULL, process->pid, NULL, 0, ((Tag){ .kind = TAG_KIND_STRING, .str_value = ("core::event::stop") }));
+            clpf_send(NULL, process->pid, NULL, 0, MAKE_STR_TAG("core::event::stop"));
         }
     }
 

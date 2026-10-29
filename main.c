@@ -16,7 +16,7 @@
 #include <api/message.h>
 #include <api/memory.h>
 #include <api/io.h>
-#include <api/tag.h>
+#include <api/registry.h>
 #include <api/monitor.h>
 #include <api/supervisor.h>
 #include <flags_internal.h>
@@ -74,19 +74,17 @@ TASK0(stats) {
     long total = 0;
 
     while (1) {
-        Message *msg = RECEIVE_RAW(NO_TAG);
-        bool stop = MessageMatchFn_SameTag(msg, MAKE_STR_TAG("stats::stop"));
+        Message *msg = RECEIVE(NO_TAG);
+        bool stop = MSG_IS(msg, MAKE_STR_TAG("stats::stop"));
 
-        if (MessageMatchFn_SameTag(msg, MAKE_STR_TAG("stats::add"))) {
+        if (MSG_IS(msg, MAKE_STR_TAG("stats::add"))) {
             total += *(long *)msg->payload;
             SEND(msg->sender_pid, &total, sizeof total, MAKE_STR_TAG("stats::add"));
-        } else if (MessageMatchFn_SameTag(msg, MAKE_STR_TAG("stats::get"))) {
+        } else if (MSG_IS(msg, MAKE_STR_TAG("stats::get"))) {
             SEND(msg->sender_pid, &total, sizeof total, MAKE_STR_TAG("stats::get"));
         }
 
-        if (msg->payload)
-            FREE(msg->payload);
-        FREE(msg);
+        MSG_FREE(msg);
 
         if (stop)
             break;
@@ -103,14 +101,14 @@ TASK0(ticker) {
     PRINT("[ticker] started by %ld (my parent)\n", PARENT());
     NOTIFY(PARENT(), "ticker_up");
 
-    // FETCH returns the payload, or NULL if no message matches: the stop message must carry one
+    // FETCH returns NULL only when no message matches
     long ticks = 0;
-    int *stop;
+    Message *stop;
     while ((stop = FETCH(MAKE_INTERNAL_TAG(TICKER_STOP))) == NULL) {
         ++ticks;
         YIELD();
     }
-    FREE(stop);
+    MSG_FREE(stop);
 
     SEND(PARENT(), &ticks, sizeof ticks, MAKE_STR_TAG("ticker::ticks"));
     EXIT_NORMAL();
@@ -120,11 +118,9 @@ TASK0(ticker) {
 
 TASK0(echo) {
     for (int i = 0; i < ECHO_REQUESTS; ++i) {
-        Message *msg = RECEIVE_RAW(NO_TAG);
+        Message *msg = RECEIVE(NO_TAG);
         SEND(msg->sender_pid, msg->payload, msg->size, msg->tag);
-        if (msg->payload)
-            FREE(msg->payload);
-        FREE(msg);
+        MSG_FREE(msg);
     }
     EXIT_NORMAL();
 }
@@ -150,16 +146,14 @@ TASK(worker, Pid coordinator, int index) {
     while (1) {
         SEND(coordinator, NULL, 0, MAKE_STR_TAG("worker::ready"));
 
-        Message *msg = RECEIVE_RAW(NO_TAG);
-        if (MessageMatchFn_SameTag(msg, MAKE_STR_TAG("worker::stop"))) {
-            FREE(msg);
-            SEND(coordinator, NULL, 0, MAKE_STR_TAG("worker::bye"));
+        Message *msg = RECEIVE(NO_TAG);
+        if (MSG_IS(msg, MAKE_STR_TAG("worker::stop"))) {
+            MSG_FREE(msg);
             break;
         }
 
         Job job = *(Job *)msg->payload;
-        FREE(msg->payload);
-        FREE(msg);
+        MSG_FREE(msg);
 
         if ((job.id + 1) % POISON_INTERVAL == 0) {
             PRINT("[worker %d] job %d is poison, crashing\n", index, job.id);
@@ -167,9 +161,7 @@ TASK(worker, Pid coordinator, int index) {
         }
 
         JobResult result = { job.id, CALL(fibonacci, job.value) };
-        long *total = REQUEST(stats_pid, &result.result, sizeof result.result, MAKE_STR_TAG("stats::add"));
-        if (total)
-            FREE(total);
+        MSG_FREE(REQUEST(stats_pid, &result.result, sizeof result.result, MAKE_STR_TAG("stats::add")));
 
         SEND(coordinator, &result, sizeof result, MAKE_STR_TAG("worker::result"));
     }
@@ -186,7 +178,7 @@ TASK(janitor, Pid coordinator) {
 }
 
 TASK0(spare) {
-    RECEIVE(MAKE_STR_TAG("spare::stop"));
+    MSG_FREE(RECEIVE(MAKE_STR_TAG("spare::stop")));
     PRINT("[spare] stopped after leaving the supervisor\n");
     EXIT_NORMAL();
 }
@@ -201,18 +193,16 @@ static WorkerSlot *find_worker(Coordinator *c, Pid pid) {
     return NULL;
 }
 
-// DOWN callback: a crashed worker loses its job. Callbacks run inside RECEIVE and cannot
-// wake it up, so the loop below is driven by messages: after a crash, the restarted worker
-// sends "worker::ready", and a stopping worker says "worker::bye".
-static void on_worker_down(Process *self, Pid from, unsigned int reason, Coordinator *c) {
-    WorkerSlot *slot = find_worker(c, from);
-    if (!slot) {
-        PRINT("[coordinator] process %ld is down (%s)\n", from, reason_name(reason));
+// A crashed worker loses its job (the pool restarts it), a stopped one is done
+static void DEF(on_worker_down, Coordinator *c, DownInfo *down) {
+    WorkerSlot *slot = find_worker(c, down->from);
+    if (!slot)
         return;
-    }
 
-    PRINT("[coordinator] worker %ld down (%s)\n", from, reason_name(reason));
-    if (reason != EXIT_REASON_NORMAL && slot->job_id != -1) {
+    PRINT("[coordinator] worker %ld down (%s)\n", down->from, reason_name(down->reason));
+    if (down->reason == EXIT_REASON_NORMAL) {
+        c->stopped_workers++;
+    } else if (slot->job_id != -1) {
         c->failed++;
         c->done++;
         slot->job_id = -1;
@@ -225,7 +215,7 @@ static void DEF(dispatch, Coordinator *c, Pid worker_pid) {
         slot = &c->workers[c->known_workers++];
         slot->pid = worker_pid;
         slot->job_id = -1;
-        MONITOR_ADD(worker_pid);
+        MONITOR(worker_pid);
     }
 
     if (c->next_job == JOBS) {
@@ -243,24 +233,22 @@ static void DEF(run_jobs, Coordinator *c) {
     // Every job ends as a result or a crash, then every worker is stopped. A crashed
     // worker is replaced by its restart, so WORKERS workers always end up receiving "stop".
     while (c->done < JOBS || c->stopped_workers < WORKERS) {
-        Message *msg = RECEIVE_RAW(NO_TAG); // DOWN callbacks run before each receive
+        Message *msg = RECEIVE(NO_TAG);
 
-        if (MessageMatchFn_SameTag(msg, MAKE_STR_TAG("worker::ready"))) {
+        if (MSG_IS(msg, MAKE_STR_TAG("worker::ready"))) {
             CALL(dispatch, c, msg->sender_pid);
-        } else if (MessageMatchFn_SameTag(msg, MAKE_STR_TAG("worker::result"))) {
+        } else if (MSG_IS(msg, MAKE_STR_TAG("worker::result"))) {
             JobResult *result = msg->payload;
             WorkerSlot *slot = find_worker(c, msg->sender_pid);
             if (slot)
                 slot->job_id = -1;
             c->sum += result->result;
             c->done++;
-        } else if (MessageMatchFn_SameTag(msg, MAKE_STR_TAG("worker::bye"))) {
-            c->stopped_workers++;
+        } else if (msg->tag.kind == TAG_KIND_DOWN) {
+            CALL(on_worker_down, c, msg->payload);
         }
 
-        if (msg->payload)
-            FREE(msg->payload);
-        FREE(msg);
+        MSG_FREE(msg);
     }
 }
 
@@ -270,9 +258,9 @@ static void DEF(echo_demo, Pid echo_pid) {
         SEND(echo_pid, &i, sizeof i, MAKE_INT_TAG(i));
 
     for (int i = ECHO_REQUESTS; i >= 1; --i) {
-        int *value = RECEIVE(MAKE_INT_TAG(i));
-        PRINT("[coordinator] echo reply %d picked out of order\n", *value);
-        FREE(value);
+        Message *reply = RECEIVE(MAKE_INT_TAG(i));
+        PRINT("[coordinator] echo reply %d picked out of order\n", *(int *)reply->payload);
+        MSG_FREE(reply);
     }
 }
 
@@ -304,7 +292,6 @@ TASK(entry, int argc, char *argv[]) {
 
     // Supervision tree
     Coordinator c = {0};
-    MONITOR_INIT(on_worker_down, &c);
 
     Pid pool = SPAWN_SUPERVISOR("pool", SUP_ONE_FOR_ONE, POOL_PERIOD_MS, POOL_MAX_RESTARTS);
     for (int i = 0; i < WORKERS; ++i)
@@ -320,19 +307,18 @@ TASK(entry, int argc, char *argv[]) {
     CALL(run_jobs, &c);
 
     // Results
-    long *total = REQUEST(stats_pid, NULL, 0, MAKE_STR_TAG("stats::get"));
+    Message *total = REQUEST(stats_pid, NULL, 0, MAKE_STR_TAG("stats::get"));
     char *summary = FORMAT("[coordinator] %d jobs: %d ok, %d lost to crashes, sum %ld (stats says %ld)\n",
-                           JOBS, JOBS - c.failed, c.failed, c.sum, total ? *total : -1L);
+                           JOBS, JOBS - c.failed, c.failed, c.sum, total ? *(long *)total->payload : -1L);
     PRINT("%s", summary);
     FREE(summary);
-    if (total)
-        FREE(total);
+    MSG_FREE(total);
 
     int stop = 1;
     SEND(ticker_pid, &stop, sizeof stop, MAKE_INTERNAL_TAG(TICKER_STOP));
-    long *ticks = RECEIVE(MAKE_STR_TAG("ticker::ticks"));
-    PRINT("[coordinator] low priority ticker ran %ld times meanwhile\n", *ticks);
-    FREE(ticks);
+    Message *ticks = RECEIVE(MAKE_STR_TAG("ticker::ticks"));
+    PRINT("[coordinator] low priority ticker ran %ld times meanwhile\n", *(long *)ticks->payload);
+    MSG_FREE(ticks);
 
     UNREGISTER("stats");
     SEND(stats_pid, NULL, 0, MAKE_STR_TAG("stats::stop"));
@@ -340,8 +326,10 @@ TASK(entry, int argc, char *argv[]) {
 
     // Monitoring a process that is gone (echo answered its 3 requests and exited):
     // the DOWN arrives right away with the "noproc" reason
-    MONITOR_ADD(echo_pid);
-    YIELD();
+    MONITOR(echo_pid);
+    Message *down = RECEIVE(MAKE_DOWN_TAG(echo_pid));
+    PRINT("[coordinator] process %ld is down (%s)\n", echo_pid, reason_name(((DownInfo *)down->payload)->reason));
+    MSG_FREE(down);
 
     exit_in_progress = true; // stop the runtime
     EXIT_NORMAL();

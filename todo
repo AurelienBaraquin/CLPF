@@ -1,17 +1,17 @@
 Pièges et bugs de l'API
-- [ ] Matchers TM_PREFIX / TM_GTE / TM_LTE / TM_IN_RANGE / TM_KIND déclarés mais jamais implémentés (erreur de link) ; RECEIVE ne fait que l'égalité exacte -> les implémenter + RECEIVE_MATCH(fn, tag)
-- [ ] RECEIVE / FETCH renvoient le payload : un message vide donne NULL, indiscernable de "rien reçu" avec FETCH
-- [ ] Les callbacks DOWN tournent dans RECEIVE sans pouvoir le réveiller -> pouvoir recevoir les DOWN comme des messages (comme Erlang)
+- [x] Matchers TM_PREFIX / TM_GTE / TM_LTE / TM_IN_RANGE / TM_KIND déclarés mais jamais implémentés (erreur de link) ; RECEIVE ne fait que l'égalité exacte -> les implémenter + RECEIVE_MATCH(fn, tag)
+- [x] RECEIVE / FETCH renvoient le payload : un message vide donne NULL, indiscernable de "rien reçu" avec FETCH
+- [x] Les callbacks DOWN tournent dans RECEIVE sans pouvoir le réveiller -> pouvoir recevoir les DOWN comme des messages (comme Erlang)
 - [ ] Aucun moyen de savoir qu'un superviseur a abandonné un enfant (trop de redémarrages)
-- [ ] Tags string : seul le pointeur est copié (chaîne dynamique / sur la pile = pointeur pendant chez le receveur)
-- [ ] Registre : tout process nommé est enregistré automatiquement (deux "worker" s'écrasent) ; REGISTER est asynchrone sans retour d'erreur
-- [ ] RECEIVE_RAW a un ';' dans la macro ; NOTIFY / WAIT_NOTIF n'acceptent que des littéraux
+- [x] Tags string : seul le pointeur est copié (chaîne dynamique / sur la pile = pointeur pendant chez le receveur)
+- [x] Registre : tout process nommé est enregistré automatiquement (deux "worker" s'écrasent) ; REGISTER est asynchrone sans retour d'erreur
+- [x] RECEIVE_RAW a un ';' dans la macro ; NOTIFY / WAIT_NOTIF n'acceptent que des littéraux
 - [ ] Pas de timeout sur RECEIVE, pas de timers (send_after, receive ... after)
 - [ ] GETLINE bloque tout le serveur d'IO (donc tous les PRINT) pendant la lecture de stdin
-- [ ] Arguments de tâche : 5 max, entiers seulement (ni double, ni struct par valeur)
+- [x] Arguments de tâche : 5 max, entiers seulement (ni double, ni struct par valeur)
 - [ ] Pas d'arrêt propre : exit_in_progress à la main, core::event::stop jamais traité, coroutines abandonnées
-- [ ] Pile de 16 Kio fixe, débordement non détecté (vérifier la guard page de libaco)
-- [ ] Documenter que les payloads sont copiés octet par octet (un pointeur dans un message ne vaut rien chez le receveur)
+- [x] Pile de 16 Kio fixe, débordement non détecté (vérifier la guard page de libaco)
+- [x] Documenter que les payloads sont copiés octet par octet (un pointeur dans un message ne vaut rien chez le receveur)
 
 Fonctionnalités
 - [ ] kill / signaux EXIT + links bidirectionnels avec trap_exit
@@ -22,18 +22,18 @@ Fonctionnalités
 - [x] Idle événementiel (schedulers et thread principal ne doivent plus dormir 1 ms en boucle)
 
 Performance
-- [ ] PRINT fait un WHEREIS (aller-retour au thread principal) à chaque appel
+- [x] PRINT fait un WHEREIS (aller-retour au thread principal) à chaque appel -> simple lookup sous verrou
 - [x] update_waiting_processes et runq_size en O(n) à chaque choix de process
 - [x] mpscq_push fait un malloc par push -> nœud intrusif
 - [x] Recherche de slot libre en O(65536), table statique d'environ 23 Mo
 - [x] Trois verrous par message (slot, mailbox, tas) -> deux (slot, tas)
-- [x] Tout spawn / lookup passe par le thread principal (spawn direct ; lookup : PR 2)
+- [x] Tout spawn / lookup passe par le thread principal (spawn direct, registre synchrone)
 
 Qualité et outillage
 - [ ] CI GitHub Actions (build, ctest, ASan, TSan)
 - [ ] clang-format / clang-tidy
-- [ ] Identifiants réservés __xxx à renommer
-- [ ] Nommage incohérent cbeam / CLPF
+- [x] Identifiants réservés __xxx à renommer
+- [x] Nommage incohérent cbeam / CLPF
 - [ ] Cible install + pkg-config / find_package
 - [ ] Portabilité : x86-64 seulement (funcall.S) -> aarch64
 - [ ] Référence de l'API + dossier examples/

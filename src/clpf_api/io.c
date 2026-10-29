@@ -1,10 +1,9 @@
 #include <stb_sprintf/stb_sprintf.h>
 #include <api/io.h>
 #include <api/message.h>
-#include <api/tag.h>
-#include <clpf_const.h>
+#include <api/registry.h>
 
-char *__vformat(Process *self, const char *fmt, va_list ap) {
+char *clpf_vformat(Process *self, const char *fmt, va_list ap) {
     char tmp[128];
     va_list ap_copy;
     va_copy(ap_copy, ap);
@@ -29,18 +28,18 @@ char *__vformat(Process *self, const char *fmt, va_list ap) {
     return out;
 }
 
-char *__format(Process *self, const char *fmt, ...) {
+char *clpf_format(Process *self, const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
-    char *result = __vformat(self, fmt, ap);
+    char *result = clpf_vformat(self, fmt, ap);
     va_end(ap);
     return result;
 }
 
-int __print(Process *self, const char *fmt, ...) {
+int clpf_print(Process *self, const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
-    char *str = __vformat(self, fmt, ap);
+    char *str = clpf_vformat(self, fmt, ap);
     va_end(ap);
 
     if (!str) return -1;
@@ -54,17 +53,23 @@ int __print(Process *self, const char *fmt, ...) {
     return 0;
 }
 
-char* __getline(Process *self) {
-    char *line = NULL;
-
+char* clpf_getline(Process *self) {
     Pid io = WHEREIS("server::io");
     if (io == -1) {
         fprintf(stderr, "IO server not found\n");
         return NULL;
     }
 
-    SEND(io, NULL, 0, MAKE_STR_TAG("server::io::getline"));
-    line = RECEIVE(MAKE_STR_TAG("server::io::getline"));
+    // The reply carries the line without its terminating NUL
+    Message *reply = REQUEST(io, NULL, 0, MAKE_STR_TAG("server::io::getline"));
+    if (!reply)
+        return NULL;
 
+    char *line = ALLOC(reply->size + 1);
+    if (line) {
+        memcpy(line, reply->payload, reply->size);
+        line[reply->size] = '\0';
+    }
+    MSG_FREE(reply);
     return line;
 }

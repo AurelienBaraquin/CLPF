@@ -7,7 +7,8 @@ void init_task(Task entry, int argc, char *argv[])
     Funcall_t funcall;
     Pid pid;
     
-    funcall_init(&funcall, __server_launcher__, 3, entry, argc, argv);
-    pid = __clpf_task_add("server::launcher", &funcall, PROCESS_PRIORITY_VERY_HIGH, INVALID_PID, INVALID_PID);
+    funcall_init(&funcall, clpf_server_launcher, 3, entry, argc, argv);
+    SpawnOptions options = { .name = "server::launcher", .priority = PROCESS_PRIORITY_VERY_HIGH };
+    pid = clpf_task_add(&funcall, &options, INVALID_PID, INVALID_PID);
     assert(pid != -1);
 }

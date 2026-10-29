@@ -11,13 +11,18 @@ typedef enum {
     TAG_KIND_INTEGER,
     TAG_KIND_STRING,
     TAG_KIND_INTERNAL,
-    // Possibility to add some other types
+    TAG_KIND_NOTIFY, // A string, distinct from TAG_KIND_STRING (see NOTIFY)
+    TAG_KIND_DOWN,   // int_value is the pid of the process that went down (see MONITOR)
 } TagKind;
 
 #define MAKE_INTERNAL_TAG(code)     ((Tag){ .kind = TAG_KIND_INTERNAL, .internal_code = (code) })
 #define MAKE_INT_TAG(val)           ((Tag){ .kind = TAG_KIND_INTEGER, .int_value = (val) })
-#define MAKE_RANGE_TAG(min, max)    MAKE_INT_TAG(((int64_t)(min) << 32) | (max))
+// Matched by TM_IN_RANGE: min and max are packed as two 32-bit integers
+#define MAKE_RANGE_TAG(min, max)    MAKE_INT_TAG((int64_t)(((uint64_t)(uint32_t)(min) << 32) | (uint32_t)(max)))
+// The string is copied with the message: it may be a temporary buffer
 #define MAKE_STR_TAG(str)           ((Tag){ .kind = TAG_KIND_STRING,  .str_value = (str) })
+#define MAKE_NOTIFY_TAG(str)        ((Tag){ .kind = TAG_KIND_NOTIFY,  .str_value = (str) })
+#define MAKE_DOWN_TAG(pid)          ((Tag){ .kind = TAG_KIND_DOWN, .int_value = (pid) })
 #define MAKE_TAG_KIND(k)            ((Tag){ .kind = (k) })
 
 #define NO_TAG                      ((Tag){ .kind = TAG_KIND_NONE })
@@ -32,13 +37,18 @@ typedef struct Tag_s {
     };
 } Tag;
 
+// A message is one allocation in the receiver's heap: this header, the payload,
+// then the tag string if any. The receiver releases it with MSG_FREE.
 typedef struct Message {
-    Tag tag; // Always at the beginning of the message
-    void *payload; // Allocated, like the message itself, in the receiver's heap
+    Tag tag;
+    void *payload; // NULL when size is 0
     size_t size;
-    Pid sender_pid;
+    Pid sender_pid; // INVALID_PID when sent by the runtime
     struct Message *next;
 } Message;
+
+// Decides whether a message matches a pattern tag (see the TM_* matchers)
+typedef bool (*MessageMatch)(const Message *msg, Tag pattern);
 
 typedef struct Mailbox {
     // Read by the owner only, without any lock
@@ -57,5 +67,5 @@ void mailbox_destroy(Mailbox* mailbox);
 // The caller holds the receiver's slot lock, as for mailbox_transfer_inbox_to_seen.
 int mailbox_send_message(Mailbox* dest, safe_heap_t *dest_heap, void* data, size_t size, Pid sender, Tag tag);
 void mailbox_transfer_inbox_to_seen(Mailbox* mbox);
-Message* mailbox_receive_seen(Mailbox* mbox);
-Message* mailbox_peek_and_match_seen(Mailbox* mbox, Tag userdata);
+// Unlinks and returns the oldest seen message matching pattern, or NULL (owner only)
+Message* mailbox_take_matching(Mailbox* mbox, MessageMatch match, Tag pattern);

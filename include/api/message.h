@@ -2,46 +2,55 @@
 
 #include <api/memory.h>
 
-#define INCLUDE_CLPF_MESSAGE
+// Matchers for RECEIVE_IF / FETCH_IF: each tells whether a message matches a pattern tag
+bool clpf_match_same(const Message *msg, Tag pattern);     // equal tags; NO_TAG matches any message
+bool clpf_match_prefix(const Message *msg, Tag pattern);   // string tag starting with the pattern string
+bool clpf_match_gte(const Message *msg, Tag pattern);      // integer tag >= pattern
+bool clpf_match_lte(const Message *msg, Tag pattern);      // integer tag <= pattern
+bool clpf_match_in_range(const Message *msg, Tag pattern); // integer tag within MAKE_RANGE_TAG(min, max)
+bool clpf_match_kind(const Message *msg, Tag pattern);     // same TagKind (use MAKE_TAG_KIND)
 
-bool MessageMatchFn_SameTag(Message *msg, Tag tag);
-bool MessageMatchFn_StringPrefix(Message *msg, Tag tag);
-bool MessageMatchFn_IntGTE(Message *msg, Tag tag);
-bool MessageMatchFn_IntLTE(Message *msg, Tag tag);
-bool MessageMatchFn_IntInRange(Message *msg, Tag tag);
-bool MessageMatchFn_ByKind(Message *msg, Tag tag);
+#define TM_SAME     clpf_match_same
+#define TM_PREFIX   clpf_match_prefix
+#define TM_GTE      clpf_match_gte
+#define TM_LTE      clpf_match_lte
+#define TM_IN_RANGE clpf_match_in_range
+#define TM_KIND     clpf_match_kind
 
-#define TM_SAME \
-    MessageMatchFn_SameTag
-#define TM_PREFIX \
-    MessageMatchFn_StringPrefix
-#define TM_GTE \
-    MessageMatchFn_IntGTE
-#define TM_LTE \
-    MessageMatchFn_IntLTE
-#define TM_IN_RANGE \
-    MessageMatchFn_IntInRange
-#define TM_KIND \
-    MessageMatchFn_ByKind
-
+// Blocks until the oldest message with this tag (NO_TAG: any message) arrives.
+// The message belongs to the caller: release it with MSG_FREE.
 #define RECEIVE(tag) \
-    receive(self, tag)
+    clpf_receive(self, TM_SAME, tag)
 
-#define RECEIVE_RAW(tag) \
-    __receive_internal(self, tag);
+// Blocks until the oldest message accepted by match arrives
+#define RECEIVE_IF(match, pattern) \
+    clpf_receive(self, match, pattern)
 
+// Like RECEIVE without blocking: NULL only when no message matches
 #define FETCH(tag) \
-    fetch(self, tag)
+    clpf_fetch(self, TM_SAME, tag)
 
+#define FETCH_IF(match, pattern) \
+    clpf_fetch(self, match, pattern)
+
+// Copies size bytes of data into the receiver's heap: pointers inside the
+// payload are meaningless to the receiver. Returns 0, or -1 if pid is gone.
 #define SEND(pid, data, size, tag) \
-    send(self, pid, data, size, tag)
+    clpf_send(self, pid, data, size, tag)
 
+// Sends, then waits for the reply carrying the same tag (NULL if pid is gone)
 #define REQUEST(pid, data, size, tag) \
-    request(self, pid, data, size, tag)
+    clpf_request(self, pid, data, size, tag)
 
-// ONLY STATIC STRING ARE ALLOWED DO NOT PUT DYNAMIC STRING !!!!!
-#define NOTIFY(pid, data) \
-    send(self, pid, NULL, 0, MAKE_STR_TAG("notify::"data))
+#define MSG_IS(msg, tag) \
+    clpf_match_same(msg, tag)
 
-#define WAIT_NOTIF(data) \
-    receive(self, MAKE_STR_TAG("notify::"data))
+#define MSG_FREE(msg) \
+    clpf_msg_free(self, msg)
+
+// Empty signal-like messages identified by a name (any string, built at run time or not)
+#define NOTIFY(pid, name) \
+    SEND(pid, NULL, 0, MAKE_NOTIFY_TAG(name))
+
+#define WAIT_NOTIF(name) \
+    MSG_FREE(RECEIVE(MAKE_NOTIFY_TAG(name)))

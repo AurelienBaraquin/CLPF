@@ -15,13 +15,12 @@
 // Thousands of processes blocked in RECEIVE must not slow down the others:
 // a scheduler only looks at the processes that actually received something.
 TASK0(sleeper) {
-    RECEIVE(MAKE_STR_TAG("never"));
+    MSG_FREE(RECEIVE(MAKE_STR_TAG("never")));
 }
 
 TASK(echo, Pid parent) {
     for (int i = 0; i < ROUND_TRIPS; ++i) {
-        int *n = RECEIVE(MAKE_STR_TAG("ping"));
-        FREE(n);
+        MSG_FREE(RECEIVE(MAKE_STR_TAG("ping")));
         SEND(parent, &i, sizeof i, MAKE_STR_TAG("pong"));
     }
     EXIT_NORMAL();
@@ -40,8 +39,7 @@ TASK(entry, int argc, char *argv[]) {
     uint64_t start = now_ms();
     for (int i = 0; i < ROUND_TRIPS; ++i) {
         SEND(child, &i, sizeof i, MAKE_STR_TAG("ping"));
-        int *r = RECEIVE(MAKE_STR_TAG("pong"));
-        FREE(r);
+        MSG_FREE(RECEIVE(MAKE_STR_TAG("pong")));
     }
     uint64_t elapsed = now_ms() - start;
     fprintf(stderr, "%d round trips next to %d waiting processes in %lu ms\n",

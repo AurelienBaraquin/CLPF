@@ -1,9 +1,10 @@
 #include <native_task/server/io.h>
 #include <api/message.h>
+#include <api/registry.h>
 
 #include <stb_sprintf/stb_sprintf.h>
 
-typedef enum __server_io__e {
+typedef enum server_io_e {
     S_IO_NOTHING,
     S_IO_STOP,
     S_IO_SUCCESS,
@@ -13,12 +14,12 @@ static S_IO DEF(server_io_compute_message, Message *msg) {
     if (!msg)
         return S_IO_NOTHING;
 
-    if (MessageMatchFn_SameTag(msg, MAKE_STR_TAG("server::io::print"))) {
+    if (MSG_IS(msg, MAKE_STR_TAG("server::io::print"))) {
         write(STDOUT_FILENO, msg->payload, msg->size);
         return S_IO_SUCCESS;
     }
 
-    if (MessageMatchFn_SameTag(msg, MAKE_STR_TAG("server::io::getline"))) {
+    if (MSG_IS(msg, MAKE_STR_TAG("server::io::getline"))) {
         Pid dest = msg->sender_pid;
         if (dest == -1) {
             fprintf(stderr, "[IO SERVER] Invalid PID: %ld\n", dest);
@@ -37,19 +38,24 @@ static S_IO DEF(server_io_compute_message, Message *msg) {
         return S_IO_SUCCESS;
     }
 
-    if (MessageMatchFn_SameTag(msg, MAKE_STR_TAG("core::event::stop"))) {
+    if (MSG_IS(msg, MAKE_STR_TAG("core::event::stop"))) {
         return S_IO_STOP;
     }
 
     return S_IO_NOTHING;
 }
 
-TASK0(__server_io__) {
+TASK0(clpf_server_io) {
     bool running = true;
     Message *msg = NULL;
 
+    // PRINT and GETLINE find the server by name: the launcher registers the first
+    // server before anything can print, a restarted one takes the name back
+    if (WHEREIS("server::io") != self->pid && REGISTER("server::io", self->pid) != 0)
+        EXIT_ERROR();
+
     while (running) {
-        msg = RECEIVE_RAW(NO_TAG);
+        msg = RECEIVE(NO_TAG);
 
         S_IO r = CALL(server_io_compute_message, msg);
 
@@ -65,9 +71,7 @@ TASK0(__server_io__) {
                 break;
         }
 
-        if (msg->payload)
-            FREE(msg->payload);
-        FREE(msg);
+        MSG_FREE(msg);
     }
     EXIT_NORMAL();
 }

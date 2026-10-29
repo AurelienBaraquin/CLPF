@@ -4,9 +4,9 @@
 #include <api/memory.h>
 
 TASK(echo, Pid parent) {
-    int *n = RECEIVE(MAKE_STR_TAG("ping"));
-    int reply = *n + 1;
-    FREE(n);
+    Message *msg = RECEIVE(MAKE_STR_TAG("ping"));
+    int reply = *(int *)msg->payload + 1;
+    MSG_FREE(msg);
     SEND(parent, &reply, sizeof reply, MAKE_STR_TAG("pong"));
     EXIT_NORMAL();
 }
@@ -20,9 +20,9 @@ TASK(entry, int argc, char *argv[]) {
 
     int n = 41;
     SEND(child, &n, sizeof n, MAKE_STR_TAG("ping"));
-    int *r = RECEIVE(MAKE_STR_TAG("pong"));
-    TEST_ASSERT(*r == 42);
-    FREE(r);
+    Message *reply = RECEIVE(MAKE_STR_TAG("pong"));
+    TEST_ASSERT(*(int *)reply->payload == 42);
+    MSG_FREE(reply);
 
     TEST_PASS();
     EXIT_NORMAL();

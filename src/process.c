@@ -7,15 +7,22 @@
 #include <sanitizer/asan_interface.h>
 #endif
 
-int process_init(Process *process, const char *name, Funcall_t *taskcall, process_priority priority, Pid pid, Pid parent_pid) {
+int process_init(Process *process, Funcall_t *taskcall, const SpawnOptions *options, Pid pid, Pid parent_pid) {
+    process_priority priority = options->priority;
     if (!taskcall || !process)
         return -1;
-    if (priority < PROCESS_PRIORITY_LOW || priority > PROCESS_PRIORITY_VERY_HIGH)
+    if ((unsigned)priority > PROCESS_PRIORITY_VERY_HIGH)
         return -1;
+    if (options->arg_block && taskcall->argc != 0) {
+        fprintf(stderr, "[process_init] An argument block replaces the integer arguments\n");
+        return -1;
+    }
 
     process->pid = pid;
-    memset(process->__name, 0, NAME_MAX_LENGTH);
-    strncpy(process->__name, name, NAME_MAX_LENGTH - 1);
+    memset(process->name, 0, NAME_MAX_LENGTH);
+    if (options->name)
+        strncpy(process->name, options->name, NAME_MAX_LENGTH - 1);
+    memset(process->registered_name, 0, NAME_MAX_LENGTH);
 
     process->scheduler_pid = -1;
     process->state = PROCESS_INIT,
@@ -38,9 +45,21 @@ int process_init(Process *process, const char *name, Funcall_t *taskcall, proces
 
     process->acoro = NULL;
     process->share_stack = NULL;
+    process->stack_size = options->stack_size ? options->stack_size : CLPF_DEFAULT_STACK_SIZE;
 
     if (safe_heap_create(&process->heap, MINIMAL_HEAP_POOL_SIZE) != 0)
         return -1;
+
+    if (options->arg_block) {
+        void *block = safe_heap_alloc(&process->heap, options->arg_block_size);
+        if (!block) {
+            safe_heap_destroy(&process->heap);
+            return -1;
+        }
+        memcpy(block, options->arg_block, options->arg_block_size);
+        process->taskcall.args[1] = (uintptr_t)block;
+        process->taskcall.argc = 2;
+    }
 
     links_init(&process->links);
     monitor_init(&process->monitor);
@@ -48,13 +67,11 @@ int process_init(Process *process, const char *name, Funcall_t *taskcall, proces
     process->links.parent = parent_pid;
     process->exit_notified = false;
     atomic_store(&process->wake_pending, false);
-    process->callbacks_blocked = 0;
 
-    mpscq_init(&process->signal_queue);
     mailbox_init(&process->mailbox);
 
 #ifdef CLPF_TRACE
-    printf("[%s (%ld)] created\n", process->__name, process->pid);
+    printf("[%s (%ld)] created\n", process->name, process->pid);
 #endif
 
     return 0;
@@ -65,7 +82,7 @@ void process_destroy(Process *process) {
         return;
 
 #ifdef CLPF_TRACE
-    printf("[%s (%ld)] destroyed\n", process->__name, process->pid);
+    printf("[%s (%ld)] destroyed\n", process->name, process->pid);
 #endif
 
     // From here on, senders see the slot as free and never reach the heap
@@ -88,7 +105,6 @@ void process_destroy(Process *process) {
     }
     links_clear(&process->links);
     monitor_clear(&process->monitor);
-    mpscq_init(&process->signal_queue); // pending signals live in the unmapped heap
 }
 
 Process *process_lock(Pid pid) {

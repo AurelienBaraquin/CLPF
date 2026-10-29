@@ -4,7 +4,7 @@
 #include <api/monitor.h>
 #include <utils/time.h>
 #include <api/task.h>
-#include <api/tag.h>
+#include <api/registry.h>
 
 static bool should_restart_child(SupChildSlot *child, unsigned int reason) {
     switch (child->spec.restart) {
@@ -17,7 +17,7 @@ static bool should_restart_child(SupChildSlot *child, unsigned int reason) {
     }
 }
 
-static bool DEF(restart_child_impl, __supervisor_t *sv, SupChildSlot *child) {
+static bool DEF(restart_child_impl, supervisor_t *sv, SupChildSlot *child) {
     uint64_t now = now_ms();
 
     // Insert the timestamp in a circular manner
@@ -47,15 +47,14 @@ static bool DEF(restart_child_impl, __supervisor_t *sv, SupChildSlot *child) {
     return true;
 }
 
-static void DEF(forget_child, __supervisor_t *sv, SupChildSlot *child) {
-    monitor_remove(&self->monitor, child->pid);
-    CALL(__sup_child_list_remove, &sv->sup_childs, child);
+static void DEF(forget_child, supervisor_t *sv, SupChildSlot *child) {
+    CALL(sup_child_list_remove, &sv->sup_childs, child);
     sv->child_count--;
 }
 
 // Only SUP_ONE_FOR_ONE reaches this point: the supervisor refuses the other strategies
-void DEF(on_signal_down, Pid from, unsigned int reason, __supervisor_t *sv) {
-    SupChildSlot *child = __sup_child_find_by_pid(sv, from);
+void DEF(on_child_down, Pid from, unsigned int reason, supervisor_t *sv) {
+    SupChildSlot *child = sup_child_find_by_pid(sv, from);
     if (!child) return;
 
     if (!should_restart_child(child, reason) || !CALL(restart_child_impl, sv, child))

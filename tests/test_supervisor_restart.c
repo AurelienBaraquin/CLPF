@@ -25,7 +25,7 @@ TASK(entry, int argc, char *argv[]) {
 
     // Each child: the first start plus MAX_RESTARTS restarts, then the supervisor gives up on it
     for (int i = 0; i < CHILDREN * (1 + MAX_RESTARTS); ++i)
-        RECEIVE(MAKE_STR_TAG("started"));
+        MSG_FREE(RECEIVE(MAKE_STR_TAG("started")));
 
     for (int i = 0; i < SETTLE_YIELDS; ++i)
         YIELD();

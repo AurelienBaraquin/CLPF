@@ -47,10 +47,11 @@ TASK(entry, int argc, char *argv[]) {
     static Pid pids[TOTAL_CHILDREN];
     bool used_scheduler[MAX_SCHEDULERS] = {0};
     for (int i = 0; i < TOTAL_CHILDREN; ++i) {
-        Hello *hello = RECEIVE(MAKE_STR_TAG("hello"));
+        Message *msg = RECEIVE(MAKE_STR_TAG("hello"));
+        Hello *hello = msg->payload;
         pids[i] = hello->pid;
         used_scheduler[hello->scheduler] = true;
-        FREE(hello);
+        MSG_FREE(msg);
     }
     TEST_ASSERT(FETCH(MAKE_STR_TAG("spawn_failed")) == NULL);
 

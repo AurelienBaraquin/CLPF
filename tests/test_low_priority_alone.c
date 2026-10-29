@@ -18,7 +18,7 @@ TASK(entry, int argc, char *argv[]) {
     (void)argv;
 
     TEST_ASSERT(SPAWN_PRIO(low, PROCESS_PRIORITY_LOW, 1, self->pid) != INVALID_PID);
-    RECEIVE(MAKE_STR_TAG("done"));
+    MSG_FREE(RECEIVE(MAKE_STR_TAG("done")));
 
     TEST_PASS();
     EXIT_NORMAL();

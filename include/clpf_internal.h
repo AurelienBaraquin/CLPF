@@ -13,33 +13,15 @@
 #define PID_INDEX(pid) ((pid) & (MAX_PROCESSES - 1))
 
 typedef enum core_message_type_e {
-    CORE_MESSAGE_TYPE_NAME_REGISTER,
-    CORE_MESSAGE_TYPE_NAME_UNREGISTER,
-    CORE_MESSAGE_TYPE_NAME_LOOKUP,
     CORE_MESSAGE_TYPE_PROCESS_EXIT,
 } CoreMessageType;
 
+// Requests handled by the main thread
 typedef struct {
     MPSCQNode node;
     CoreMessageType op;
 
-    Pid sender; // Sender of the message
-    Pid reply_to; // Reply to this process (can be -1 if no reply is needed)
-
     union {
-        struct {
-            char name[NAME_MAX_LENGTH];
-            Pid pid;
-        } name_register;
-
-        struct {
-            char name[NAME_MAX_LENGTH];
-        } name_unregister;
-
-        struct {
-            char name[NAME_MAX_LENGTH];
-        } name_lookup;
-
         struct {
             Pid pid;
         } process_exit;
@@ -59,8 +41,9 @@ typedef struct {
 
     TrieNode *name_table;
 
-    // Guards the free slot stack, process_count and the name table: processes
-    // are created from any thread, destroyed by the main thread
+    // Guards the free slot stack, process_count, the name table and every
+    // Process.registered_name: processes are created and registered from any
+    // thread, destroyed by the main thread
     pthread_mutex_t table_lock;
 
     MPSCQ message_queue;
@@ -76,8 +59,8 @@ void process_unlock(Process *process);
 // Wakes the locked process if it waits, after a message or signal was queued for it
 void process_notify_locked(Process *process);
 
-void __clpf_main(Task entry_point, int argc, char *argv[]);
-int __clpf_main_update();
+void clpf_main(Task entry_point, int argc, char *argv[]);
+int clpf_main_update();
 // Takes a free process table index, or returns -1 if the table is full
 int clpf_slot_alloc(void);
 // Gives back the index of a destroyed process
@@ -88,14 +71,14 @@ void clpf_post(CoreMessage *msg);
 // Wakes the main thread and every scheduler, so they notice exit_in_progress
 void clpf_wake_all(void);
 // Frees a core message and what it owns
-void __clpf_message_destroy(CoreMessage* msg);
+void clpf_message_destroy(CoreMessage* msg);
 
 // Thread-safe. Creates a process on the least loaded scheduler and returns its pid, or INVALID_PID.
-// monitored_by (or INVALID_PID) gets a DOWN signal when the new process exits, even if it exits right away
-Pid __clpf_task_add(const char *name, Funcall_t *fun, process_priority priority, Pid parent_pid, Pid monitored_by);
+// monitored_by (or INVALID_PID) gets a DOWN message when the new process exits, even if it exits right away
+Pid clpf_task_add(Funcall_t *fun, const SpawnOptions *options, Pid parent_pid, Pid monitored_by);
 
-// Spawns a child of self; with monitor, self is monitoring it from its very start
-Pid clpf_spawn(Process *self, const char *name, Funcall_t *fun, process_priority priority, bool monitor);
+// Spawns a child of self (see SpawnOptions)
+Pid clpf_spawn(Process *self, Funcall_t *fun, SpawnOptions options);
 
 typedef enum exit_reason_e exit_reason;
 
@@ -108,22 +91,13 @@ void exiting(Process *self, exit_reason reason);
 
 // Message
 
-// Loop until a valid message is received (blocking)
-Message* __receive_internal(Process *self, Tag userdata);
-// Look for a valid message in the mailbox and return it, if not found return NULL (non-blocking)
-Message* __receive_internal_fetch(Process *self, Tag userdata);
-// Loop until a valid message is received (blocking)
-void* receive(Process* self, Tag userdata);
-// Look for a valid message in the mailbox and return it, if not found return NULL (non-blocking)
-void *fetch(Process* self, Tag userdata);
-
-// Send a message to a process
-int send(Process *self, Pid pid, void* data, size_t size, Tag tag);
-
-// Request (send + receive with the same tag)
-void* request(Process *self, Pid pid, void* data, size_t size, Tag tag);
+Message *clpf_receive(Process *self, MessageMatch match, Tag pattern);
+Message *clpf_fetch(Process *self, MessageMatch match, Tag pattern);
+// self may be NULL when the runtime itself sends
+int clpf_send(Process *self, Pid pid, void *data, size_t size, Tag tag);
+// Delivers a message on behalf of `from` without yielding (usable from any thread)
+int clpf_deliver(Pid from, Pid pid, void *data, size_t size, Tag tag);
+Message *clpf_request(Process *self, Pid pid, void *data, size_t size, Tag tag);
+void clpf_msg_free(Process *self, Message *msg);
 
 
-
-// Runs the monitor callbacks of pending signals, unless callbacks_blocked is set
-void handle_callbacks(Process *self);

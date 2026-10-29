@@ -1,12 +1,16 @@
 # Each test is a standalone CLPF program; a hang is caught by the timeout.
-function(clpf_add_test name)
+function(clpf_add_test_program name)
     add_executable(${name} ${name}.c)
     target_compile_options(${name} PRIVATE -Wall -Wextra)
-    target_link_libraries(${name} cbeam)
+    target_link_libraries(${name} clpf)
     if(CLPF_SANITIZE)
         # Sanitizer shadow memory makes the largest scenarios too heavy
         target_compile_definitions(${name} PRIVATE CLPF_SANITIZED)
     endif()
+endfunction()
+
+function(clpf_add_test name)
+    clpf_add_test_program(${name})
     add_test(NAME ${name} COMMAND ${name})
     set_tests_properties(${name} PROPERTIES TIMEOUT 20)
 endfunction()
@@ -25,6 +29,17 @@ clpf_add_test(test_many_waiting)
 clpf_add_test(test_idle)
 clpf_add_test(test_spawn_concurrent)
 clpf_add_test(test_low_priority_alone)
+clpf_add_test(test_messages)
+clpf_add_test(test_string_tags)
+clpf_add_test(test_registry)
+clpf_add_test(test_spawn_with)
+clpf_add_test(test_stack_size)
+# This one crashes on purpose: only its diagnostic is checked
+clpf_add_test_program(test_stack_overflow)
+add_test(NAME test_stack_overflow COMMAND sh -c "\"$0\" 2>&1; exit 0" $<TARGET_FILE:test_stack_overflow>)
+set_tests_properties(test_stack_overflow PROPERTIES
+    TIMEOUT 20
+    PASS_REGULAR_EXPRESSION "stack overflow in process 'runaway'")
 
 # The runtime must still start a scheduler when only one CPU is usable
 find_program(TASKSET taskset)

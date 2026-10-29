@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(cbeam LANGUAGES C ASM)
+project(clpf LANGUAGES C ASM)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -29,18 +29,18 @@ add_library(stb_sprintf STATIC external/stb_sprintf/stb_sprintf.c)
 target_include_directories(tlsf PUBLIC external/)
 
 # Source files
-file(GLOB_RECURSE CBEAM_SOURCES src/*.c src/*.S)
+file(GLOB_RECURSE CLPF_SOURCES src/*.c src/*.S)
 
-add_library(cbeam STATIC ${CBEAM_SOURCES})
-target_include_directories(cbeam PUBLIC include external)
-target_compile_options(cbeam PRIVATE -Wall -Wextra)
-target_compile_definitions(cbeam PRIVATE _GNU_SOURCE $<$<BOOL:${CLPF_TRACE}>:CLPF_TRACE>)
-target_link_libraries(cbeam PUBLIC tlsf libaco stb_sprintf pthread)
+add_library(clpf STATIC ${CLPF_SOURCES})
+target_include_directories(clpf PUBLIC include external)
+target_compile_options(clpf PRIVATE -Wall -Wextra)
+target_compile_definitions(clpf PRIVATE _GNU_SOURCE $<$<BOOL:${CLPF_TRACE}>:CLPF_TRACE>)
+target_link_libraries(clpf PUBLIC tlsf libaco stb_sprintf pthread)
 
 # Optional main binary
-add_executable(cbeam_main main.c)
-target_compile_options(cbeam_main PRIVATE -Wall -Wextra)
-target_link_libraries(cbeam_main cbeam)
+add_executable(clpf_demo main.c)
+target_compile_options(clpf_demo PRIVATE -Wall -Wextra)
+target_link_libraries(clpf_demo clpf)
 
 enable_testing()
 add_subdirectory(tests)

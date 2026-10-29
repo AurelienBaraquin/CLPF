@@ -18,25 +18,35 @@ void mailbox_destroy(Mailbox* mbox) {
     mbox->seen_tail = NULL;
 }
 
+// The payload starts at the first 16-byte boundary after the header
+#define MESSAGE_HEADER_SIZE ((sizeof(Message) + 15) & ~(size_t)15)
+
+static bool tag_has_string(Tag tag) {
+    return tag.kind == TAG_KIND_STRING || tag.kind == TAG_KIND_NOTIFY;
+}
+
 int mailbox_send_message(Mailbox* dest, safe_heap_t *dest_heap, void* data, size_t size, Pid sender, Tag tag) {
-    Message* msg = safe_heap_alloc(dest_heap, sizeof(Message));
+    if (!data)
+        size = 0;
+    size_t string_size = tag_has_string(tag) ? strlen(tag.str_value) + 1 : 0;
+
+    Message* msg = safe_heap_alloc(dest_heap, MESSAGE_HEADER_SIZE + size + string_size);
     if (!msg)
         return -1;
 
-    msg->payload = NULL;
-    msg->size = 0;
-    if (data && size > 0) {
-        msg->payload = safe_heap_alloc(dest_heap, size);
-        if (!msg->payload) {
-            safe_heap_free(dest_heap, msg);
-            return -1;
-        }
+    msg->payload = size > 0 ? (char *)msg + MESSAGE_HEADER_SIZE : NULL;
+    msg->size = size;
+    if (size > 0)
         memcpy(msg->payload, data, size);
-        msg->size = size;
+
+    msg->tag = tag;
+    if (string_size > 0) {
+        char *string = (char *)msg + MESSAGE_HEADER_SIZE + size;
+        memcpy(string, tag.str_value, string_size);
+        msg->tag.str_value = string;
     }
 
     msg->sender_pid = sender;
-    msg->tag = tag;
     msg->next = NULL;
 
     if (dest->inbox_tail)
@@ -61,25 +71,12 @@ void mailbox_transfer_inbox_to_seen(Mailbox* mbox) {
     }
 }
 
-Message* mailbox_receive_seen(Mailbox* mbox) {
-    Message* msg = mbox->seen_head;
-    if (msg) {
-        mbox->seen_head = msg->next;
-        if (!mbox->seen_head)
-            mbox->seen_tail = NULL;
-        msg->next = NULL;
-    }
-    return msg;
-}
-
-bool MessageMatchFn_SameTag(Message *msg, Tag expected);
-
-Message* mailbox_peek_and_match_seen(Mailbox* mbox, Tag userdata) {
+Message* mailbox_take_matching(Mailbox* mbox, MessageMatch match, Tag pattern) {
     Message* prev = NULL;
     Message* msg = mbox->seen_head;
 
     while (msg) {
-        if (MessageMatchFn_SameTag(msg, userdata)) {
+        if (match(msg, pattern)) {
             if (prev)
                 prev->next = msg->next;
             else
