@@ -2,7 +2,7 @@
 #include <scheduler_manager.h>
 #include <stdio.h>
 
-Pid __clpf_task_add(const char *name, Funcall_t *fun, process_priority priority, Pid parent_pid, Pid monitored_by)
+Pid clpf_task_add(const char *name, Funcall_t *fun, process_priority priority, Pid parent_pid, Pid monitored_by)
 {
     Pid scheduler_index = sch_mg_get_less_process_scheduler();
     if (scheduler_index == -1) {
@@ -58,7 +58,7 @@ Pid __clpf_task_add(const char *name, Funcall_t *fun, process_priority priority,
 
 Pid clpf_spawn(Process *self, const char *name, Funcall_t *fun, process_priority priority, bool monitor)
 {
-    Pid pid = __clpf_task_add(name, fun, priority, self->pid, monitor ? self->pid : INVALID_PID);
+    Pid pid = clpf_task_add(name, fun, priority, self->pid, monitor ? self->pid : INVALID_PID);
     if (monitor && pid != INVALID_PID)
         monitor_add(&self->monitor, pid);
     return pid;

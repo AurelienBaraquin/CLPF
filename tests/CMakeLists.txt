@@ -2,7 +2,7 @@
 function(clpf_add_test name)
     add_executable(${name} ${name}.c)
     target_compile_options(${name} PRIVATE -Wall -Wextra)
-    target_link_libraries(${name} cbeam)
+    target_link_libraries(${name} clpf)
     if(CLPF_SANITIZE)
         # Sanitizer shadow memory makes the largest scenarios too heavy
         target_compile_definitions(${name} PRIVATE CLPF_SANITIZED)

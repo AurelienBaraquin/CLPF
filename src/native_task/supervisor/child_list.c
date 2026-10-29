@@ -1,7 +1,7 @@
 #include <native_task/supervisor.h>
 #include <api/memory.h>
 
-SupChildSlot* DEF(__sup_child_list_insert, SupChildList *list, SupChildSpec *child) {
+SupChildSlot* DEF(sup_child_list_insert, SupChildList *list, SupChildSpec *child) {
     if (!list || !child)
         return NULL;
 
@@ -22,12 +22,12 @@ SupChildSlot* DEF(__sup_child_list_insert, SupChildList *list, SupChildSpec *chi
     return new_child;
 }
 
-void DEF(__sup_child_list_remove, SupChildList *list, SupChildSlot *child) {
+void DEF(sup_child_list_remove, SupChildList *list, SupChildSlot *child) {
     TAILQ_REMOVE(list, child, entry);
     FREE(child);
 }
 
-SupChildSlot *__sup_child_find_by_pid(__supervisor_t *sv, Pid pid) {
+SupChildSlot *sup_child_find_by_pid(supervisor_t *sv, Pid pid) {
     SupChildSlot *child;
     TAILQ_FOREACH(child, &sv->sup_childs, entry) {
         if (child->pid == pid) {

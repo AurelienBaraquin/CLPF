@@ -14,8 +14,8 @@ int process_init(Process *process, const char *name, Funcall_t *taskcall, proces
         return -1;
 
     process->pid = pid;
-    memset(process->__name, 0, NAME_MAX_LENGTH);
-    strncpy(process->__name, name, NAME_MAX_LENGTH - 1);
+    memset(process->name, 0, NAME_MAX_LENGTH);
+    strncpy(process->name, name, NAME_MAX_LENGTH - 1);
 
     process->scheduler_pid = -1;
     process->state = PROCESS_INIT,
@@ -54,7 +54,7 @@ int process_init(Process *process, const char *name, Funcall_t *taskcall, proces
     mailbox_init(&process->mailbox);
 
 #ifdef CLPF_TRACE
-    printf("[%s (%ld)] created\n", process->__name, process->pid);
+    printf("[%s (%ld)] created\n", process->name, process->pid);
 #endif
 
     return 0;
@@ -65,7 +65,7 @@ void process_destroy(Process *process) {
         return;
 
 #ifdef CLPF_TRACE
-    printf("[%s (%ld)] destroyed\n", process->__name, process->pid);
+    printf("[%s (%ld)] destroyed\n", process->name, process->pid);
 #endif
 
     // From here on, senders see the slot as free and never reach the heap

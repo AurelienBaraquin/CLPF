@@ -32,7 +32,7 @@ TASK(pong, Pid parent) {
 }
 
 TASK(worker, Pid parent) {
-    PRINT("%s started, crashing\n", self->__name);
+    PRINT("%s started, crashing\n", self->name);
     SEND(parent, NULL, 0, MAKE_STR_TAG("started"));
     EXIT_ERROR();                                 // the supervisor restarts it
 }
@@ -81,15 +81,15 @@ git clone --recursive https://github.com/AurelienBaraquin/CLPF.git
 cd CLPF                       # if already cloned: git submodule update --init
 cmake -S . -B build
 cmake --build build -j
-./build/cbeam_main            # demo: a supervised child that crashes and is restarted
+./build/clpf_demo            # demo: a supervised child that crashes and is restarted
 ctest --test-dir build --output-on-failure
 ```
 
-The build produces `build/libcbeam.a` plus `libtlsf.a`, `liblibaco.a` and `libstb_sprintf.a`. To build your own program against them:
+The build produces `build/libclpf.a` plus `libtlsf.a`, `liblibaco.a` and `libstb_sprintf.a`. To build your own program against them:
 
 ```sh
 gcc -std=gnu11 -Iinclude -Iexternal my_app.c \
-    -Lbuild -lcbeam -ltlsf -llibaco -lstb_sprintf -lpthread -o my_app
+    -Lbuild -lclpf -ltlsf -llibaco -lstb_sprintf -lpthread -o my_app
 ```
 
 CMake options:

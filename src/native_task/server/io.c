@@ -3,7 +3,7 @@
 
 #include <stb_sprintf/stb_sprintf.h>
 
-typedef enum __server_io__e {
+typedef enum server_io_e {
     S_IO_NOTHING,
     S_IO_STOP,
     S_IO_SUCCESS,
@@ -44,7 +44,7 @@ static S_IO DEF(server_io_compute_message, Message *msg) {
     return S_IO_NOTHING;
 }
 
-TASK0(__server_io__) {
+TASK0(clpf_server_io) {
     bool running = true;
     Message *msg = NULL;
 

@@ -4,7 +4,7 @@
 #include <api/message.h>
 #include <string.h>
 
-void __clpf_request_register(Process *self, const char* name, Pid pid)
+void clpf_request_register(Process *self, const char* name, Pid pid)
 {
     CoreMessage* msg = malloc(sizeof(CoreMessage));
     if (!msg) {
@@ -22,7 +22,7 @@ void __clpf_request_register(Process *self, const char* name, Pid pid)
     clpf_post(msg);
 }
 
-void __clpf_request_unregister(Process *self, const char* name)
+void clpf_request_unregister(Process *self, const char* name)
 {
     CoreMessage* msg = malloc(sizeof(CoreMessage));
     if (!msg) {
@@ -39,7 +39,7 @@ void __clpf_request_unregister(Process *self, const char* name)
     clpf_post(msg);
 }
 
-void __clpf_request_lookup(Process *self, const char* name)
+void clpf_request_lookup(Process *self, const char* name)
 {
     CoreMessage* msg = malloc(sizeof(CoreMessage));
     if (!msg) {

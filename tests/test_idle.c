@@ -88,7 +88,7 @@ _Atomic TestStatus test_status = TEST_RUNNING;
 int main(int argc, char *argv[]) {
     pthread_t probe;
     pthread_create(&probe, NULL, idle_probe, NULL);
-    __clpf_main(entry, argc, argv);
+    clpf_main(entry, argc, argv);
     pthread_join(probe, NULL);
     return atomic_load(&test_status) == TEST_PASSED ? 0 : 1;
 }

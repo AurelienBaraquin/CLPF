@@ -5,14 +5,14 @@
 #include <stdlib.h>
 #include <string.h>
 
-void __clpf_message_destroy(CoreMessage* msg)
+void clpf_message_destroy(CoreMessage* msg)
 {
     if (msg) {
         free(msg);
     }
 }
 
-int __clpf_main_update()
+int clpf_main_update()
 {
     MPSCQNode* node = mpscq_drain(&clpf.message_queue);
     if (node == NULL) return 0;
@@ -28,8 +28,8 @@ int __clpf_main_update()
                     break;
                 pthread_mutex_lock(&clpf.table_lock);
                 if (name_table_insert(clpf.name_table, msg->data.name_register.name, process->pid) == 0) {
-                    memset(process->__name, 0, NAME_MAX_LENGTH);
-                    strcpy(process->__name, msg->data.name_register.name);
+                    memset(process->name, 0, NAME_MAX_LENGTH);
+                    strcpy(process->name, msg->data.name_register.name);
                 }
                 pthread_mutex_unlock(&clpf.table_lock);
                 process_unlock(process);
@@ -43,7 +43,7 @@ int __clpf_main_update()
 
                 Process *registered = process_lock(registered_pid);
                 if (registered) {
-                    memset(registered->__name, 0, NAME_MAX_LENGTH);
+                    memset(registered->name, 0, NAME_MAX_LENGTH);
                     process_unlock(registered);
                 }
                 break;
@@ -70,8 +70,8 @@ int __clpf_main_update()
 
                 pthread_mutex_lock(&clpf.table_lock);
                 // The name may already belong to a restarted process
-                if (name_table_lookup(clpf.name_table, process->__name) == pid)
-                    name_table_remove(clpf.name_table, process->__name);
+                if (name_table_lookup(clpf.name_table, process->name) == pid)
+                    name_table_remove(clpf.name_table, process->name);
                 clpf.process_count--;
                 pthread_mutex_unlock(&clpf.table_lock);
 
@@ -92,7 +92,7 @@ int __clpf_main_update()
 
     for (MPSCQNode* n = node; n != NULL; ) {
         MPSCQNode* next = n->next;
-        __clpf_message_destroy(container_of(n, CoreMessage, node));
+        clpf_message_destroy(container_of(n, CoreMessage, node));
         n = next;
     }
 

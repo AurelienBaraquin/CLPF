@@ -28,7 +28,7 @@ bool MessageMatchFn_ByKind(Message *msg, Tag tag);
     receive(self, tag)
 
 #define RECEIVE_RAW(tag) \
-    __receive_internal(self, tag);
+    clpf_receive_internal(self, tag);
 
 #define FETCH(tag) \
     fetch(self, tag)

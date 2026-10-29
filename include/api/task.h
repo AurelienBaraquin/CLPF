@@ -5,26 +5,26 @@
 
 // Spawning is synchronous and does not yield: the pid is known before the
 // new process can run, exit or send anything
-#define __SPAWN_RAW(name, funcall_ptr, prio, with_monitor) \
+#define CLPF_SPAWN_RAW(name, funcall_ptr, prio, with_monitor) \
     clpf_spawn(self, name, funcall_ptr, prio, with_monitor)
 
-#define VSPAWN_PRIO(funcall_ptr, prio)       __SPAWN_RAW("", funcall_ptr, prio, false)
-#define VSPAWN_NAMED(funcall_ptr, name, prio) __SPAWN_RAW(name, funcall_ptr, prio, false)
+#define VSPAWN_PRIO(funcall_ptr, prio)       CLPF_SPAWN_RAW("", funcall_ptr, prio, false)
+#define VSPAWN_NAMED(funcall_ptr, name, prio) CLPF_SPAWN_RAW(name, funcall_ptr, prio, false)
 // Spawn and monitor in one step: the DOWN is delivered even if the process exits immediately
-#define VSPAWN_MONITOR_NAMED(funcall_ptr, name, prio) __SPAWN_RAW(name, funcall_ptr, prio, true)
+#define VSPAWN_MONITOR_NAMED(funcall_ptr, name, prio) CLPF_SPAWN_RAW(name, funcall_ptr, prio, true)
 
 #define SPAWN_PRIO_NAMED(func, name, prio, argc, ...)              \
     ({                                                       \
         Funcall_t funcall;                                   \
         funcall_init(&funcall, func, argc, __VA_ARGS__);     \
-        __SPAWN_RAW(name, &funcall, prio, false);            \
+        CLPF_SPAWN_RAW(name, &funcall, prio, false);            \
     })
 
 #define SPAWN0_PRIO_NAMED(func, name, prio)                        \
     ({                                                       \
         Funcall_t funcall;                                   \
         funcall_init(&funcall, func, 0);                     \
-        __SPAWN_RAW(name, &funcall, prio, false);            \
+        CLPF_SPAWN_RAW(name, &funcall, prio, false);            \
     })
 
 

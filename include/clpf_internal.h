@@ -76,8 +76,8 @@ void process_unlock(Process *process);
 // Wakes the locked process if it waits, after a message or signal was queued for it
 void process_notify_locked(Process *process);
 
-void __clpf_main(Task entry_point, int argc, char *argv[]);
-int __clpf_main_update();
+void clpf_main(Task entry_point, int argc, char *argv[]);
+int clpf_main_update();
 // Takes a free process table index, or returns -1 if the table is full
 int clpf_slot_alloc(void);
 // Gives back the index of a destroyed process
@@ -88,11 +88,11 @@ void clpf_post(CoreMessage *msg);
 // Wakes the main thread and every scheduler, so they notice exit_in_progress
 void clpf_wake_all(void);
 // Frees a core message and what it owns
-void __clpf_message_destroy(CoreMessage* msg);
+void clpf_message_destroy(CoreMessage* msg);
 
 // Thread-safe. Creates a process on the least loaded scheduler and returns its pid, or INVALID_PID.
 // monitored_by (or INVALID_PID) gets a DOWN signal when the new process exits, even if it exits right away
-Pid __clpf_task_add(const char *name, Funcall_t *fun, process_priority priority, Pid parent_pid, Pid monitored_by);
+Pid clpf_task_add(const char *name, Funcall_t *fun, process_priority priority, Pid parent_pid, Pid monitored_by);
 
 // Spawns a child of self; with monitor, self is monitoring it from its very start
 Pid clpf_spawn(Process *self, const char *name, Funcall_t *fun, process_priority priority, bool monitor);
@@ -109,9 +109,9 @@ void exiting(Process *self, exit_reason reason);
 // Message
 
 // Loop until a valid message is received (blocking)
-Message* __receive_internal(Process *self, Tag userdata);
+Message* clpf_receive_internal(Process *self, Tag userdata);
 // Look for a valid message in the mailbox and return it, if not found return NULL (non-blocking)
-Message* __receive_internal_fetch(Process *self, Tag userdata);
+Message* clpf_receive_internal_fetch(Process *self, Tag userdata);
 // Loop until a valid message is received (blocking)
 void* receive(Process* self, Tag userdata);
 // Look for a valid message in the mailbox and return it, if not found return NULL (non-blocking)

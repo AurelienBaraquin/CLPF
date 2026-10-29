@@ -16,7 +16,7 @@
 
 #define CLPF_ENTRY(task) \
     int main(int argc, char *argv[]) { \
-        __clpf_main(task, argc, argv); \
+        clpf_main(task, argc, argv); \
         return 0; \
     }
 

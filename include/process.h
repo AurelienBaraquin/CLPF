@@ -43,7 +43,7 @@ typedef struct process_s {
     unsigned long generation; // Incremented each time the slot is reused, kept across reuses
     Pid scheduler_pid;
 
-    ProcessName __name;
+    ProcessName name;
 
     safe_heap_t heap;
     aco_t *acoro;

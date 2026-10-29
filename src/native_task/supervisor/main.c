@@ -6,9 +6,9 @@
 #define DEFAULT_PERIOD 1000 // Default period in milliseconds
 #define DEFAULT_MAX_RESTARTS 5
 
-void DEF(on_signal_down, Pid from, unsigned int reason, __supervisor_t *sv);
+void DEF(on_signal_down, Pid from, unsigned int reason, supervisor_t *sv);
 
-TASK(__supervisor__, SUP_STRAT strategy, uint64_t period_ms, int max_restarts) {
+TASK(clpf_supervisor, SUP_STRAT strategy, uint64_t period_ms, int max_restarts) {
     Message *msg = NULL;
     bool running = true;
 
@@ -21,7 +21,7 @@ TASK(__supervisor__, SUP_STRAT strategy, uint64_t period_ms, int max_restarts) {
         EXIT_ERROR();
     }
 
-    __supervisor_t sv;
+    supervisor_t sv;
     sv.strategy = strategy;
     sv.period_ms = period_ms > 0 ? period_ms : DEFAULT_PERIOD;
     sv.max_restarts = max_restarts > 0 ? max_restarts : DEFAULT_MAX_RESTARTS;
@@ -33,7 +33,7 @@ TASK(__supervisor__, SUP_STRAT strategy, uint64_t period_ms, int max_restarts) {
     while (running) {
         msg = RECEIVE_RAW(NO_TAG);
 
-        SUP_ST r = CALL(__supervisor_handler, msg, &sv);
+        SUP_ST r = CALL(supervisor_handler, msg, &sv);
 
         switch (r) {
             case SUP_NOTHING:

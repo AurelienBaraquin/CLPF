@@ -88,7 +88,7 @@ static void clpf_destroy(void)
 
     for (MPSCQNode *n = mpscq_drain(&clpf.message_queue); n != NULL; ) {
         MPSCQNode *next = n->next;
-        __clpf_message_destroy(container_of(n, CoreMessage, node));
+        clpf_message_destroy(container_of(n, CoreMessage, node));
         n = next;
     }
 
@@ -114,7 +114,7 @@ static bool main_has_work(void *arg)
     return exit_in_progress || !mpscq_empty(&clpf.message_queue);
 }
 
-void __clpf_main(Task entry_point, int argc, char *argv[])
+void clpf_main(Task entry_point, int argc, char *argv[])
 {
     if (!entry_point) {
         fprintf(stderr, "Entry point is NULL\n");
@@ -159,7 +159,7 @@ void __clpf_main(Task entry_point, int argc, char *argv[])
             total_process_count += atomic_load(&clpf.scheduler_table[i].process_count);
         }
 
-        int updated = __clpf_main_update();
+        int updated = clpf_main_update();
 
         // Check if all processes are finished
         if (total_process_count <= 0 && mpscq_empty(&clpf.message_queue) && updated == 0) {

@@ -3,7 +3,7 @@
 #include <string.h>
 #include <assert.h>
 
-Message* __receive_internal_fetch(Process *self, Tag userdata) {
+Message* clpf_receive_internal_fetch(Process *self, Tag userdata) {
     Message* msg;
 
     pthread_mutex_lock(&self->lock);
@@ -19,12 +19,12 @@ Message* __receive_internal_fetch(Process *self, Tag userdata) {
     return msg;
 }
 
-Message* __receive_internal(Process *self, Tag userdata) {
+Message* clpf_receive_internal(Process *self, Tag userdata) {
     Message* msg;
 
     while (1) {
         handle_callbacks(self);
-        msg = __receive_internal_fetch(self, userdata);
+        msg = clpf_receive_internal_fetch(self, userdata);
 
         if (msg)
             return msg;
@@ -35,7 +35,7 @@ Message* __receive_internal(Process *self, Tag userdata) {
 }
 
 void* receive(Process* self, Tag userdata) {
-    Message *msg = __receive_internal(self, userdata);
+    Message *msg = clpf_receive_internal(self, userdata);
     assert(msg);
 
     void *payload = msg->payload;
@@ -46,7 +46,7 @@ void* receive(Process* self, Tag userdata) {
 
 void *fetch(Process* self, Tag userdata) {
     handle_callbacks(self);
-    Message *msg = __receive_internal_fetch(self, userdata);
+    Message *msg = clpf_receive_internal_fetch(self, userdata);
     if (!msg)
         return NULL;
 

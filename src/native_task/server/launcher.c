@@ -4,9 +4,9 @@
 #include <api/tag.h>
 #include <assert.h>
 
-TASK(__server_launcher__, Task entry, int argc, char *argv[]) {
+TASK(clpf_server_launcher, Task entry, int argc, char *argv[]) {
     Pid sup = SPAWN_SUPERVISOR("server::supervisor", SUP_ONE_FOR_ONE, 0, 3);
-    SUP_ADD_CHILD_PRIO0(sup, RES_TRANSIENT, __server_io__, "server::io", PROCESS_PRIORITY_HIGH);
+    SUP_ADD_CHILD_PRIO0(sup, RES_TRANSIENT, clpf_server_io, "server::io", PROCESS_PRIORITY_HIGH);
 
     Funcall_t funcall;
     funcall_init(&funcall, entry, 2, argc, argv);

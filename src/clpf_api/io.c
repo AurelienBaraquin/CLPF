@@ -4,7 +4,7 @@
 #include <api/tag.h>
 #include <clpf_const.h>
 
-char *__vformat(Process *self, const char *fmt, va_list ap) {
+char *clpf_vformat(Process *self, const char *fmt, va_list ap) {
     char tmp[128];
     va_list ap_copy;
     va_copy(ap_copy, ap);
@@ -29,18 +29,18 @@ char *__vformat(Process *self, const char *fmt, va_list ap) {
     return out;
 }
 
-char *__format(Process *self, const char *fmt, ...) {
+char *clpf_format(Process *self, const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
-    char *result = __vformat(self, fmt, ap);
+    char *result = clpf_vformat(self, fmt, ap);
     va_end(ap);
     return result;
 }
 
-int __print(Process *self, const char *fmt, ...) {
+int clpf_print(Process *self, const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
-    char *str = __vformat(self, fmt, ap);
+    char *str = clpf_vformat(self, fmt, ap);
     va_end(ap);
 
     if (!str) return -1;
@@ -54,7 +54,7 @@ int __print(Process *self, const char *fmt, ...) {
     return 0;
 }
 
-char* __getline(Process *self) {
+char* clpf_getline(Process *self) {
     char *line = NULL;
 
     Pid io = WHEREIS("server::io");
