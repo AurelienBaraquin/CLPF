@@ -14,6 +14,7 @@ typedef enum {
     TAG_KIND_NOTIFY, // A string, distinct from TAG_KIND_STRING (see NOTIFY)
     TAG_KIND_DOWN,   // int_value is the pid of the process that went down (see MONITOR)
     TAG_KIND_TIMEOUT, // int_value is a timer id: internal to RECEIVE_TIMEOUT
+    TAG_KIND_EXIT,    // int_value is the pid whose exit signal was trapped (see TRAP_EXIT)
 } TagKind;
 
 #define MAKE_INTERNAL_TAG(code)     ((Tag){ .kind = TAG_KIND_INTERNAL, .internal_code = (code) })
@@ -24,6 +25,7 @@ typedef enum {
 #define MAKE_STR_TAG(str)           ((Tag){ .kind = TAG_KIND_STRING,  .str_value = (str) })
 #define MAKE_NOTIFY_TAG(str)        ((Tag){ .kind = TAG_KIND_NOTIFY,  .str_value = (str) })
 #define MAKE_DOWN_TAG(pid)          ((Tag){ .kind = TAG_KIND_DOWN, .int_value = (pid) })
+#define MAKE_EXIT_TAG(pid)          ((Tag){ .kind = TAG_KIND_EXIT, .int_value = (pid) })
 #define MAKE_TIMEOUT_TAG(id)        ((Tag){ .kind = TAG_KIND_TIMEOUT, .int_value = (int64_t)(id) })
 #define MAKE_TAG_KIND(k)            ((Tag){ .kind = (k) })
 

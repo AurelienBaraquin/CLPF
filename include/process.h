@@ -62,6 +62,11 @@ typedef struct process_s {
     ProcessLinks links; // children is guarded by lock
     Monitor monitor; // monitored_by is guarded by lock
     bool exit_notified; // Guarded by lock: monitors were already sent DOWN, new ones get NOPROC
+    links_t *linked;    // Guarded by lock: bidirectional links (see LINK)
+    bool trap_exit;     // Guarded by lock: exit signals arrive as EXIT messages
+    // Set under lock, after kill_reason: the scheduler ends the process instead of resuming it
+    atomic_bool kill_pending;
+    unsigned int kill_reason;
 
     Mailbox mailbox;
 
@@ -79,6 +84,7 @@ typedef struct {
     const void *arg_block;       // copied into the new process heap and passed as its argument
     size_t arg_block_size;
     size_t stack_size;           // CLPF_DEFAULT_STACK_SIZE by default
+    bool link;                   // links the spawner and the new process before it can run
 } SpawnOptions;
 
 int process_init(Process *process, Funcall_t *taskcall, const SpawnOptions *options, Pid pid, Pid parent_pid);

@@ -71,3 +71,11 @@ Pid link_get_nth(links_t *list, size_t index) {
     }
     return -1;
 }
+
+bool list_contains(links_t *list, Pid pid) {
+    for (links_t *l = list; l; l = l->next) {
+        if (l->pid == pid)
+            return true;
+    }
+    return false;
+}

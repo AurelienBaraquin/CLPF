@@ -1,6 +1,7 @@
 #pragma once
 
 #include <utils/pid.h>
+#include <stdbool.h>
 #include <stddef.h>
 
 typedef struct links_s {
@@ -17,6 +18,7 @@ typedef struct {
 void free_link_list(links_t *l);
 void add_to_list(links_t **list, Pid pid);
 void remove_from_list(links_t **list, Pid pid);
+bool list_contains(links_t *list, Pid pid);
 
 void links_init(ProcessLinks *links);
 void links_clear(ProcessLinks *links);

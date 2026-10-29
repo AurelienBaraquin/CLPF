@@ -1,5 +1,6 @@
 #include <api/base.h>
 #include <api/monitor.h>
+#include <api/link.h>
 #include <assert.h>
 #include <stdlib.h>
 
@@ -11,19 +12,52 @@ void yield(Process *self) {
     aco_yield();
 }
 
-void exiting(Process *self, exit_reason reason) {
-    // Detach the watchers under the lock, notify them without holding it
-    pthread_mutex_lock(&self->lock);
-    links_t *watchers = self->monitor.monitored_by;
-    self->monitor.monitored_by = NULL;
-    self->exit_notified = true;
-    pthread_mutex_unlock(&self->lock);
+void process_exit_signal_locked(Process *target, Pid from, unsigned int reason, bool untrappable) {
+    if (target->exit_notified)
+        return;
 
-    DownInfo down = { self->pid, reason };
-    for (links_t *l = watchers; l; l = l->next) {
-        clpf_deliver(self->pid, l->pid, &down, sizeof down, MAKE_DOWN_TAG(self->pid));
+    if (!untrappable && target->trap_exit) {
+        ExitInfo info = { from, reason };
+        if (mailbox_send_message(&target->mailbox, &target->heap, &info, sizeof info, from, MAKE_EXIT_TAG(from)) == 0)
+            process_notify_locked(target);
+        return;
     }
+    if ((!untrappable && reason == EXIT_REASON_NORMAL) || atomic_load(&target->kill_pending))
+        return;
+
+    target->kill_reason = untrappable ? EXIT_REASON_KILLED : reason;
+    atomic_store(&target->kill_pending, true);
+    process_notify_locked(target);
+}
+
+void process_terminate(Process *process, unsigned int reason) {
+    // Detach under the lock, notify without holding it: no other slot lock is taken while ours is held
+    pthread_mutex_lock(&process->lock);
+    links_t *watchers = process->monitor.monitored_by;
+    links_t *linked = process->linked;
+    process->monitor.monitored_by = NULL;
+    process->linked = NULL;
+    process->exit_notified = true;
+    pthread_mutex_unlock(&process->lock);
+
+    DownInfo down = { process->pid, reason };
+    for (links_t *l = watchers; l; l = l->next)
+        clpf_deliver(process->pid, l->pid, &down, sizeof down, MAKE_DOWN_TAG(process->pid));
     free_link_list(watchers);
+
+    for (links_t *l = linked; l; l = l->next) {
+        Process *partner = process_lock(l->pid);
+        if (partner) {
+            remove_from_list(&partner->linked, process->pid);
+            process_exit_signal_locked(partner, process->pid, reason, false);
+            process_unlock(partner);
+        }
+    }
+    free_link_list(linked);
+}
+
+void exiting(Process *self, exit_reason reason) {
+    process_terminate(self, reason);
 
     self->state = PROCESS_EXITING;
     aco_exit();

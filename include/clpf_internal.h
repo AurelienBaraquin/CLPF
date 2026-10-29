@@ -84,6 +84,13 @@ typedef enum exit_reason_e exit_reason;
 
 // Base
 void yield(Process *self);
+// Detaches the monitors and links of a process that is ending, sends DOWNs and
+// exit signals. Called by the process itself or, for a kill, by its scheduler.
+void process_terminate(Process *process, unsigned int reason);
+// Applies an exit signal to a locked process: an EXIT message if it traps exits
+// (unless untrappable), nothing for a normal reason, otherwise a pending kill
+void process_exit_signal_locked(Process *target, Pid from, unsigned int reason, bool untrappable);
+
 // Notifies the monitors and terminates the calling process: never returns.
 // Not declared _Noreturn: AddressSanitizer mishandles noreturn calls made on coroutine stacks.
 void exiting(Process *self, exit_reason reason);

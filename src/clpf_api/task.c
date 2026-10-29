@@ -28,6 +28,8 @@ Pid clpf_task_add(Funcall_t *fun, const SpawnOptions *options, Pid parent_pid, P
         process->scheduler_pid = scheduler->pid;
         if (monitored_by != INVALID_PID)
             monitored_by_add(&process->monitor, monitored_by);
+        if (options->link && parent_pid != INVALID_PID)
+            add_to_list(&process->linked, parent_pid);
     } else {
         process->pid = INVALID_PID;
     }
@@ -42,6 +44,8 @@ Pid clpf_task_add(Funcall_t *fun, const SpawnOptions *options, Pid parent_pid, P
     Process *parent = process_lock(parent_pid);
     if (parent) {
         link_add_child(&parent->links, pid);
+        if (options->link)
+            add_to_list(&parent->linked, pid);
         process_unlock(parent);
     }
 

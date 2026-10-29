@@ -110,6 +110,7 @@ bool clpf_match_same(const Message *msg, Tag pattern) {
     switch (pattern.kind) {
         case TAG_KIND_INTEGER:
         case TAG_KIND_DOWN:
+        case TAG_KIND_EXIT:
         case TAG_KIND_TIMEOUT:
             return msg->tag.int_value == pattern.int_value;
         case TAG_KIND_STRING:

@@ -98,8 +98,13 @@ void scheduler_loop(Scheduler* scheduler) {
             continue;
         }
 
-        // 10. Execute the process
-        process->state = execute_process(scheduler, process);
+        // 10. Execute the process, unless it was killed: then it ends without being resumed
+        if (UNLIKELY(atomic_load(&process->kill_pending))) {
+            process_terminate(process, process->kill_reason);
+            process->state = PROCESS_EXITING;
+        } else {
+            process->state = execute_process(scheduler, process);
+        }
 
         // 11. Handle the process state
         switch (process->state) {

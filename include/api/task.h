@@ -1,5 +1,6 @@
 #pragma once
 
+#include <api/base.h>
 #include <api/message.h>
 
 // Spawning is synchronous and does not yield: the pid is known before the
