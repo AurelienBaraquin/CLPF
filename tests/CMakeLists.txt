@@ -8,3 +8,4 @@ function(clpf_add_test name)
 endfunction()
 
 clpf_add_test(test_smoke)
+clpf_add_test(test_stack_alignment)
