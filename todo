@@ -2,23 +2,23 @@ Pièges et bugs de l'API
 - [x] Matchers TM_PREFIX / TM_GTE / TM_LTE / TM_IN_RANGE / TM_KIND déclarés mais jamais implémentés (erreur de link) ; RECEIVE ne fait que l'égalité exacte -> les implémenter + RECEIVE_MATCH(fn, tag)
 - [x] RECEIVE / FETCH renvoient le payload : un message vide donne NULL, indiscernable de "rien reçu" avec FETCH
 - [x] Les callbacks DOWN tournent dans RECEIVE sans pouvoir le réveiller -> pouvoir recevoir les DOWN comme des messages (comme Erlang)
-- [ ] Aucun moyen de savoir qu'un superviseur a abandonné un enfant (trop de redémarrages)
+- [x] Aucun moyen de savoir qu'un superviseur a abandonné un enfant (trop de redémarrages)
 - [x] Tags string : seul le pointeur est copié (chaîne dynamique / sur la pile = pointeur pendant chez le receveur)
 - [x] Registre : tout process nommé est enregistré automatiquement (deux "worker" s'écrasent) ; REGISTER est asynchrone sans retour d'erreur
 - [x] RECEIVE_RAW a un ';' dans la macro ; NOTIFY / WAIT_NOTIF n'acceptent que des littéraux
-- [ ] Pas de timeout sur RECEIVE, pas de timers (send_after, receive ... after)
-- [ ] GETLINE bloque tout le serveur d'IO (donc tous les PRINT) pendant la lecture de stdin
+- [x] Pas de timeout sur RECEIVE, pas de timers (send_after, receive ... after)
+- [x] GETLINE bloque tout le serveur d'IO (donc tous les PRINT) pendant la lecture de stdin
 - [x] Arguments de tâche : 5 max, entiers seulement (ni double, ni struct par valeur)
-- [ ] Pas d'arrêt propre : exit_in_progress à la main, core::event::stop jamais traité, coroutines abandonnées
+- [x] Pas d'arrêt propre : exit_in_progress à la main, core::event::stop jamais traité, coroutines abandonnées
 - [x] Pile de 16 Kio fixe, débordement non détecté (vérifier la guard page de libaco)
 - [x] Documenter que les payloads sont copiés octet par octet (un pointeur dans un message ne vaut rien chez le receveur)
 
 Fonctionnalités
-- [ ] kill / signaux EXIT + links bidirectionnels avec trap_exit
-- [ ] Stratégies de superviseur ONE_FOR_ALL et REST_FOR_ONE (nécessitent kill)
-- [ ] Superviser les serveurs système (IO doit toujours être actif)
-- [ ] Ressource optimisation -> migration / work stealing + création de process au meilleur endroit
-- [ ] Préemption par comptage de réductions
+- [x] kill / signaux EXIT + links bidirectionnels avec trap_exit
+- [x] Stratégies de superviseur ONE_FOR_ALL et REST_FOR_ONE (nécessitent kill)
+- [x] Superviser les serveurs système (IO doit toujours être actif)
+- [x] Ressource optimisation -> migration / work stealing + création de process au meilleur endroit
+- [x] Préemption par comptage de réductions
 - [x] Idle événementiel (schedulers et thread principal ne doivent plus dormir 1 ms en boucle)
 
 Performance
