@@ -49,7 +49,9 @@ int process_init(Process *process, char *name, Funcall_t *taskcall, process_prio
     mpscq_init(&process->signal_queue);
     mailbox_init(&process->mailbox);
 
+#ifdef CLPF_TRACE
     printf("[%s (%ld)] created\n", process->__name, process->pid);
+#endif
 
     return 0;
 }
@@ -58,7 +60,9 @@ void process_destroy(Process *process) {
     if (!process || process->pid == INVALID_PID)
         return;
 
+#ifdef CLPF_TRACE
     printf("[%s (%ld)] destroyed\n", process->__name, process->pid);
+#endif
 
     // From here on, senders see the slot as free and never reach the heap
     pthread_mutex_lock(&process->lock);

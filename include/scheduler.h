@@ -4,20 +4,11 @@
 #include <pthread.h>
 #include <utils/run_queue.h>
 
-typedef enum scheduler_migration_state_e {
-    SCHEDULER_IMMIGRATING,
-    SCHEDULER_EMIGRATING,
-    SCHEDULER_BALANCED,
-} scheduler_migration_state;
-
 #define NB_RQ 4 // Number of run queues
 
 typedef struct scheduler_s {
     pthread_t system_thread_id;
     Pid pid;
-
-    struct scheduler_s* immigrate_from;
-    struct scheduler_s* emigrate_to;
 
     // 0 -> VERY_HIGH
     // 1 -> HIGH

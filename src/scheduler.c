@@ -5,8 +5,6 @@ int scheduler_init(Scheduler* scheduler, Pid pid) {
         return -1;
 
     scheduler->pid = pid;
-    scheduler->immigrate_from = NULL;
-    scheduler->emigrate_to = NULL;
     atomic_init(&scheduler->process_count, 0);
 
     for (int i = 0; i < NB_RQ; i++) {

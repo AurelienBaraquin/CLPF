@@ -32,25 +32,9 @@ Process *runq_pop(RunQueue *rq) {
     return p;
 }
 
-// Extraction en tête sans suppression (Read-only)
-Process *runq_peek(RunQueue *rq) {
-    return rq->head;
-}
-
-// Remettre un élément en fin (ex: si on veut le relancer plus tard)
-void runq_requeue(RunQueue *rq, Process *p) {
-    runq_push(rq, p);
-}
-
 // Queue vide ?
 int runq_empty(RunQueue *rq) {
     return rq->head == NULL;
-}
-
-// Iterateur simple pour debug
-void runq_foreach(RunQueue *rq, void (*callback)(Process *)) {
-    for (Process *p = rq->head; p; p = p->next)
-        callback(p);
 }
 
 // Libération de la mémoire

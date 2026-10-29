@@ -1,3 +1,5 @@
+#pragma once
+
 typedef struct process_s Process;
 typedef void (*Task)();
 

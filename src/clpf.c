@@ -34,11 +34,6 @@ void clpf_init()
         return;
     }
 
-    clpf.fix = 0;
-    clpf.tix = 0;
-
-    global_supervisor_init(&clpf.global_supervisor);
-
     mpscq_init(&clpf.message_queue);
 }
 
@@ -57,8 +52,6 @@ void clpf_destroy()
     }
 
     name_table_free(clpf.name_table);
-
-    global_supervisor_destroy(&clpf.global_supervisor);
 
     mpscq_clear(&clpf.message_queue, free);
 }

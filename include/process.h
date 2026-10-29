@@ -34,9 +34,6 @@ typedef enum process_priority_e {
 } process_priority;
 
 typedef char ProcessName[NAME_MAX_LENGTH];
-static inline bool name_empty(ProcessName name) {
-    return name[0] == '\0';
-}
 
 typedef struct process_s {
     // Guards pid against concurrent senders while the slot is created or destroyed.

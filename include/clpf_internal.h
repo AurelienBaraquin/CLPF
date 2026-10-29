@@ -1,7 +1,6 @@
 #pragma once
 
 #include <scheduler.h>
-#include <global_supervisor.h>
 #include <utils/name_table.h>
 
 #define PID_INDEX_BITS 16
@@ -63,11 +62,6 @@ typedef struct {
     int scheduler_count;
 
     TrieNode *name_table;
-
-    unsigned short fix; // From index -> Emigrate to
-    unsigned short tix; // Target index -> Immigrate from
-
-    GlobalSupervisor global_supervisor;
 
     MPSCQ message_queue;
 } CLPF;

@@ -9,6 +9,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 set(CLPF_SANITIZE "" CACHE STRING "Build with a sanitizer: thread or address (empty to disable)")
+option(CLPF_TRACE "Log every process creation and destruction" OFF)
 
 add_compile_options(-fno-omit-frame-pointer)
 if(CLPF_SANITIZE)
@@ -33,7 +34,7 @@ file(GLOB_RECURSE CBEAM_SOURCES src/*.c src/*.S)
 add_library(cbeam STATIC ${CBEAM_SOURCES})
 target_include_directories(cbeam PUBLIC include external)
 target_compile_options(cbeam PRIVATE -Wall -Wextra)
-target_compile_definitions(cbeam PRIVATE _GNU_SOURCE)
+target_compile_definitions(cbeam PRIVATE _GNU_SOURCE $<$<BOOL:${CLPF_TRACE}>:CLPF_TRACE>)
 target_link_libraries(cbeam PUBLIC tlsf libaco stb_sprintf pthread)
 
 # Optional main binary

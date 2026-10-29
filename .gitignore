@@ -12,6 +12,7 @@
 *.map
 *.exp
 build/
+build-*/
 
 # Precompiled Headers
 *.gch
