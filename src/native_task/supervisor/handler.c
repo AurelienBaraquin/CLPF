@@ -41,7 +41,7 @@ SUP_ST DEF(sup_handler_remove, Message *msg, supervisor_t *sup) {
     SupChildSlot *child = msg->size == sizeof(Pid) ? sup_child_find_by_pid(sup, *(Pid *)msg->payload) : NULL;
 
     if (child) {
-        MONITOR_REMOVE(child->pid);
+        DEMONITOR(child->pid);
         CALL(sup_child_list_remove, &sup->sup_childs, child);
         sup->child_count--;
         removed = 0;

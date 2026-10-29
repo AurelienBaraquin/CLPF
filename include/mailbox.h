@@ -12,6 +12,7 @@ typedef enum {
     TAG_KIND_STRING,
     TAG_KIND_INTERNAL,
     TAG_KIND_NOTIFY, // A string, distinct from TAG_KIND_STRING (see NOTIFY)
+    TAG_KIND_DOWN,   // int_value is the pid of the process that went down (see MONITOR)
 } TagKind;
 
 #define MAKE_INTERNAL_TAG(code)     ((Tag){ .kind = TAG_KIND_INTERNAL, .internal_code = (code) })
@@ -21,6 +22,7 @@ typedef enum {
 // The string is copied with the message: it may be a temporary buffer
 #define MAKE_STR_TAG(str)           ((Tag){ .kind = TAG_KIND_STRING,  .str_value = (str) })
 #define MAKE_NOTIFY_TAG(str)        ((Tag){ .kind = TAG_KIND_NOTIFY,  .str_value = (str) })
+#define MAKE_DOWN_TAG(pid)          ((Tag){ .kind = TAG_KIND_DOWN, .int_value = (pid) })
 #define MAKE_TAG_KIND(k)            ((Tag){ .kind = (k) })
 
 #define NO_TAG                      ((Tag){ .kind = TAG_KIND_NONE })

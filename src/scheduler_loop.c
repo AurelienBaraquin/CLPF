@@ -17,21 +17,6 @@ void co_entrypoint() {
     exiting(proc, EXIT_REASON_NORMAL);
 }
 
-void handle_signals(Process* process) {
-    if (!process)
-        return;
-
-    MPSCQNode *node = mpscq_drain(&process->signal_queue);
-    while (node) {
-        Signal *signal = container_of(node, Signal, node);
-        node = node->next;
-        if (signal->type == SIGNAL_DOWN) {
-            clpf_send(NULL, process->pid, signal, sizeof(Signal), MAKE_STR_TAG("scheduler::event::signal"));
-        }
-        safe_heap_free(&process->heap, signal);
-    }
-}
-
 process_state execute_process(Scheduler *scheduler, Process* process) {
     if (!process)
         return PROCESS_EXITING;
@@ -110,9 +95,6 @@ void scheduler_loop(Scheduler* scheduler) {
             idle_wait(&scheduler->idle, scheduler_has_work, scheduler);
             continue;
         }
-
-        // 9. Handle signals of the process (exemple : EXIT, DOWN, MONITOR, UNLINK ect...)
-        handle_signals(process);
 
         // 10. Execute the process
         process->state = execute_process(scheduler, process);

@@ -4,7 +4,6 @@
 #include <memory/stack.h>
 #include <utils/mpscq.h>
 #include <utils/pid.h>
-#include <msignal.h>
 #include <monitor.h>
 #include <utils/funcall.h>
 #include <libaco/aco.h>
@@ -61,10 +60,6 @@ typedef struct process_s {
     Monitor monitor; // monitored_by is guarded by lock
     bool exit_notified; // Guarded by lock: monitors were already sent DOWN, new ones get NOPROC
 
-    // While non-zero, monitor callbacks are not run (owner thread only)
-    int callbacks_blocked;
-
-    MPSCQ signal_queue;
     Mailbox mailbox;
 
     struct process_s *next; // For the scheduler's private run queues

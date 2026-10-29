@@ -91,7 +91,7 @@ void clpf_wake_all(void);
 void clpf_message_destroy(CoreMessage* msg);
 
 // Thread-safe. Creates a process on the least loaded scheduler and returns its pid, or INVALID_PID.
-// monitored_by (or INVALID_PID) gets a DOWN signal when the new process exits, even if it exits right away
+// monitored_by (or INVALID_PID) gets a DOWN message when the new process exits, even if it exits right away
 Pid clpf_task_add(const char *name, Funcall_t *fun, process_priority priority, Pid parent_pid, Pid monitored_by);
 
 // Spawns a child of self; with monitor, self is monitoring it from its very start
@@ -112,8 +112,9 @@ Message *clpf_receive(Process *self, MessageMatch match, Tag pattern);
 Message *clpf_fetch(Process *self, MessageMatch match, Tag pattern);
 // self may be NULL when the runtime itself sends
 int clpf_send(Process *self, Pid pid, void *data, size_t size, Tag tag);
+// Delivers a message on behalf of `from` without yielding (usable from any thread)
+int clpf_deliver(Pid from, Pid pid, void *data, size_t size, Tag tag);
 Message *clpf_request(Process *self, Pid pid, void *data, size_t size, Tag tag);
 void clpf_msg_free(Process *self, Message *msg);
 
-// Runs the monitor callbacks of pending signals, unless callbacks_blocked is set
-void handle_callbacks(Process *self);
+

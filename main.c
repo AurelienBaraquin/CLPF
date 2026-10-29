@@ -149,7 +149,6 @@ TASK(worker, Pid coordinator, int index) {
         Message *msg = RECEIVE(NO_TAG);
         if (MSG_IS(msg, MAKE_STR_TAG("worker::stop"))) {
             MSG_FREE(msg);
-            SEND(coordinator, NULL, 0, MAKE_STR_TAG("worker::bye"));
             break;
         }
 
@@ -194,18 +193,16 @@ static WorkerSlot *find_worker(Coordinator *c, Pid pid) {
     return NULL;
 }
 
-// DOWN callback: a crashed worker loses its job. Callbacks run inside RECEIVE and cannot
-// wake it up, so the loop below is driven by messages: after a crash, the restarted worker
-// sends "worker::ready", and a stopping worker says "worker::bye".
-static void on_worker_down(Process *self, Pid from, unsigned int reason, Coordinator *c) {
-    WorkerSlot *slot = find_worker(c, from);
-    if (!slot) {
-        PRINT("[coordinator] process %ld is down (%s)\n", from, reason_name(reason));
+// A crashed worker loses its job (the pool restarts it), a stopped one is done
+static void DEF(on_worker_down, Coordinator *c, DownInfo *down) {
+    WorkerSlot *slot = find_worker(c, down->from);
+    if (!slot)
         return;
-    }
 
-    PRINT("[coordinator] worker %ld down (%s)\n", from, reason_name(reason));
-    if (reason != EXIT_REASON_NORMAL && slot->job_id != -1) {
+    PRINT("[coordinator] worker %ld down (%s)\n", down->from, reason_name(down->reason));
+    if (down->reason == EXIT_REASON_NORMAL) {
+        c->stopped_workers++;
+    } else if (slot->job_id != -1) {
         c->failed++;
         c->done++;
         slot->job_id = -1;
@@ -218,7 +215,7 @@ static void DEF(dispatch, Coordinator *c, Pid worker_pid) {
         slot = &c->workers[c->known_workers++];
         slot->pid = worker_pid;
         slot->job_id = -1;
-        MONITOR_ADD(worker_pid);
+        MONITOR(worker_pid);
     }
 
     if (c->next_job == JOBS) {
@@ -236,7 +233,7 @@ static void DEF(run_jobs, Coordinator *c) {
     // Every job ends as a result or a crash, then every worker is stopped. A crashed
     // worker is replaced by its restart, so WORKERS workers always end up receiving "stop".
     while (c->done < JOBS || c->stopped_workers < WORKERS) {
-        Message *msg = RECEIVE(NO_TAG); // DOWN callbacks run before each receive
+        Message *msg = RECEIVE(NO_TAG);
 
         if (MSG_IS(msg, MAKE_STR_TAG("worker::ready"))) {
             CALL(dispatch, c, msg->sender_pid);
@@ -247,8 +244,8 @@ static void DEF(run_jobs, Coordinator *c) {
                 slot->job_id = -1;
             c->sum += result->result;
             c->done++;
-        } else if (MSG_IS(msg, MAKE_STR_TAG("worker::bye"))) {
-            c->stopped_workers++;
+        } else if (msg->tag.kind == TAG_KIND_DOWN) {
+            CALL(on_worker_down, c, msg->payload);
         }
 
         MSG_FREE(msg);
@@ -295,7 +292,6 @@ TASK(entry, int argc, char *argv[]) {
 
     // Supervision tree
     Coordinator c = {0};
-    MONITOR_INIT(on_worker_down, &c);
 
     Pid pool = SPAWN_SUPERVISOR("pool", SUP_ONE_FOR_ONE, POOL_PERIOD_MS, POOL_MAX_RESTARTS);
     for (int i = 0; i < WORKERS; ++i)
@@ -330,8 +326,10 @@ TASK(entry, int argc, char *argv[]) {
 
     // Monitoring a process that is gone (echo answered its 3 requests and exited):
     // the DOWN arrives right away with the "noproc" reason
-    MONITOR_ADD(echo_pid);
-    YIELD();
+    MONITOR(echo_pid);
+    Message *down = RECEIVE(MAKE_DOWN_TAG(echo_pid));
+    PRINT("[coordinator] process %ld is down (%s)\n", echo_pid, reason_name(((DownInfo *)down->payload)->reason));
+    MSG_FREE(down);
 
     exit_in_progress = true; // stop the runtime
     EXIT_NORMAL();

@@ -58,8 +58,5 @@ Pid clpf_task_add(const char *name, Funcall_t *fun, process_priority priority, P
 
 Pid clpf_spawn(Process *self, const char *name, Funcall_t *fun, process_priority priority, bool monitor)
 {
-    Pid pid = clpf_task_add(name, fun, priority, self->pid, monitor ? self->pid : INVALID_PID);
-    if (monitor && pid != INVALID_PID)
-        monitor_add(&self->monitor, pid);
-    return pid;
+    return clpf_task_add(name, fun, priority, self->pid, monitor ? self->pid : INVALID_PID);
 }

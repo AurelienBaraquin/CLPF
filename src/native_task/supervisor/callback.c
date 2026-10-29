@@ -48,13 +48,12 @@ static bool DEF(restart_child_impl, supervisor_t *sv, SupChildSlot *child) {
 }
 
 static void DEF(forget_child, supervisor_t *sv, SupChildSlot *child) {
-    monitor_remove(&self->monitor, child->pid);
     CALL(sup_child_list_remove, &sv->sup_childs, child);
     sv->child_count--;
 }
 
 // Only SUP_ONE_FOR_ONE reaches this point: the supervisor refuses the other strategies
-void DEF(on_signal_down, Pid from, unsigned int reason, supervisor_t *sv) {
+void DEF(on_child_down, Pid from, unsigned int reason, supervisor_t *sv) {
     SupChildSlot *child = sup_child_find_by_pid(sv, from);
     if (!child) return;
 

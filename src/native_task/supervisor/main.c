@@ -6,7 +6,7 @@
 #define DEFAULT_PERIOD 1000 // Default period in milliseconds
 #define DEFAULT_MAX_RESTARTS 5
 
-void DEF(on_signal_down, Pid from, unsigned int reason, supervisor_t *sv);
+void DEF(on_child_down, Pid from, unsigned int reason, supervisor_t *sv);
 
 TASK(clpf_supervisor, SUP_STRAT strategy, uint64_t period_ms, int max_restarts) {
     Message *msg = NULL;
@@ -28,10 +28,15 @@ TASK(clpf_supervisor, SUP_STRAT strategy, uint64_t period_ms, int max_restarts) 
     sv.child_count = 0;
     TAILQ_INIT(&sv.sup_childs);
 
-    MONITOR_INIT(on_signal_down, &sv);
-
     while (running) {
         msg = RECEIVE(NO_TAG);
+
+        if (msg->tag.kind == TAG_KIND_DOWN) {
+            DownInfo *down = msg->payload;
+            CALL(on_child_down, down->from, down->reason, &sv);
+            MSG_FREE(msg);
+            continue;
+        }
 
         SUP_ST r = CALL(supervisor_handler, msg, &sv);
 

@@ -1,4 +1,5 @@
 #include <api/base.h>
+#include <api/monitor.h>
 #include <assert.h>
 #include <stdlib.h>
 
@@ -8,8 +9,6 @@ void yield(Process *self) {
     assert(clpf.scheduler_table[self->scheduler_pid].pid == self->scheduler_pid);
     assert(clpf.scheduler_table[self->scheduler_pid].scheduler_acoro);
     aco_yield();
-
-    handle_callbacks(self);
 }
 
 void exiting(Process *self, exit_reason reason) {
@@ -20,8 +19,9 @@ void exiting(Process *self, exit_reason reason) {
     self->exit_notified = true;
     pthread_mutex_unlock(&self->lock);
 
+    DownInfo down = { self->pid, reason };
     for (links_t *l = watchers; l; l = l->next) {
-        signal_send(l->pid, self->pid, SIGNAL_DOWN, reason);
+        clpf_deliver(self->pid, l->pid, &down, sizeof down, MAKE_DOWN_TAG(self->pid));
     }
     free_link_list(watchers);
 

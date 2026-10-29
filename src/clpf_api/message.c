@@ -12,7 +12,6 @@ static Message *take_matching(Process *self, MessageMatch match, Tag pattern) {
 
 Message *clpf_receive(Process *self, MessageMatch match, Tag pattern) {
     while (1) {
-        handle_callbacks(self);
         Message *msg = take_matching(self, match, pattern);
         if (msg)
             return msg;
@@ -23,19 +22,16 @@ Message *clpf_receive(Process *self, MessageMatch match, Tag pattern) {
 }
 
 Message *clpf_fetch(Process *self, MessageMatch match, Tag pattern) {
-    handle_callbacks(self);
     return take_matching(self, match, pattern);
 }
 
-int clpf_send(Process *self, Pid pid, void *data, size_t size, Tag tag) {
+int clpf_deliver(Pid from, Pid pid, void *data, size_t size, Tag tag) {
     // Sending to a process that no longer exists is not an error for the runtime
     Process *other_process = process_lock(pid);
     if (!other_process)
         return -1;
 
-    Pid sender_pid = self ? self->pid : INVALID_PID;
-
-    int delivered = mailbox_send_message(&other_process->mailbox, &other_process->heap, data, size, sender_pid, tag);
+    int delivered = mailbox_send_message(&other_process->mailbox, &other_process->heap, data, size, from, tag);
     if (delivered == 0)
         process_notify_locked(other_process);
     process_unlock(other_process);
@@ -43,11 +39,14 @@ int clpf_send(Process *self, Pid pid, void *data, size_t size, Tag tag) {
         fprintf(stderr, "Failed to deliver a message to process %ld\n", pid);
         return -1;
     }
-
-    if (self)
-        yield(self);
-
     return 0;
+}
+
+int clpf_send(Process *self, Pid pid, void *data, size_t size, Tag tag) {
+    int delivered = clpf_deliver(self ? self->pid : INVALID_PID, pid, data, size, tag);
+    if (delivered == 0 && self)
+        yield(self);
+    return delivered;
 }
 
 Message *clpf_request(Process *self, Pid pid, void *data, size_t size, Tag tag) {
@@ -72,6 +71,7 @@ bool clpf_match_same(const Message *msg, Tag pattern) {
 
     switch (pattern.kind) {
         case TAG_KIND_INTEGER:
+        case TAG_KIND_DOWN:
             return msg->tag.int_value == pattern.int_value;
         case TAG_KIND_STRING:
         case TAG_KIND_NOTIFY:

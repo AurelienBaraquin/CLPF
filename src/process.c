@@ -48,9 +48,7 @@ int process_init(Process *process, const char *name, Funcall_t *taskcall, proces
     process->links.parent = parent_pid;
     process->exit_notified = false;
     atomic_store(&process->wake_pending, false);
-    process->callbacks_blocked = 0;
 
-    mpscq_init(&process->signal_queue);
     mailbox_init(&process->mailbox);
 
 #ifdef CLPF_TRACE
@@ -88,7 +86,6 @@ void process_destroy(Process *process) {
     }
     links_clear(&process->links);
     monitor_clear(&process->monitor);
-    mpscq_init(&process->signal_queue); // pending signals live in the unmapped heap
 }
 
 Process *process_lock(Pid pid) {
