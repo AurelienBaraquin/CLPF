@@ -4,6 +4,7 @@
 
 // Overflows its default 16 KiB stack: the runtime names the process before
 // crashing (ctest checks the message, not the exit code)
+// NOLINTNEXTLINE(clang-diagnostic-infinite-recursion): overflowing is the point
 static int recurse(int depth) {
     volatile char frame[128];
     frame[0] = (char)depth;

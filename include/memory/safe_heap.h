@@ -5,7 +5,7 @@
 #include <tlsf/tlsf.h>
 #include <utils/spinlock.h>
 
-#define MINIMAL_HEAP_POOL_SIZE (16 * 1024) // ~16  Ko
+#define MINIMAL_HEAP_POOL_SIZE ((size_t)16 * 1024)
 
 typedef struct safe_heap_pool_s {
     void *base;

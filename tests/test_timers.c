@@ -4,8 +4,8 @@
 #include <api/timer.h>
 #include <utils/time.h>
 
-#define DELAY_MS 50
-#define SLACK_MS 500 // generous upper bound for loaded machines and sanitizers
+#define DELAY_MS UINT64_C(50)
+#define SLACK_MS UINT64_C(500) // generous upper bound for loaded machines and sanitizers
 
 TASK(late_sender, Pid target) {
     SLEEP(DELAY_MS);

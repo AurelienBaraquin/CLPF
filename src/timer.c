@@ -82,7 +82,7 @@ void timers_init(void) {
 void timers_destroy(void) {
     for (size_t i = 0; i < timers.count; i++)
         timer_free(timers.heap[i]);
-    free(timers.heap);
+    free((void *)timers.heap);
     pthread_mutex_destroy(&timers.lock);
 }
 
@@ -90,7 +90,7 @@ static TimerId insert(Timer *timer, uint64_t delay_ms) {
     pthread_mutex_lock(&timers.lock);
     if (timers.count == timers.capacity) {
         size_t capacity = timers.capacity ? timers.capacity * 2 : 64;
-        Timer **heap = realloc(timers.heap, capacity * sizeof(Timer *));
+        Timer **heap = (Timer **)realloc((void *)timers.heap, capacity * sizeof(Timer *));
         if (!heap) {
             pthread_mutex_unlock(&timers.lock);
             timer_free(timer);

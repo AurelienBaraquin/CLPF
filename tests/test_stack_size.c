@@ -23,7 +23,7 @@ TASK(entry, int argc, char *argv[]) {
 
     Funcall_t call;
     funcall_init(&call, deep, 1, self->pid);
-    Pid pid = clpf_spawn(self, &call, (SpawnOptions){.name = "deep", .stack_size = 1024 * 1024});
+    Pid pid = clpf_spawn(self, &call, (SpawnOptions){.name = "deep", .stack_size = (size_t)1024 * 1024});
     TEST_ASSERT(pid != INVALID_PID);
     MSG_FREE(RECEIVE(MAKE_STR_TAG("done")));
 
