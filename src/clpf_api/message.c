@@ -36,7 +36,7 @@ void* receive(Process* self, Tag userdata) {
     assert(msg);
 
     void *payload = msg->payload;
-    safe_heap_free((safe_heap_t *)msg->heap, msg);
+    safe_heap_free(&self->heap, msg);
 
     return payload;
 }
@@ -47,7 +47,7 @@ void *fetch(Process* self, Tag userdata) {
         return NULL;
 
     void *payload = msg->payload;
-    safe_heap_free((safe_heap_t *)msg->heap, msg);
+    safe_heap_free(&self->heap, msg);
 
     return payload;
 }
@@ -66,10 +66,10 @@ int send(Process *self, Pid pid, void* data, size_t size, Tag tag) {
 
     Pid sender_pid = self ? self->pid : -1;
 
-    if (other_process)
-        mailbox_send_message(&other_process->mailbox, (heap_t*)&other_process->heap, data, size, sender_pid, tag);
-    else
-        mailbox_send_message(&other_process->mailbox, NULL, data, size, sender_pid, tag);
+    if (mailbox_send_message(&other_process->mailbox, &other_process->heap, data, size, sender_pid, tag) != 0) {
+        fprintf(stderr, "Failed to deliver a message to process %ld\n", pid);
+        return -1;
+    }
 
     if (other_process->state == PROCESS_WAITING) {
         other_process->state = PROCESS_READY;

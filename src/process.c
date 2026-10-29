@@ -62,7 +62,7 @@ void process_destroy(Process *process) {
     
     printf("[%s (%ld)] destroyed\n", process->__name, process->pid);
 
-    mailbox_destroy(&process->mailbox, (heap_t *)&process->heap);
+    mailbox_destroy(&process->mailbox);
     funcall_destroy(&process->taskcall);
     safe_heap_destroy(&process->heap);
     if (process->acoro)

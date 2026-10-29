@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
-#include <memory/heap.h>
 
 void mailbox_init(Mailbox* mailbox) {
     mailbox->seen_head = NULL;
@@ -13,57 +12,36 @@ void mailbox_init(Mailbox* mailbox) {
     pthread_mutex_init(&mailbox->lock, NULL);
 }
 
-void mailbox_destroy(Mailbox* mbox, heap_t *heap) {
-    // Inbox : protégée
+void mailbox_destroy(Mailbox* mbox) {
     pthread_mutex_lock(&mbox->lock);
-    Message *msg = mbox->inbox_head;
-    while (msg) {
-        Message *next = msg->next;
-        if (heap) {
-            if (msg->payload) heap_free(heap, msg->payload);
-            heap_free(heap, msg);
-        } else {
-            if (msg->payload) free(msg->payload);
-            free(msg);
-        }
-        msg = next;
-    }
+    mbox->inbox_head = NULL;
+    mbox->inbox_tail = NULL;
+    mbox->inbox_len = 0;
     pthread_mutex_unlock(&mbox->lock);
 
-    // Seen : non protégé
-    msg = mbox->seen_head;
-    while (msg) {
-        Message *next = msg->next;
-        if (heap) {
-            if (msg->payload) heap_free(heap, msg->payload);
-            heap_free(heap, msg);
-        } else {
-            if (msg->payload) free(msg->payload);
-            free(msg);
-        }
-        msg = next;
-    }
+    mbox->seen_head = NULL;
+    mbox->seen_tail = NULL;
 }
 
-void mailbox_send_message(Mailbox* dest, heap_t *dest_heap, void* data, size_t size, Pid sender, Tag tag) {
-    Message* msg = dest_heap == NULL ? malloc(sizeof(Message)) : heap_alloc(dest_heap, sizeof(Message));
-    if (!msg) return;
+int mailbox_send_message(Mailbox* dest, safe_heap_t *dest_heap, void* data, size_t size, Pid sender, Tag tag) {
+    Message* msg = safe_heap_alloc(dest_heap, sizeof(Message));
+    if (!msg)
+        return -1;
 
-    if (!data || size == 0) {
-        msg->payload = NULL;
-        msg->size = 0;
-    } else {
-        msg->payload = dest_heap == NULL ? malloc(size) : heap_alloc(dest_heap, size);
-        if (!msg->payload) { heap_free(dest_heap, msg); return; }
+    msg->payload = NULL;
+    msg->size = 0;
+    if (data && size > 0) {
+        msg->payload = safe_heap_alloc(dest_heap, size);
+        if (!msg->payload) {
+            safe_heap_free(dest_heap, msg);
+            return -1;
+        }
+        memcpy(msg->payload, data, size);
+        msg->size = size;
     }
 
     msg->sender_pid = sender;
     msg->tag = tag;
-    msg->heap = dest_heap;
-
-    if (data)
-        memcpy(msg->payload, data, size);
-    msg->size = size;
     msg->next = NULL;
 
     pthread_mutex_lock(&dest->lock);
@@ -74,6 +52,8 @@ void mailbox_send_message(Mailbox* dest, heap_t *dest_heap, void* data, size_t s
     dest->inbox_tail = msg;
     dest->inbox_len++;
     pthread_mutex_unlock(&dest->lock);
+
+    return 0;
 }
 
 void mailbox_transfer_inbox_to_seen(Mailbox* mbox) {
@@ -124,21 +104,4 @@ Message* mailbox_peek_and_match_seen(Mailbox* mbox, Tag userdata) {
         msg = msg->next;
     }
     return NULL;
-}
-
-void mailbox_clear_seen(Mailbox* mbox, heap_t *heap) {
-    Message* msg = mbox->seen_head;
-    while (msg) {
-        Message* next = msg->next;
-        if (heap) {
-            if (msg->payload) heap_free(heap, msg->payload);
-            heap_free(heap, msg);
-        } else {
-            if (msg->payload) free(msg->payload);
-            free(msg);
-        }
-        msg = next;
-    }
-    mbox->seen_head = NULL;
-    mbox->seen_tail = NULL;
 }
