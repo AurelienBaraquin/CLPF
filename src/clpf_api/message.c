@@ -6,7 +6,9 @@
 Message* __receive_internal_fetch(Process *self, Tag userdata) {
     Message* msg;
 
+    pthread_mutex_lock(&self->lock);
     mailbox_transfer_inbox_to_seen(&self->mailbox);
+    pthread_mutex_unlock(&self->lock);
 
     if (userdata.kind != TAG_KIND_NONE)
         msg = mailbox_peek_and_match_seen(&self->mailbox, userdata);

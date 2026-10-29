@@ -8,15 +8,11 @@ void mailbox_init(Mailbox* mailbox) {
     mailbox->seen_tail = NULL;
     mailbox->inbox_head = NULL;
     mailbox->inbox_tail = NULL;
-    pthread_mutex_init(&mailbox->lock, NULL);
 }
 
 void mailbox_destroy(Mailbox* mbox) {
-    pthread_mutex_lock(&mbox->lock);
     mbox->inbox_head = NULL;
     mbox->inbox_tail = NULL;
-    pthread_mutex_unlock(&mbox->lock);
-    pthread_mutex_destroy(&mbox->lock);
 
     mbox->seen_head = NULL;
     mbox->seen_tail = NULL;
@@ -43,19 +39,16 @@ int mailbox_send_message(Mailbox* dest, safe_heap_t *dest_heap, void* data, size
     msg->tag = tag;
     msg->next = NULL;
 
-    pthread_mutex_lock(&dest->lock);
     if (dest->inbox_tail)
         dest->inbox_tail->next = msg;
     else
         dest->inbox_head = msg;
     dest->inbox_tail = msg;
-    pthread_mutex_unlock(&dest->lock);
 
     return 0;
 }
 
 void mailbox_transfer_inbox_to_seen(Mailbox* mbox) {
-    pthread_mutex_lock(&mbox->lock);
     if (mbox->inbox_head) {
         if (mbox->seen_tail)
             mbox->seen_tail->next = mbox->inbox_head;
@@ -66,7 +59,6 @@ void mailbox_transfer_inbox_to_seen(Mailbox* mbox) {
         mbox->inbox_head = NULL;
         mbox->inbox_tail = NULL;
     }
-    pthread_mutex_unlock(&mbox->lock);
 }
 
 Message* mailbox_receive_seen(Mailbox* mbox) {
