@@ -140,5 +140,9 @@ Process* pick_process(Scheduler* scheduler) {
         }
     }
 
-    return NULL;
+    // Only delayed low priority processes are ready: run one rather than sleep
+    Process* process = runq_pop(&scheduler->rq[NB_RQ - 1]);
+    if (process)
+        process->schedule_count = LOW_PRIORITY_SKIPS;
+    return process;
 }
