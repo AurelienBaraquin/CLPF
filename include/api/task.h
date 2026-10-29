@@ -1,5 +1,6 @@
 #pragma once
 
+#include <api/base.h>
 #include <api/message.h>
 
 // Spawning is synchronous and does not yield: the pid is known before the
@@ -21,8 +22,6 @@
 
 #define VSPAWN_PRIO(funcall_ptr, prio)       CLPF_SPAWN_RAW("", funcall_ptr, prio, false)
 #define VSPAWN_NAMED(funcall_ptr, name, prio) CLPF_SPAWN_RAW(name, funcall_ptr, prio, false)
-// Spawn and monitor in one step: the DOWN is delivered even if the process exits immediately
-#define VSPAWN_MONITOR_NAMED(funcall_ptr, name, prio) CLPF_SPAWN_RAW(name, funcall_ptr, prio, true)
 
 #define SPAWN_PRIO_NAMED(func, name, prio, argc, ...)              \
     ({                                                       \

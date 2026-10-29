@@ -29,6 +29,7 @@ int process_init(Process *process, Funcall_t *taskcall, const SpawnOptions *opti
     process->priority = priority;
 
     process->schedule_count = priority == PROCESS_PRIORITY_LOW ? LOW_PRIORITY_SKIPS : 0;
+    process->reductions = REDUCTION_BUDGET;
 
     Funcall_t funcall = {0};
     funcall.func = taskcall->func;
@@ -66,6 +67,13 @@ int process_init(Process *process, Funcall_t *taskcall, const SpawnOptions *opti
 
     process->links.parent = parent_pid;
     process->exit_notified = false;
+    process->linked = NULL;
+    process->trap_exit = false;
+    process->system = options->system;
+    process->entry = options->entry;
+    process->exit_reason = 0;
+    atomic_store(&process->kill_pending, false);
+    process->kill_reason = 0;
     atomic_store(&process->wake_pending, false);
 
     mailbox_init(&process->mailbox);
@@ -104,6 +112,8 @@ void process_destroy(Process *process) {
         aco_share_stack_destroy(process->share_stack);
     }
     links_clear(&process->links);
+    free_link_list(process->linked);
+    process->linked = NULL;
     monitor_clear(&process->monitor);
 }
 

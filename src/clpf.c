@@ -1,9 +1,11 @@
 #include <clpf_internal.h>
+#include <api/base.h>
 #include <stdio.h>
 #include <pthread.h>
 #include <utils/cpu.h>
 #include <flags_internal.h>
 #include <utils/stack_guard.h>
+#include <timer.h>
 
 void init_task(Task entry, int argc, char *argv[]);
 
@@ -47,6 +49,7 @@ static int clpf_init(void)
 
     mpscq_init(&clpf.message_queue);
     idle_init(&clpf.main_idle);
+    timers_init();
     return 0;
 }
 
@@ -93,6 +96,7 @@ static void clpf_destroy(void)
         n = next;
     }
 
+    timers_destroy();
     idle_destroy(&clpf.main_idle);
 }
 
@@ -109,27 +113,39 @@ void clpf_wake_all(void)
         scheduler_wake(&clpf.scheduler_table[i]);
 }
 
+// Main thread, during shutdown: ends every process that is not a system one
+static void kill_user_processes(void)
+{
+    for (int i = 0; i < MAX_PROCESSES; i++) {
+        Process *process = &clpf.process_table[i];
+        pthread_mutex_lock(&process->lock);
+        if (process->pid != INVALID_PID && !process->system)
+            process_exit_signal_locked(process, INVALID_PID, EXIT_REASON_KILLED, true);
+        pthread_mutex_unlock(&process->lock);
+    }
+}
+
 static bool main_has_work(void *arg)
 {
     (void)arg;
     return exit_in_progress || !mpscq_empty(&clpf.message_queue);
 }
 
-void clpf_main(Task entry_point, int argc, char *argv[])
+int clpf_main(Task entry_point, int argc, char *argv[])
 {
     if (!entry_point) {
         fprintf(stderr, "Entry point is NULL\n");
-        return;
+        return 1;
     }
 
     if (clpf_init() != 0)
-        return;
+        return 1;
     stack_guard_install();
 
     int cpus = nb_cpu();
     if (cpus <= 0) {
         perror("Failed to get number of CPUs");
-        return;
+        return 1;
     }
 
     // Two cores are left to the main thread and the system, but there is always one scheduler
@@ -138,7 +154,7 @@ void clpf_main(Task entry_point, int argc, char *argv[])
     for (int i = 0; i < MAX_SCHEDULERS && i < schedulers; i++) {
         if (scheduler_init(&clpf.scheduler_table[i], i) != 0) {
             fprintf(stderr, "Failed to initialize scheduler %d\n", i);
-            return;
+            return 1;
         }
         ++clpf.scheduler_count;
     }
@@ -148,39 +164,53 @@ void clpf_main(Task entry_point, int argc, char *argv[])
         int r = pthread_create(&scheduler->system_thread_id, NULL, scheduler_thread, scheduler);
         if (r != 0) {
             fprintf(stderr, "Failed to create scheduler thread %d\n", i);
-            return;
+            return 1;
         }
     }
 
     init_task(entry_point, argc, argv);
 
-    while (exit_in_progress == 0) {
-        size_t total_process_count = 0;
+    // Once the entry process ended: kill the user processes, then ask the
+    // system servers (I/O last) to stop, then wait until every process is gone
+    bool users_killed = false;
+    bool system_stopped = false;
 
-        for (int i = 0; i < clpf.scheduler_count; ++i) {
+    while (1) {
+        size_t total_process_count = 0;
+        for (int i = 0; i < clpf.scheduler_count; ++i)
             total_process_count += atomic_load(&clpf.scheduler_table[i].process_count);
-        }
 
         int updated = clpf_main_update();
+        uint64_t next_timer = timers_fire_due();
 
-        // Check if all processes are finished
-        if (total_process_count <= 0 && mpscq_empty(&clpf.message_queue) && updated == 0) {
+        if (total_process_count == 0 && mpscq_empty(&clpf.message_queue) && updated == 0)
             break;
+
+        if (clpf.shutdown_requested && updated == 0) {
+            pthread_mutex_lock(&clpf.table_lock);
+            int users = clpf.user_process_count;
+            pthread_mutex_unlock(&clpf.table_lock);
+
+            // Killed processes may spawn before their scheduler ends them: sweep until none is left
+            if (users > 0 && !users_killed) {
+                kill_user_processes();
+                users_killed = true;
+                continue;
+            }
+            if (users > 0) {
+                users_killed = false;
+            } else if (!system_stopped) {
+                clpf_signal_exit(atomic_load(&clpf.system_supervisor), EXIT_REASON_SHUTDOWN, false);
+                system_stopped = true;
+            }
         }
 
         if (updated == 0)
-            idle_wait(&clpf.main_idle, main_has_work, NULL);
+            idle_wait_until(&clpf.main_idle, main_has_work, NULL, next_timer);
     }
 
     exit_in_progress = 1;
     clpf_wake_all();
-
-    for (int i = 0; i < MAX_PROCESSES; ++i) {
-        Process* process = &clpf.process_table[i];
-        if (process->pid != INVALID_PID) {
-            clpf_send(NULL, process->pid, NULL, 0, MAKE_STR_TAG("core::event::stop"));
-        }
-    }
 
     for (int i = 0; i < clpf.scheduler_count; i++) {
         Scheduler* scheduler = &clpf.scheduler_table[i];
@@ -188,4 +218,5 @@ void clpf_main(Task entry_point, int argc, char *argv[])
     }
 
     clpf_destroy();
+    return clpf.entry_exit_reason == EXIT_REASON_NORMAL ? 0 : 1;
 }

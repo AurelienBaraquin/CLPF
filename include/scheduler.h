@@ -5,6 +5,11 @@
 #include <utils/run_queue.h>
 #include <utils/idle.h>
 
+// Times an idle scheduler polls for work before going to sleep
+#define SCHEDULER_IDLE_SPINS 2000
+// While another scheduler has processes waiting to run, an idle one asks again this often
+#define SCHEDULER_STEAL_RETRY_MS 5
+
 #define NB_RQ 3 // Number of run queues
 
 typedef struct scheduler_s {
@@ -24,6 +29,11 @@ typedef struct scheduler_s {
     atomic_int process_count;
 
     IdleWaiter idle; // The scheduler sleeps here when none of its processes is ready
+
+    // Bit i set: idle scheduler i asks for work (see scheduler_request_work)
+    _Atomic uint64_t steal_requests;
+    // Processes in the private run queues, published after each pick
+    atomic_int ready_count;
 
     aco_t* scheduler_acoro;
 } Scheduler;
@@ -46,3 +56,7 @@ void scheduler_push(Scheduler* scheduler, Process* process);
 void scheduler_drain_wakeups(Scheduler* scheduler);
 
 Process* pick_process(Scheduler* scheduler);
+
+// Called by an idle scheduler: asks the one with the most ready processes to hand
+// over some. Returns false if no scheduler has work to spare.
+bool scheduler_request_work(Scheduler* thief);

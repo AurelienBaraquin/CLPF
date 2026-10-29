@@ -11,6 +11,9 @@
 
 #define NAME_MAX_LENGTH 64
 
+// Work a process may do before it has to let others run (see REDUCE)
+#define REDUCTION_BUDGET 2000
+
 // A low priority process is skipped this many times before being picked,
 // so it runs once for every 8 passes over its run queue
 #define LOW_PRIORITY_SKIPS 7
@@ -56,12 +59,21 @@ typedef struct process_s {
 
     // Remaining skips before a low priority process is scheduled (always 0 for other priorities)
     unsigned short schedule_count;
+    int reductions; // Left before the next forced yield (owner only)
 
     Funcall_t taskcall;
 
     ProcessLinks links; // children is guarded by lock
     Monitor monitor; // monitored_by is guarded by lock
     bool exit_notified; // Guarded by lock: monitors were already sent DOWN, new ones get NOPROC
+    links_t *linked;    // Guarded by lock: bidirectional links (see LINK)
+    bool trap_exit;     // Guarded by lock: exit signals arrive as EXIT messages
+    bool system;        // See SpawnOptions, set at creation
+    bool entry;         // See SpawnOptions, set at creation
+    unsigned int exit_reason; // Guarded by lock, set once exit_notified
+    // Set under lock, after kill_reason: the scheduler ends the process instead of resuming it
+    atomic_bool kill_pending;
+    unsigned int kill_reason;
 
     Mailbox mailbox;
 
@@ -79,6 +91,10 @@ typedef struct {
     const void *arg_block;       // copied into the new process heap and passed as its argument
     size_t arg_block_size;
     size_t stack_size;           // CLPF_DEFAULT_STACK_SIZE by default
+    bool link;                   // links the spawner and the new process before it can run
+    int scheduler;               // 1 + index of the scheduler to start on; 0 picks the least loaded
+    bool system;                 // runtime-internal: survives until the user processes are gone
+    bool entry;                  // runtime-internal: its end shuts the runtime down
 } SpawnOptions;
 
 int process_init(Process *process, Funcall_t *taskcall, const SpawnOptions *options, Pid pid, Pid parent_pid);

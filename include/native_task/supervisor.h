@@ -9,14 +9,14 @@ typedef enum restart_type_e {
     RES_TEMPORARY, // Never restart the child
 } RestartType;
 
-typedef enum sup_strat_e {
-    SUP_ONE_FOR_ONE,    // If a child die restart it
-    SUP_ONE_FOR_ALL,    // Not implemented yet (needs a way to kill processes): refused at startup
-    SUP_REST_FOR_ONE,   // Not implemented yet (needs a way to kill processes): refused at startup
-} SUP_STRAT;
+// How long a child trapping exits may take to stop before it is killed
+#define SUP_SHUTDOWN_TIMEOUT_MS 5000
 
-// Number of restart timestamps kept per child: max_restarts must stay below it
-#define SUP_RESTART_HISTORY 10
+typedef enum sup_strat_e {
+    SUP_ONE_FOR_ONE,    // Restart the child that died
+    SUP_ONE_FOR_ALL,    // Stop every other child, then restart them all
+    SUP_REST_FOR_ONE,   // Stop the children started after it, then restart it and them
+} SUP_STRAT;
 
 #define MAGIC_SUP_CHILD 0xC5C1D4C1
 
@@ -35,14 +35,10 @@ typedef enum supervisor_state_e {
 } SUP_ST;
 
 typedef struct SupChildSlot {
-    Pid pid;
+    Pid pid; // INVALID_PID while stopped
     SupChildSpec spec;
-    int restart_count;
 
-    uint64_t last_restart_times[SUP_RESTART_HISTORY];
-    int restart_index;
-
-    TAILQ_ENTRY(SupChildSlot) entry;
+    TAILQ_ENTRY(SupChildSlot) entry; // in start order
 } SupChildSlot;
 
 typedef TAILQ_HEAD(SupChildList, SupChildSlot) SupChildList;
@@ -54,6 +50,10 @@ typedef struct supervisor_s {
 
     uint64_t period_ms;
     int max_restarts;
+
+    // Times of the last max_restarts + 1 restarts (0: unused), oldest at restart_next
+    uint64_t *restart_times;
+    int restart_next;
 } supervisor_t;
 
 TASK(clpf_supervisor, SUP_STRAT strategy, uint64_t period_ms, int max_restarts);
@@ -63,3 +63,9 @@ void DEF(sup_child_list_remove, SupChildList *list, SupChildSlot *child);
 SupChildSlot *sup_child_find_by_pid(supervisor_t *sv, Pid pid);
 
 SUP_ST DEF(supervisor_handler, Message *msg, supervisor_t *sup);
+
+// Spawns the child (monitored and linked), returns false if it could not start
+bool DEF(sup_start_child, SupChildSlot *child);
+// Kills every child, last started first, and waits until each is gone
+void DEF(sup_stop_all, supervisor_t *sv);
+void DEF(sup_on_child_down, Pid from, unsigned int reason, supervisor_t *sv);

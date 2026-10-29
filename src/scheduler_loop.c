@@ -5,6 +5,8 @@
 #include <api/base.h>
 #include <assert.h>
 #include <utils/stack_guard.h>
+#include <utils/spinlock.h>
+#include <utils/time.h>
 
 void co_entrypoint() {
     Process* proc = (Process*)aco_get_arg();
@@ -94,12 +96,26 @@ void scheduler_loop(Scheduler* scheduler) {
         Process* process = pick_process(scheduler);
         
         if (!process) {
-            idle_wait(&scheduler->idle, scheduler_has_work, scheduler);
+            bool work_elsewhere = scheduler_request_work(scheduler);
+
+            // Replies often come back within microseconds: spin a little before
+            // paying for a sleep and a wakeup
+            for (int spin = 0; spin < SCHEDULER_IDLE_SPINS && !scheduler_has_work(scheduler); ++spin)
+                cpu_relax();
+
+            // Overloaded schedulers hand work over when they next pick: ask again soon
+            uint64_t deadline = work_elsewhere ? now_ms() + SCHEDULER_STEAL_RETRY_MS : 0;
+            idle_wait_until(&scheduler->idle, scheduler_has_work, scheduler, deadline);
             continue;
         }
 
-        // 10. Execute the process
-        process->state = execute_process(scheduler, process);
+        // 10. Execute the process, unless it was killed: then it ends without being resumed
+        if (UNLIKELY(atomic_load(&process->kill_pending))) {
+            process_terminate(process, process->kill_reason);
+            process->state = PROCESS_EXITING;
+        } else {
+            process->state = execute_process(scheduler, process);
+        }
 
         // 11. Handle the process state
         switch (process->state) {

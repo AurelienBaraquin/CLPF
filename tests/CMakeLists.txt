@@ -34,6 +34,22 @@ clpf_add_test(test_string_tags)
 clpf_add_test(test_registry)
 clpf_add_test(test_spawn_with)
 clpf_add_test(test_stack_size)
+clpf_add_test(test_timers)
+clpf_add_test(test_links)
+clpf_add_test(test_supervisor_strategies)
+clpf_add_test(test_io_server)
+clpf_add_test(test_work_stealing)
+
+# Exit code and complete output of a program whose entry task fails
+clpf_add_test_program(test_shutdown)
+add_test(NAME test_shutdown COMMAND sh -c "lines=$(\"$0\" | grep -c '^line '); \"$0\" > /dev/null; [ $? -eq 1 ] && [ \"$lines\" -eq 1000 ]" $<TARGET_FILE:test_shutdown>)
+set_tests_properties(test_shutdown PROPERTIES TIMEOUT 20)
+
+clpf_add_test_program(test_getline)
+add_test(NAME test_getline COMMAND sh -c "printf 'hello\\nworld\\n' | \"$0\" read" $<TARGET_FILE:test_getline>)
+add_test(NAME test_getline_does_not_block_print COMMAND sh -c "sleep 3 | timeout 1 \"$0\" wait" $<TARGET_FILE:test_getline>)
+set_tests_properties(test_getline test_getline_does_not_block_print PROPERTIES TIMEOUT 20)
+set_tests_properties(test_getline_does_not_block_print PROPERTIES PASS_REGULAR_EXPRESSION "^early")
 # This one crashes on purpose: only its diagnostic is checked
 clpf_add_test_program(test_stack_overflow)
 add_test(NAME test_stack_overflow COMMAND sh -c "\"$0\" 2>&1; exit 0" $<TARGET_FILE:test_stack_overflow>)
@@ -41,9 +57,12 @@ set_tests_properties(test_stack_overflow PROPERTIES
     TIMEOUT 20
     PASS_REGULAR_EXPRESSION "stack overflow in process 'runaway'")
 
-# The runtime must still start a scheduler when only one CPU is usable
+# The runtime must still start a scheduler when only one CPU is usable,
+# and preemption must keep a busy process from starving the others there
 find_program(TASKSET taskset)
 if(TASKSET)
     add_test(NAME test_single_cpu COMMAND ${TASKSET} -c 0 $<TARGET_FILE:test_smoke>)
-    set_tests_properties(test_single_cpu PROPERTIES TIMEOUT 20)
+    clpf_add_test_program(test_reductions)
+    add_test(NAME test_reductions COMMAND ${TASKSET} -c 0 $<TARGET_FILE:test_reductions>)
+    set_tests_properties(test_single_cpu test_reductions PROPERTIES TIMEOUT 20)
 endif()

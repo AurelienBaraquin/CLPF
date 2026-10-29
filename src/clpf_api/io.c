@@ -2,6 +2,7 @@
 #include <api/io.h>
 #include <api/message.h>
 #include <api/registry.h>
+#include <stdin_reader.h>
 
 char *clpf_vformat(Process *self, const char *fmt, va_list ap) {
     char tmp[128];
@@ -54,16 +55,14 @@ int clpf_print(Process *self, const char *fmt, ...) {
 }
 
 char* clpf_getline(Process *self) {
-    Pid io = WHEREIS("server::io");
-    if (io == -1) {
-        fprintf(stderr, "IO server not found\n");
+    if (stdin_request_line(self->pid) != 0)
+        return NULL;
+
+    Message *reply = RECEIVE_IF(TM_PREFIX, MAKE_STR_TAG("stdin::"));
+    if (MSG_IS(reply, MAKE_STR_TAG("stdin::eof"))) {
+        MSG_FREE(reply);
         return NULL;
     }
-
-    // The reply carries the line without its terminating NUL
-    Message *reply = REQUEST(io, NULL, 0, MAKE_STR_TAG("server::io::getline"));
-    if (!reply)
-        return NULL;
 
     char *line = ALLOC(reply->size + 1);
     if (line) {

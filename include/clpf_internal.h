@@ -31,6 +31,12 @@ typedef struct {
 typedef struct {
     Process *process_table; // MAX_PROCESSES slots, allocated by clpf_init
     int process_count;
+    int user_process_count; // processes that are not system ones
+
+    // Set by the main thread when the entry process ended
+    bool shutdown_requested;
+    unsigned int entry_exit_reason;
+    _Atomic Pid system_supervisor; // supervises the system servers, set by the launcher
 
     // Stack of free process table indices
     int *free_slots;
@@ -41,7 +47,7 @@ typedef struct {
 
     TrieNode *name_table;
 
-    // Guards the free slot stack, process_count, the name table and every
+    // Guards the free slot stack, the process counts, the name table and every
     // Process.registered_name: processes are created and registered from any
     // thread, destroyed by the main thread
     pthread_mutex_t table_lock;
@@ -59,7 +65,9 @@ void process_unlock(Process *process);
 // Wakes the locked process if it waits, after a message or signal was queued for it
 void process_notify_locked(Process *process);
 
-void clpf_main(Task entry_point, int argc, char *argv[]);
+// Runs entry_point and the runtime until the entry process ends and every
+// process is gone; returns 0 if the entry process exited normally, 1 otherwise
+int clpf_main(Task entry_point, int argc, char *argv[]);
 int clpf_main_update();
 // Takes a free process table index, or returns -1 if the table is full
 int clpf_slot_alloc(void);
@@ -84,6 +92,21 @@ typedef enum exit_reason_e exit_reason;
 
 // Base
 void yield(Process *self);
+// Spends reductions; yields once the budget is used up (cooperative preemption)
+void clpf_reduce(Process *self, int cost);
+
+// Reductions charged by the runtime operations
+#define REDUCTIONS_SEND 10
+#define REDUCTIONS_FETCH 1
+// Detaches the monitors and links of a process that is ending, sends DOWNs and
+// exit signals. Called by the process itself or, for a kill, by its scheduler.
+void process_terminate(Process *process, unsigned int reason);
+// Sends an exit signal from the runtime (no sender process)
+void clpf_signal_exit(Pid pid, unsigned int reason, bool untrappable);
+// Applies an exit signal to a locked process: an EXIT message if it traps exits
+// (unless untrappable), nothing for a normal reason, otherwise a pending kill
+void process_exit_signal_locked(Process *target, Pid from, unsigned int reason, bool untrappable);
+
 // Notifies the monitors and terminates the calling process: never returns.
 // Not declared _Noreturn: AddressSanitizer mishandles noreturn calls made on coroutine stacks.
 void exiting(Process *self, exit_reason reason);
@@ -93,6 +116,9 @@ void exiting(Process *self, exit_reason reason);
 
 Message *clpf_receive(Process *self, MessageMatch match, Tag pattern);
 Message *clpf_fetch(Process *self, MessageMatch match, Tag pattern);
+// Like clpf_receive, but returns NULL once timeout_ms passed without a matching message
+Message *clpf_receive_timeout(Process *self, MessageMatch match, Tag pattern, uint64_t timeout_ms);
+void clpf_sleep(Process *self, uint64_t ms);
 // self may be NULL when the runtime itself sends
 int clpf_send(Process *self, Pid pid, void *data, size_t size, Tag tag);
 // Delivers a message on behalf of `from` without yielding (usable from any thread)

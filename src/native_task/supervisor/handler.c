@@ -3,6 +3,7 @@
 #include <api/message.h>
 #include <api/registry.h>
 #include <api/monitor.h>
+#include <api/link.h>
 
 typedef SUP_ST (*supervisor_handler_t)(Process *self, Message *msg, supervisor_t *sup);
 
@@ -21,8 +22,7 @@ SUP_ST DEF(sup_handler_spawn, Message *msg, supervisor_t *sup) {
     } else {
         SupChildSlot *child = CALL(sup_child_list_insert, &sup->sup_childs, spec);
         if (child) {
-            child->pid = VSPAWN_MONITOR_NAMED(&spec->taskcall, spec->name, spec->priority);
-            if (child->pid == INVALID_PID) {
+            if (!CALL(sup_start_child, child)) {
                 fprintf(stderr, "[SUPERVISOR] Failed to spawn child process\n");
                 CALL(sup_child_list_remove, &sup->sup_childs, child);
             } else {
@@ -42,6 +42,7 @@ SUP_ST DEF(sup_handler_remove, Message *msg, supervisor_t *sup) {
 
     if (child) {
         DEMONITOR(child->pid);
+        UNLINK(child->pid);
         CALL(sup_child_list_remove, &sup->sup_childs, child);
         sup->child_count--;
         removed = 0;
@@ -51,17 +52,9 @@ SUP_ST DEF(sup_handler_remove, Message *msg, supervisor_t *sup) {
     return removed == 0 ? SUP_SUCCESS : SUP_NOTHING;
 }
 
-SUP_ST DEF(sup_handler_stop, Message *msg, supervisor_t *sup) {
-    (void)self;
-    (void)msg;
-    (void)sup;
-    return SUP_STOP;
-}
-
 static const struct sv_handler_entry sv_handlers[] = {
     {"supervisor::spawn", sup_handler_spawn},
     {"supervisor::remove", sup_handler_remove},
-    {"core::event::stop", sup_handler_stop},
 };
 
 SUP_ST DEF(supervisor_handler, Message *msg, supervisor_t *sup) {

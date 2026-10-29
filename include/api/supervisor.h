@@ -13,10 +13,11 @@
  * SPAWN macro with the supervisor-specific parameters.
  * Default values are set when 0 is passed for period and max_restart.
  *
- * @param strat The supervision strategy (only SUP_ONE_FOR_ONE is implemented, others make the supervisor exit).
+ * @param strat The supervision strategy (SUP_ONE_FOR_ONE, SUP_ONE_FOR_ALL, SUP_REST_FOR_ONE).
  * @param period The monitoring period in milliseconds. (default: 1000ms)
- * @param max_restart The maximum number of restarts of a child within period,
- *        below SUP_RESTART_HISTORY. (default: 5)
+ * @param max_restart The maximum number of restarts, all children together, within
+ *        period. One more and the supervisor kills its children and exits with
+ *        EXIT_REASON_ERROR, which its monitors and links see. (default: 5)
  */
 #define SPAWN_SUPERVISOR(name, strat, period, max_restart) \
     SPAWN_NAMED(clpf_supervisor, name, 3, strat, period, max_restart)

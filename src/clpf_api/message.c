@@ -1,4 +1,5 @@
 #include <api/message.h>
+#include <timer.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -21,7 +22,45 @@ Message *clpf_receive(Process *self, MessageMatch match, Tag pattern) {
     }
 }
 
+Message *clpf_receive_timeout(Process *self, MessageMatch match, Tag pattern, uint64_t timeout_ms) {
+    Message *msg = take_matching(self, match, pattern);
+    if (msg || timeout_ms == 0)
+        return msg;
+
+    TimerId timer = timer_add_timeout(self->pid, timeout_ms);
+    Tag timeout_tag = MAKE_TIMEOUT_TAG(timer);
+    while (1) {
+        msg = take_matching(self, match, pattern);
+        if (msg) {
+            // A timer that already fired left its message in the mailbox: drop it
+            if (timer_cancel(timer) != 0)
+                clpf_msg_free(self, take_matching(self, clpf_match_same, timeout_tag));
+            return msg;
+        }
+
+        Message *timeout = take_matching(self, clpf_match_same, timeout_tag);
+        if (timeout) {
+            clpf_msg_free(self, timeout);
+            return NULL;
+        }
+
+        self->state = PROCESS_WAITING;
+        yield(self);
+    }
+}
+
+static bool match_nothing(const Message *msg, Tag pattern) {
+    (void)msg;
+    (void)pattern;
+    return false;
+}
+
+void clpf_sleep(Process *self, uint64_t ms) {
+    clpf_receive_timeout(self, match_nothing, NO_TAG, ms);
+}
+
 Message *clpf_fetch(Process *self, MessageMatch match, Tag pattern) {
+    clpf_reduce(self, REDUCTIONS_FETCH);
     return take_matching(self, match, pattern);
 }
 
@@ -44,8 +83,8 @@ int clpf_deliver(Pid from, Pid pid, void *data, size_t size, Tag tag) {
 
 int clpf_send(Process *self, Pid pid, void *data, size_t size, Tag tag) {
     int delivered = clpf_deliver(self ? self->pid : INVALID_PID, pid, data, size, tag);
-    if (delivered == 0 && self)
-        yield(self);
+    if (self)
+        clpf_reduce(self, REDUCTIONS_SEND);
     return delivered;
 }
 
@@ -72,6 +111,8 @@ bool clpf_match_same(const Message *msg, Tag pattern) {
     switch (pattern.kind) {
         case TAG_KIND_INTEGER:
         case TAG_KIND_DOWN:
+        case TAG_KIND_EXIT:
+        case TAG_KIND_TIMEOUT:
             return msg->tag.int_value == pattern.int_value;
         case TAG_KIND_STRING:
         case TAG_KIND_NOTIFY:
