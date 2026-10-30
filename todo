@@ -54,4 +54,4 @@ Nouvelles fonctionnalités
 - [x] Tables partagées à la ETS
 - [x] Benchmarks
 - [ ] Distribution réseau (non prévu)
-- [ ] Pool de piles et de tas : spawn et fin de process coûtent ~60 µs (mmap/munmap, flush TLB à la mort en masse, voir docs/benchmarks.md)
+- [x] Pool de piles et de tas : spawn et fin de process coûtent ~60 µs (mmap/munmap, flush TLB à la mort en masse, voir docs/benchmarks.md)

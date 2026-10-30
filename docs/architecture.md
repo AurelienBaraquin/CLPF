@@ -49,7 +49,9 @@ A process is a [libaco](https://github.com/hnes/libaco) coroutine with its
 own stack. libaco puts a guard page below the stack, and a `SIGSEGV` handler
 recognises a fault on it to report the overflowing process by name
 (`src/utils/stack_guard.c`). Switching between processes is a register swap,
-with no system call.
+with no system call. Stacks of the default size are reused: an ended process
+gives its stack to a bounded pool (`src/memory/stack.c`,
+`src/memory/block_pool.c`), and the mapping, guard page included, stays as is.
 
 The task's arguments are passed by `funcall.S`, a small x86-64 trampoline
 that loads up to six machine words into the System V argument registers
@@ -117,7 +119,8 @@ running again.
 `src/mailbox.c`, `src/memory/safe_heap.c`
 
 Every process has a TLSF heap on memory mapped for it, which grows on demand
-and is unmapped at once when the process ends. A spinlock guards it, since
+and is unmapped at once when the process ends, except its initial pool, which
+goes to a bounded pool for the next process. A spinlock guards it, since
 senders on other threads allocate their messages in it.
 
 A message is **one allocation in the receiver's heap**: the header, the
