@@ -37,6 +37,7 @@ behaviour in depth.
 | `api/supervisor.h` | `SPAWN_SUPERVISOR`, `SUP_ADD_CHILD*`, `SUP_REMOVE_CHILD` |
 | `api/memory.h` | `ALLOC`, `FREE` |
 | `api/io.h` | `PRINT`, `FORMAT`, `GETLINE`, `IO_WAIT*`, `IO_WATCH`, `IO_UNWATCH` |
+| `api/introspection.h` | `PROCESS_INFO`, `PROCESS_LIST`, `clpf_dump`, `ProcessInfo` |
 | `api/log.h` | `LOG_DEBUG`, `LOG_INFO`, `LOG_WARN`, `LOG_ERROR`, `clpf_set_log_level` |
 
 ## Tasks and lifetime
@@ -260,6 +261,24 @@ threads you create yourself:
 
 A thread of your own that blocks on I/O can feed a process this way.
 
+## Introspection
+
+`api/introspection.h`, usable from any thread
+
+| Function | Meaning |
+|---|---|
+| `PROCESS_INFO(pid, &info)` | A snapshot of a process in a `ProcessInfo` (state, priority, scheduler, `queued`, `heap_bytes`, `runs`, `links`, `children`, `monitored_by`, names...): `0`, or `-1` if it is not alive |
+| `PROCESS_LIST(buffer, max)` | Up to `max` live pids in `buffer`; returns how many are alive |
+| `clpf_dump(FILE *out)` | A table of every live process; also written to stderr on `SIGUSR1` |
+| `clpf_state_name(state)`, `clpf_priority_name(priority)` | Names for printing |
+
+## Environment variables
+
+| Variable | Meaning |
+|---|---|
+| `CLPF_LOG_LEVEL` | `debug`, `info` (default), `warn`, `error` or `none` |
+| `CLPF_WATCHDOG_MS` | Report a process running this long without yielding (default 1000, `0` disables) |
+
 ## Constants
 
 | Constant | Value | Meaning |
@@ -280,7 +299,7 @@ A thread of your own that blocks on I/O can feed a process this way.
 
 CMake options: `CMAKE_BUILD_TYPE` (default `Debug`), `CLPF_SANITIZE=address|thread`,
 `CLPF_TRACE=ON` (log process creation and destruction), `CLPF_BUILD_TESTS`,
-`CLPF_BUILD_EXAMPLES`, and `-DCLPF_DEFAULT_STACK_SIZE=...` in `CMAKE_C_FLAGS`.
+`CLPF_BUILD_EXAMPLES`, `CLPF_BUILD_BENCH` (target `bench`, see [benchmarks](benchmarks.md)), and `-DCLPF_DEFAULT_STACK_SIZE=...` in `CMAKE_C_FLAGS`.
 
 Using the installed library: `find_package(clpf)` and link `clpf::clpf`, or
 `pkg-config --cflags --libs clpf`. The API needs GCC or Clang: the macros

@@ -7,6 +7,7 @@
 #include <utils/stack_guard.h>
 #include <utils/spinlock.h>
 #include <utils/time.h>
+#include <watchdog.h>
 
 void co_entrypoint() {
     Process *proc = (Process *)aco_get_arg();
@@ -37,10 +38,13 @@ process_state execute_process(Scheduler *scheduler, Process *process) {
     }
 
     process->state = PROCESS_RUNNING;
+    atomic_fetch_add_explicit(&process->runs, 1, memory_order_relaxed);
     assert(process->acoro);
     assert(process->acoro->is_end == 0);
     stack_guard_set_running(process);
+    watchdog_enter(scheduler, process);
     aco_resume(process->acoro);
+    watchdog_leave(scheduler);
     stack_guard_set_running(NULL);
 
     return process->state;

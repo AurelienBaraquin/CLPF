@@ -78,13 +78,15 @@ programs.
   permanent, transient and temporary children; restart intensity.
 - **Services:** name registry, one-shot and periodic timers, ordered output (`PRINT`), non-blocking
   stdin (`GETLINE`), sockets and pipes (`IO_WAIT`, `IO_WATCH`), leveled logs.
+- **Observability:** `PROCESS_INFO`, `PROCESS_LIST`, a process dump on
+  `SIGUSR1`, a watchdog for processes that never yield, benchmarks.
 - **Runtime:** M:N work-stealing schedulers, reduction-based preemption, no
   CPU used when idle, clean shutdown with an exit code.
 
 ## Status
 
 **Experimental, feature-complete for its scope.** Everything above works and
-is covered by 42 tests. The CI runs them in Debug and Release, and under
+is covered by 45 tests. The CI runs them in Debug and Release, and under
 AddressSanitizer and ThreadSanitizer.
 
 Limits:

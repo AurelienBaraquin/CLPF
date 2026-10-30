@@ -132,6 +132,11 @@ Message *clpf_request(Process *self, Pid pid, void *data, size_t size, Tag tag);
 Message *clpf_request_timeout(Process *self, Pid pid, void *data, size_t size, Tag tag, uint64_t timeout_ms);
 
 // A reference unique for the whole run of the program (never 0)
+// Starts the thread that writes clpf_dump to stderr on SIGUSR1 (see api/introspection.h)
+void clpf_dump_signal_init(void);
+// Ends that thread, before the runtime is destroyed
+void clpf_dump_signal_stop(void);
+
 // Reads CLPF_LOG_LEVEL (see api/log.h)
 void clpf_log_init(void);
 

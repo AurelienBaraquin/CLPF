@@ -25,3 +25,5 @@ void safe_heap_destroy(safe_heap_t *safe_heap);
 void *safe_heap_alloc(safe_heap_t *safe_heap, size_t size);
 void *safe_heap_realloc(safe_heap_t *safe_heap, void *ptr, size_t size);
 void safe_heap_free(safe_heap_t *safe_heap, void *ptr);
+// Bytes reserved by all the pools of the heap
+size_t safe_heap_size(safe_heap_t *safe_heap);

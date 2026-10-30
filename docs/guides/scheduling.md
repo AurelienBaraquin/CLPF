@@ -24,7 +24,9 @@ A process runs until it:
 - calls `YIELD()`;
 - uses up its **reduction budget** (2000). `SEND` costs 10, `FETCH` costs
   1, and `REDUCE(n)` costs `n`. When the budget runs out the process yields,
-  and every yield refills it.
+  and every yield refills it. `SPAWN` costs nothing: it never yields, so
+  that the pid is known before the child runs. A loop that only spawns
+  should call `REDUCE`.
 
 The runtime cannot interrupt C code that never calls it. A long computation
 must call `REDUCE`, or `YIELD`, regularly, otherwise it keeps its scheduler,

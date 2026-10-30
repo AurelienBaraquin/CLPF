@@ -14,6 +14,8 @@ int scheduler_init(Scheduler *scheduler, Pid pid) {
     mpscq_init(&scheduler->wakeups);
     atomic_init(&scheduler->steal_requests, 0);
     atomic_init(&scheduler->ready_count, 0);
+    atomic_init(&scheduler->running_since, 0);
+    atomic_init(&scheduler->running_pid, INVALID_PID);
     idle_init(&scheduler->idle);
     for (int i = 0; i < NB_RQ; i++) {
         runq_init(&scheduler->rq[i]);

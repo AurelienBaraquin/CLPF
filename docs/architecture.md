@@ -151,7 +151,17 @@ The main thread:
 - destroys processes that have ended. Their scheduler posts a core message
   once nothing can reach them anymore;
 - fires timers, kept in a min-heap, and sleeps until the next deadline;
+- runs the watchdog: each scheduler publishes when it resumed its current
+  process (`src/watchdog.c`). While processes run, the main thread checks
+  twice per limit. When nothing has run for a while it sleeps without a
+  deadline, and asks the next resume to wake it. Both sides use sequentially
+  consistent atomics, so a process that starts as the main thread goes to
+  sleep is never missed;
 - drives the shutdown.
+
+A dedicated thread waits for `SIGUSR1` with `sigwait` and writes
+`clpf_dump` (`src/introspection.c`); the runtime blocks the signal in all
+its threads, and joins that thread before freeing the process table.
 
 Timers fire under the timer lock, so a failed `CANCEL_TIMER` means the message
 is already in the mailbox, and `RECEIVE_TIMEOUT` can always clean up its own

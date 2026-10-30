@@ -4,6 +4,8 @@
 #include <pthread.h>
 #include <utils/cpu.h>
 #include <flags_internal.h>
+#include <utils/time.h>
+#include <watchdog.h>
 #include <utils/stack_guard.h>
 #include <timer.h>
 
@@ -50,6 +52,7 @@ static int clpf_init(void) {
     idle_init(&clpf.main_idle);
     timers_init();
     clpf_log_init();
+    watchdog_init();
     return 0;
 }
 
@@ -132,6 +135,7 @@ int clpf_main(Task entry_point, int argc, char *argv[]) {
 
     if (clpf_init() != 0)
         return 1;
+    clpf_dump_signal_init();
     stack_guard_install();
 
     int cpus = nb_cpu();
@@ -199,6 +203,9 @@ int clpf_main(Task entry_point, int argc, char *argv[]) {
             }
         }
 
+        uint64_t next_check = watchdog_check(now_ms());
+        if (!next_timer || (next_check && next_check < next_timer))
+            next_timer = next_check;
         if (updated == 0)
             idle_wait_until(&clpf.main_idle, main_has_work, NULL, next_timer);
     }
@@ -211,6 +218,7 @@ int clpf_main(Task entry_point, int argc, char *argv[]) {
         pthread_join(scheduler->system_thread_id, NULL);
     }
 
+    clpf_dump_signal_stop();
     clpf_destroy();
     return clpf.entry_exit_reason == EXIT_REASON_NORMAL ? 0 : 1;
 }
