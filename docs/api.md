@@ -88,6 +88,7 @@ scheduler. `SPAWN*` return the pid, or `INVALID_PID`.
 | `link` | `false` | The spawner and the child are linked before it runs |
 | `arg_block`, `arg_block_size` | none | Block copied into the child heap and passed as its argument |
 | `stack_size` | `CLPF_DEFAULT_STACK_SIZE` (16 KiB) | Stack of the process |
+| `mailbox_limit` | `0` (none) | Messages that may wait; past it `SEND` returns `SEND_FULL` |
 | `scheduler` | `0` | `1 + index` of the scheduler to start on; `0` picks the least loaded |
 
 `clpf_spawn(self, &funcall, options)` spawns with integer arguments and options.
@@ -100,11 +101,15 @@ Mailboxes are FIFO per sender.
 
 | Macro | Meaning |
 |---|---|
-| `SEND(pid, data, size, tag)` | Returns 0, or -1 if `pid` does not exist (not an error for the runtime) |
+| `SEND(pid, data, size, tag)` | Returns 0, -1 if `pid` does not exist (not an error for the runtime), or `SEND_FULL` if its mailbox is full |
 | `RECEIVE(tag)` | Blocks until the oldest message with this tag arrives; `NO_TAG` takes any message |
 | `RECEIVE_IF(matcher, pattern)` | Blocks until the oldest message accepted by a matcher |
 | `FETCH(tag)`, `FETCH_IF(matcher, pattern)` | Same without blocking: `NULL` only if nothing matches |
 | `REQUEST(pid, data, size, tag)` | Sends, then waits for the reply carrying the same tag (`NULL` if `pid` is gone) |
+| `REQUEST_TIMEOUT(pid, data, size, tag, ms)` | `REQUEST` giving up with `NULL` after `ms` (`CLPF_INFINITY`: never) |
+| `REQUEST_REF(pid, data, size, ms)` | Request tagged with a fresh reference; waits for the `REPLY`; late replies are dropped |
+| `REPLY(msg, data, size)` | Answers a request received with `REQUEST_REF` or `REQUEST` |
+| `MAKE_REF()` | A value unique for the run (never 0); `MAKE_REF_TAG(ref)` makes it a tag |
 | `MSG_IS(msg, tag)` | Tag equality test |
 | `MSG_FREE(msg)` | Releases a received message (accepts `NULL`) |
 | `NOTIFY(pid, name)`, `WAIT_NOTIF(name)` | Empty messages identified by any string |
@@ -183,6 +188,7 @@ The I/O server is registered as `server::io`.
 | Macro | Meaning |
 |---|---|
 | `SEND_AFTER(pid, ms, data, size, tag)` | Sends a copy of the message after `ms`, as if the caller sent it; returns a `TimerId` |
+| `SEND_INTERVAL(pid, ms, data, size, tag)` | Sends a copy every `ms` until `CANCEL_TIMER` or until `pid` is gone |
 | `CANCEL_TIMER(id)` | 0, or -1 if it already fired or was cancelled |
 | `RECEIVE_TIMEOUT(tag, ms)`, `RECEIVE_IF_TIMEOUT(matcher, pattern, ms)` | `RECEIVE` returning `NULL` after `ms` (0 only polls) |
 | `SLEEP(ms)` | Waits without blocking the scheduler |
@@ -196,6 +202,7 @@ The I/O server is registered as `server::io`.
 | `SPAWN_SUPERVISOR(name, strategy, period_ms, max_restarts)` | 0 for period or max picks 1000 ms / 5 |
 | `SUP_ADD_CHILD(sup, restart, func, name, argc, args...)`, `SUP_ADD_CHILD0(...)` | Starts a child; returns its pid or `INVALID_PID` |
 | `SUP_ADD_CHILD_PRIO(...)`, `SUP_ADD_CHILD_PRIO0(...)` | With a priority |
+| `SUP_ADD_CHILD_OPTS(sup, restart, func, .field = value...)` | With `SpawnOptions`: name, priority, stack, mailbox limit, argument block (kept for restarts) |
 | `SUP_REMOVE_CHILD(sup, pid)` | Stops supervising it (it keeps running); 0 or -1 |
 
 Strategies: `SUP_ONE_FOR_ONE` (restart the child that died), `SUP_ONE_FOR_ALL`
@@ -250,6 +257,8 @@ A thread of your own that blocks on I/O can feed a process this way.
 | Constant | Value | Meaning |
 |---|---|---|
 | `INVALID_PID` | `-1` | No process |
+| `SEND_FULL` | `-2` | `SEND` result when the receiver's mailbox is full |
+| `CLPF_INFINITY` | `UINT64_MAX` | A timeout that never expires |
 | `MAX_PROCESSES` | 65 536 | Live processes at once |
 | `MAX_SCHEDULERS` | 64 | Scheduler threads at most |
 | `NAME_MAX_LENGTH` | 64 | Labels and registered names, terminating NUL included |

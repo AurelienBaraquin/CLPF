@@ -98,6 +98,7 @@ Fields you leave out take their default:
 | `link` | `false` | Link to the child before it runs |
 | `arg_block`, `arg_block_size` | none | Data copied into the child, passed as its argument |
 | `stack_size` | 16 KiB | Stack size |
+| `mailbox_limit` | `0` (none) | Messages that may wait; past it `SEND` returns `SEND_FULL` |
 | `scheduler` | `0` | `1 +` the index of the scheduler to start on; `0` picks the least loaded |
 
 ```c

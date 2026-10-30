@@ -5,13 +5,15 @@ Header: `api/timer.h`
 | Macro | Meaning |
 |---|---|
 | `SEND_AFTER(pid, ms, data, size, tag)` | Sends a copy of the message to `pid` after `ms`, as if the caller sent it. Returns a `TimerId` (never 0), or 0 if out of memory |
+| `SEND_INTERVAL(pid, ms, data, size, tag)` | Sends a copy every `ms` until cancelled or until `pid` is gone. Returns a `TimerId` |
 | `CANCEL_TIMER(id)` | `0`, or `-1` if the timer already fired or was cancelled |
 | `RECEIVE_TIMEOUT(tag, ms)` | `RECEIVE`, giving up with `NULL` after `ms` |
 | `RECEIVE_IF_TIMEOUT(matcher, pattern, ms)` | The same with a matcher |
 | `SLEEP(ms)` | Waits `ms` without blocking the scheduler |
 
-Timers are one-shot. For a periodic tick, send yourself the next timer each
-time you handle one.
+`SEND_AFTER` timers fire once; `SEND_INTERVAL` timers fire until they are
+cancelled. A periodic timer that falls behind, on an overloaded machine,
+skips the ticks it missed instead of firing them in a burst.
 
 ```c
 #include <api/task.h>
@@ -20,13 +22,17 @@ time you handle one.
 #include <api/io.h>
 
 TASK(entry, int argc, char *argv[]) {
-    // A periodic tick: each tick schedules the next one
-    SEND_AFTER(self->pid, 10, NULL, 0, MAKE_STR_TAG("tick"));
+    // A periodic tick, every 10 ms
+    TimerId ticker = SEND_INTERVAL(self->pid, 10, NULL, 0, MAKE_STR_TAG("tick"));
     for (int ticks = 1; ticks <= 3; ++ticks) {
         MSG_FREE(RECEIVE(MAKE_STR_TAG("tick")));
         PRINT("tick %d\n", ticks);
-        SEND_AFTER(self->pid, 10, NULL, 0, MAKE_STR_TAG("tick"));
     }
+    CANCEL_TIMER(ticker);
+
+    // A one-shot timer
+    SEND_AFTER(self->pid, 20, NULL, 0, MAKE_STR_TAG("later"));
+    MSG_FREE(RECEIVE(MAKE_STR_TAG("later")));
 
     // Waiting with a deadline
     Message *reply = RECEIVE_TIMEOUT(MAKE_STR_TAG("reply"), 50);

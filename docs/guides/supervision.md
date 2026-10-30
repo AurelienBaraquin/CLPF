@@ -24,6 +24,8 @@ Pid sup = SPAWN_SUPERVISOR(name, strategy, period_ms, max_restarts);
 Pid pid = SUP_ADD_CHILD(sup, restart_type, func, "name", argc, args...);
 Pid pid = SUP_ADD_CHILD0(sup, restart_type, func, "name");
 Pid pid = SUP_ADD_CHILD_PRIO(sup, restart_type, func, "name", priority, argc, args...);
+Pid pid = SUP_ADD_CHILD_OPTS(sup, restart_type, func, .name = "name", .arg_block = &config,
+                             .arg_block_size = sizeof config, .stack_size = 256 * 1024);
 int ok  = SUP_REMOVE_CHILD(sup, pid);   // 0, or -1 if it is not one of sup's children
 ```
 
@@ -32,6 +34,11 @@ int ok  = SUP_REMOVE_CHILD(sup, pid);   // 0, or -1 if it is not one of sup's ch
 function and arguments**. Since it starts from scratch, any state it needs
 must come from its arguments or be fetched again, for instance from a
 registered process.
+
+`SUP_ADD_CHILD_OPTS` takes [`SpawnOptions`](processes.md#spawnoptions): a
+name, a priority, a stack size, a mailbox limit, and an argument block for a
+`TASK_WITH` task. The supervisor copies the block and gives the same copy to
+every restart. It sets monitoring, linking and placement itself.
 
 `SUP_REMOVE_CHILD` stops supervising the child; the child keeps running.
 
