@@ -116,10 +116,11 @@ void process_destroy(Process *process) {
     if (process->share_stack) {
 #ifdef __SANITIZE_ADDRESS__
         // AddressSanitizer does not know about coroutine stacks: clear the redzones
-        // their frames left, or a later mapping at the same address looks overflowed
+        // their frames left, or the next process on this stack looks overflowed
         ASAN_UNPOISON_MEMORY_REGION(process->share_stack->real_ptr, process->share_stack->real_sz);
 #endif
-        aco_share_stack_destroy(process->share_stack);
+        stack_release(process->share_stack, process->stack_size);
+        process->share_stack = NULL;
     }
     links_clear(&process->links);
     free_link_list(process->linked);

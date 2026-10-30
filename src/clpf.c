@@ -96,6 +96,7 @@ static void clpf_destroy(void) {
         n = next;
     }
 
+    stack_pool_drain();
     timers_destroy();
     idle_destroy(&clpf.main_idle);
 }
