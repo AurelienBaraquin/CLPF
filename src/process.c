@@ -28,6 +28,7 @@ int process_init(Process *process, Funcall_t *taskcall, const SpawnOptions *opti
     process->state = PROCESS_INIT;
     process->priority = priority;
     atomic_store_explicit(&process->runs, 0, memory_order_relaxed);
+    process->group_count = 0;
 
     process->schedule_count = priority == PROCESS_PRIORITY_LOW ? LOW_PRIORITY_SKIPS : 0;
     process->reductions = REDUCTION_BUDGET;
