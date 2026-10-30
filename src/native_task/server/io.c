@@ -36,6 +36,11 @@ static S_IO server_io_compute_message(Message *msg) {
         return S_IO_SUCCESS;
     }
 
+    if (MSG_IS(msg, MAKE_STR_TAG("server::io::log"))) {
+        write_all(STDERR_FILENO, msg->payload, msg->size);
+        return S_IO_SUCCESS;
+    }
+
     // Asked to stop: everything printed before is already written, mailboxes being FIFO
     if (msg->tag.kind == TAG_KIND_EXIT && ((ExitInfo *)msg->payload)->reason != EXIT_REASON_NORMAL) {
         return S_IO_STOP;

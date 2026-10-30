@@ -49,6 +49,7 @@ static int clpf_init(void) {
     mpscq_init(&clpf.message_queue);
     idle_init(&clpf.main_idle);
     timers_init();
+    clpf_log_init();
     return 0;
 }
 
