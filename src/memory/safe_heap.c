@@ -173,3 +173,12 @@ void *safe_heap_realloc(safe_heap_t *safe_heap, void *ptr, size_t size) {
 
     return new_ptr;
 }
+
+size_t safe_heap_size(safe_heap_t *safe_heap) {
+    size_t total = 0;
+    spinlock_lock(&safe_heap->lock);
+    safe_heap_pool_t *pool;
+    SLIST_FOREACH(pool, &safe_heap->pools, next) total += pool->size;
+    spinlock_unlock(&safe_heap->lock);
+    return total;
+}

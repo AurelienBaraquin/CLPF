@@ -43,9 +43,9 @@ typedef struct process_s {
     // Guards pid against concurrent senders while the slot is created or destroyed.
     // Initialized once with the process table, never re-initialized.
     pthread_mutex_t lock;
-    Pid pid;                  // INVALID_PID while the slot is free
-    unsigned long generation; // Incremented each time the slot is reused, kept across reuses
-    Pid scheduler_pid;
+    Pid pid;                   // INVALID_PID while the slot is free
+    unsigned long generation;  // Incremented each time the slot is reused, kept across reuses
+    _Atomic Pid scheduler_pid; // Changes when the process migrates
 
     ProcessName name;            // Label given at spawn, for logs only
     ProcessName registered_name; // Name in the registry, empty if none (guarded by clpf.table_lock)
@@ -57,12 +57,13 @@ typedef struct process_s {
     size_t mailbox_limit; // Messages that may wait in the mailbox (0: no limit)
     atomic_size_t queued; // Messages waiting: incremented by deliveries under lock, decremented by the owner
 
-    process_state state;
+    _Atomic process_state state; // Written by its scheduler, read by PROCESS_INFO
     process_priority priority;
 
     // Remaining skips before a low priority process is scheduled (always 0 for other priorities)
     unsigned short schedule_count;
-    int reductions; // Left before the next forced yield (owner only)
+    int reductions;        // Left before the next forced yield (owner only)
+    _Atomic uint64_t runs; // Times it was resumed (relaxed: statistics only)
 
     Funcall_t taskcall;
 

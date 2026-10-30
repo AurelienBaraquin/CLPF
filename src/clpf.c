@@ -132,6 +132,7 @@ int clpf_main(Task entry_point, int argc, char *argv[]) {
 
     if (clpf_init() != 0)
         return 1;
+    clpf_dump_signal_init();
     stack_guard_install();
 
     int cpus = nb_cpu();

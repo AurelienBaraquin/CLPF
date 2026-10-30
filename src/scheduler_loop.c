@@ -37,6 +37,7 @@ process_state execute_process(Scheduler *scheduler, Process *process) {
     }
 
     process->state = PROCESS_RUNNING;
+    atomic_fetch_add_explicit(&process->runs, 1, memory_order_relaxed);
     assert(process->acoro);
     assert(process->acoro->is_end == 0);
     stack_guard_set_running(process);
