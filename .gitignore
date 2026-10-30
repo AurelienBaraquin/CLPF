@@ -54,3 +54,6 @@ Mkfile.old
 dkms.conf
 
 .vscode/
+
+# MkDocs output
+site/
