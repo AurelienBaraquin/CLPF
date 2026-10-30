@@ -36,7 +36,8 @@ behaviour in depth.
 | `api/timer.h` | `SEND_AFTER`, `CANCEL_TIMER`, `RECEIVE_TIMEOUT`, `SLEEP` |
 | `api/supervisor.h` | `SPAWN_SUPERVISOR`, `SUP_ADD_CHILD*`, `SUP_REMOVE_CHILD` |
 | `api/memory.h` | `ALLOC`, `FREE` |
-| `api/io.h` | `PRINT`, `FORMAT`, `GETLINE` |
+| `api/io.h` | `PRINT`, `FORMAT`, `GETLINE`, `IO_WAIT*`, `IO_WATCH`, `IO_UNWATCH` |
+| `api/log.h` | `LOG_DEBUG`, `LOG_INFO`, `LOG_WARN`, `LOG_ERROR`, `clpf_set_log_level` |
 
 ## Tasks and lifetime
 
@@ -129,6 +130,7 @@ Mailboxes are FIFO per sender.
 | `MAKE_NOTIFY_TAG(s)` | Notification (see `NOTIFY`) |
 | `MAKE_DOWN_TAG(pid)` | DOWN of `pid` (see monitors) |
 | `MAKE_EXIT_TAG(pid)` | Trapped exit of `pid` (see links) |
+| `MAKE_FD_TAG(fd)` | `fd` became ready (see `IO_WATCH`) |
 | `MAKE_RANGE_TAG(min, max)` | Pattern for `TM_IN_RANGE` (32-bit bounds) |
 | `MAKE_TAG_KIND(kind)` | Pattern for `TM_KIND` |
 | `NO_TAG` | Pattern matching any message with `TM_SAME` |
@@ -218,7 +220,7 @@ the supervisor stops its children and exits with `EXIT_REASON_ERROR`.
 
 ## Memory and I/O
 
-`api/memory.h`, `api/io.h`
+`api/memory.h`, `api/io.h`, `api/log.h`
 
 | Macro | Meaning |
 |---|---|
@@ -226,6 +228,12 @@ the supervisor stops its children and exits with `EXIT_REASON_ERROR`.
 | `PRINT(fmt, ...)` | Formatted output through the I/O server: lines from different processes never interleave |
 | `FORMAT(fmt, ...)` | Formatted string allocated with `ALLOC` (`FREE` it) |
 | `GETLINE()` | A line of stdin with its newline (`FREE` it), or `NULL` at the end of input; blocks only the caller |
+| `IO_WAIT(fd, events)` | Waits until `fd` is ready for `IO_READ` and/or `IO_WRITE`; the ready flags (may include `IO_ERROR`, `IO_HANGUP`), or `-1`; blocks only the caller |
+| `IO_WAIT_TIMEOUT(fd, events, ms)` | The same, `0` after `ms` |
+| `IO_WATCH(fd, events)` | One message `MAKE_FD_TAG(fd)` with an `int` of ready flags when `fd` is ready; `0` or `-1` (bad fd, regular file, watched by another process) |
+| `IO_UNWATCH(fd)` | `0`, or `-1` if no watch is pending |
+| `LOG_DEBUG(fmt, ...)` ... `LOG_ERROR` | One line on stderr, `time LEVEL name<pid>: message`, through the I/O server; dropped below the current level |
+| `clpf_set_log_level(level)`, `clpf_log_level()` | `LOG_LEVEL_DEBUG` ... `LOG_LEVEL_NONE`; starts from `CLPF_LOG_LEVEL`, `info` by default |
 
 ## Scheduling
 

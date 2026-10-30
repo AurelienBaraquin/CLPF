@@ -77,14 +77,14 @@ programs.
 - **Supervision:** `ONE_FOR_ONE`, `ONE_FOR_ALL`, `REST_FOR_ONE`;
   permanent, transient and temporary children; restart intensity.
 - **Services:** name registry, one-shot and periodic timers, ordered output (`PRINT`), non-blocking
-  stdin (`GETLINE`).
+  stdin (`GETLINE`), sockets and pipes (`IO_WAIT`, `IO_WATCH`), leveled logs.
 - **Runtime:** M:N work-stealing schedulers, reduction-based preemption, no
   CPU used when idle, clean shutdown with an exit code.
 
 ## Status
 
 **Experimental, feature-complete for its scope.** Everything above works and
-is covered by 40 tests. The CI runs them in Debug and Release, and under
+is covered by 42 tests. The CI runs them in Debug and Release, and under
 AddressSanitizer and ThreadSanitizer.
 
 Limits:

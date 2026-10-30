@@ -265,7 +265,7 @@ Supervisors wait up to `SUP_SHUTDOWN_TIMEOUT_MS` (5 s) before killing it.
 | `pthread_join` | `MONITOR` + receive the DOWN |
 | A thread crash kills the program | The process ends; its supervisor restarts it |
 | Global configuration | A registered server, or read-only `malloc` memory |
-| Blocking `read`/`accept` in a thread | A dedicated OS thread feeding a process with `clpf_send(NULL, ...)` |
+| Blocking `read`/`accept` in a thread | A non-blocking fd and `IO_WAIT` in a process per connection |
 
 The biggest change is the design, not the code: give each piece of state
 exactly one owner process, and make everything else ask it.

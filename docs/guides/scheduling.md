@@ -85,4 +85,4 @@ Tips:
   struct.
 - Receive what arrives. A mailbox full of messages nobody matches makes every
   receive slower.
-- Blocking system calls block a whole scheduler: see [I/O](io.md#other-io).
+- Blocking system calls block a whole scheduler: see [I/O](io.md#sockets-pipes-and-other-file-descriptors).

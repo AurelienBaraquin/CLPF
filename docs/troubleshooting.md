@@ -34,8 +34,11 @@ in long loops (see [scheduling](guides/scheduling.md)).
 
 A blocking system call (`read`, `accept`, `recv`, `sleep`...) blocks the
 scheduler thread, not only the process. Use `SLEEP`, `GETLINE` and
-`RECEIVE_TIMEOUT`, which are process-aware. For other I/O, run it in a
-dedicated thread that sends results with `clpf_send(NULL, ...)`.
+`RECEIVE_TIMEOUT`, which are process-aware. Put sockets and pipes in
+non-blocking mode and wait for them with
+[`IO_WAIT`](guides/io.md#sockets-pipes-and-other-file-descriptors). For
+blocking work without a file descriptor, use a dedicated thread that sends
+results with `clpf_send(NULL, ...)`.
 
 ### `REQUEST` never returns
 
