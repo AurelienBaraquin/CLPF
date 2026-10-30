@@ -69,6 +69,7 @@ typedef struct process_s {
     bool exit_notified;       // Guarded by lock: monitors were already sent DOWN, new ones get NOPROC
     links_t *linked;          // Guarded by lock: bidirectional links (see LINK)
     bool trap_exit;           // Guarded by lock: exit signals arrive as EXIT messages
+    int64_t awaited_reply;    // Guarded by lock: the Ref REQUEST_REF waits for (0: none), other replies are dropped
     bool system;              // See SpawnOptions, set at creation
     bool entry;               // See SpawnOptions, set at creation
     unsigned int exit_reason; // Guarded by lock, set once exit_notified

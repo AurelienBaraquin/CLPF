@@ -40,6 +40,7 @@ clpf_add_test(test_supervisor_strategies)
 clpf_add_test(test_io_server)
 clpf_add_test(test_work_stealing)
 clpf_add_test(test_out_of_memory)
+clpf_add_test(test_refs)
 
 # Exit code and complete output of a program whose entry task fails
 clpf_add_test_program(test_shutdown)

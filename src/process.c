@@ -68,6 +68,7 @@ int process_init(Process *process, Funcall_t *taskcall, const SpawnOptions *opti
     process->exit_notified = false;
     process->linked = NULL;
     process->trap_exit = false;
+    process->awaited_reply = 0;
     process->system = options->system;
     process->entry = options->entry;
     process->exit_reason = 0;
