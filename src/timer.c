@@ -12,6 +12,7 @@ typedef struct {
     Tag tag;    // a string tag points to a copy owned by the timer
     void *data; // owned copy
     size_t size;
+    uint64_t interval_ms; // fires again every interval_ms until cancelled (0: once)
 } Timer;
 
 // Min-heap ordered by deadline, then id
@@ -114,10 +115,11 @@ static TimerId insert(Timer *timer, uint64_t delay_ms) {
     return id;
 }
 
-TimerId timer_add(Pid from, Pid to, uint64_t delay_ms, const void *data, size_t size, Tag tag) {
+// A timer holding copies of data and of the tag string, or NULL if out of memory
+static Timer *timer_new(Pid from, Pid to, const void *data, size_t size, Tag tag) {
     Timer *timer = calloc(1, sizeof(Timer));
     if (!timer)
-        return 0;
+        return NULL;
 
     timer->from = from;
     timer->to = to;
@@ -126,19 +128,34 @@ TimerId timer_add(Pid from, Pid to, uint64_t delay_ms, const void *data, size_t 
         timer->tag.str_value = strdup(tag.str_value);
         if (!timer->tag.str_value) {
             free(timer);
-            return 0;
+            return NULL;
         }
     }
     if (data && size > 0) {
         timer->data = malloc(size);
         if (!timer->data) {
             timer_free(timer);
-            return 0;
+            return NULL;
         }
         memcpy(timer->data, data, size);
         timer->size = size;
     }
-    return insert(timer, delay_ms);
+    return timer;
+}
+
+TimerId timer_add(Pid from, Pid to, uint64_t delay_ms, const void *data, size_t size, Tag tag) {
+    Timer *timer = timer_new(from, to, data, size, tag);
+    return timer ? insert(timer, delay_ms) : 0;
+}
+
+TimerId timer_add_interval(Pid from, Pid to, uint64_t interval_ms, const void *data, size_t size, Tag tag) {
+    if (interval_ms == 0)
+        return 0;
+    Timer *timer = timer_new(from, to, data, size, tag);
+    if (!timer)
+        return 0;
+    timer->interval_ms = interval_ms;
+    return insert(timer, interval_ms);
 }
 
 TimerId timer_add_timeout(Pid pid, uint64_t delay_ms) {
@@ -174,8 +191,18 @@ uint64_t timers_fire_due(void) {
     pthread_mutex_lock(&timers.lock);
     while (timers.count > 0 && timers.heap[0]->deadline <= now) {
         Timer *timer = remove_at(0);
-        clpf_deliver(timer->from, timer->to, timer->data, timer->size, timer->tag);
-        timer_free(timer);
+        bool delivered = clpf_deliver(timer->from, timer->to, timer->data, timer->size, timer->tag) == 0;
+
+        // A periodic timer goes back in the heap (whose slot it just left), unless its target is gone
+        if (timer->interval_ms > 0 && delivered) {
+            timer->deadline += timer->interval_ms;
+            if (timer->deadline <= now) // late: skip the missed ticks instead of firing a burst
+                timer->deadline = now + timer->interval_ms;
+            timers.heap[timers.count] = timer;
+            sift_up(timers.count++);
+        } else {
+            timer_free(timer);
+        }
     }
     uint64_t next = timers.count > 0 ? timers.heap[0]->deadline : 0;
     pthread_mutex_unlock(&timers.lock);

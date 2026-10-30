@@ -12,6 +12,8 @@ void timers_destroy(void);
 
 // Copies data and the tag string; returns the timer id, or 0 if out of memory
 TimerId timer_add(Pid from, Pid to, uint64_t delay_ms, const void *data, size_t size, Tag tag);
+// Fires every interval_ms (> 0, otherwise returns 0) until cancelled or until `to` is gone
+TimerId timer_add_interval(Pid from, Pid to, uint64_t interval_ms, const void *data, size_t size, Tag tag);
 // A timer whose message is MAKE_TIMEOUT_TAG(id), empty, sent to pid itself
 TimerId timer_add_timeout(Pid pid, uint64_t delay_ms);
 // Returns 0, or -1 if the timer already fired or was cancelled.
