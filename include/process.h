@@ -8,6 +8,7 @@
 #include <utils/funcall.h>
 #include <libaco/aco.h>
 #include <mailbox.h>
+#include <pthread.h>
 
 #define NAME_MAX_LENGTH 64
 

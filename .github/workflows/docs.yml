@@ -1,0 +1,49 @@
+name: Docs
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build the site and check its examples
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Build the library
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCLPF_BUILD_TESTS=OFF -DCLPF_BUILD_EXAMPLES=OFF
+          cmake --build build -j --target clpf
+      - name: Compile and run the examples of the documentation
+        run: python3 scripts/check_doc_examples.py build README.md docs/*.md docs/guides/*.md
+      # MkDocs 2 drops the plugin and theme system Material relies on
+      - name: Build the site
+        run: |
+          pip install "mkdocs<2" mkdocs-material==9.7.7
+          mkdocs build --strict
+      - name: Keep the site for deployment
+        if: github.event_name == 'push'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    name: Publish to GitHub Pages
+    if: github.event_name == 'push'
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

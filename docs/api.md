@@ -18,7 +18,25 @@ Headers live under `include/api/`; once installed, they are under
 - [Supervisors](#supervisors)
 - [Memory and I/O](#memory-and-io)
 - [Scheduling](#scheduling)
+- [Outside a process](#outside-a-process)
+- [Constants](#constants)
 - [Build options and limits](#build-options-and-limits)
+
+Each section is a summary; the [guides](guides/processes.md) explain the
+behaviour in depth.
+
+| Header | Contents |
+|---|---|
+| `api/base.h` | `TASK`, `EXIT_*`, `YIELD`, `REDUCE`, `CLPF_ENTRY`, exit reasons |
+| `api/task.h` | `SPAWN*` (includes `base.h` and `message.h`) |
+| `api/message.h` | `SEND`, `RECEIVE*`, `FETCH*`, `REQUEST`, matchers, `NOTIFY` |
+| `api/monitor.h` | `MONITOR`, `DEMONITOR`, `DownInfo` |
+| `api/link.h` | `LINK`, `TRAP_EXIT`, `KILL`, `SEND_EXIT`, `SPAWN_LINK`, `ExitInfo` |
+| `api/registry.h` | `REGISTER`, `WHEREIS`, `UNREGISTER` |
+| `api/timer.h` | `SEND_AFTER`, `CANCEL_TIMER`, `RECEIVE_TIMEOUT`, `SLEEP` |
+| `api/supervisor.h` | `SPAWN_SUPERVISOR`, `SUP_ADD_CHILD*`, `SUP_REMOVE_CHILD` |
+| `api/memory.h` | `ALLOC`, `FREE` |
+| `api/io.h` | `PRINT`, `FORMAT`, `GETLINE` |
 
 ## Tasks and lifetime
 
@@ -214,6 +232,33 @@ Scheduling is cooperative: a process gives the CPU away in runtime calls
 computation should call `REDUCE` regularly. Idle schedulers take ready
 processes from busy ones.
 
+## Outside a process
+
+These functions take no `self` and are safe from any thread, including
+threads you create yourself:
+
+| Function | Meaning |
+|---|---|
+| `int clpf_main(Task entry, int argc, char *argv[])` | Runs the runtime with `entry` as entry process; returns the exit code. `CLPF_ENTRY` calls it |
+| `int clpf_send(NULL, Pid pid, void *data, size_t size, Tag tag)` | Sends a message from outside any process; the receiver sees `sender_pid == INVALID_PID` |
+| `Pid clpf_whereis(const char *name)` | `WHEREIS` |
+
+A thread of your own that blocks on I/O can feed a process this way.
+
+## Constants
+
+| Constant | Value | Meaning |
+|---|---|---|
+| `INVALID_PID` | `-1` | No process |
+| `MAX_PROCESSES` | 65 536 | Live processes at once |
+| `MAX_SCHEDULERS` | 64 | Scheduler threads at most |
+| `NAME_MAX_LENGTH` | 64 | Labels and registered names, terminating NUL included |
+| `CLPF_DEFAULT_STACK_SIZE` | 16 KiB | Default process stack (build-time option) |
+| `REDUCTION_BUDGET` | 2000 | Reductions between two forced yields |
+| `REDUCTIONS_SEND`, `REDUCTIONS_FETCH` | 10, 1 | Cost of `SEND` and `FETCH` |
+| `LOW_PRIORITY_SKIPS` | 7 | A low priority process runs one pass in 8 |
+| `SUP_SHUTDOWN_TIMEOUT_MS` | 5000 | Time a child trapping exits gets to stop |
+
 ## Build options and limits
 
 CMake options: `CMAKE_BUILD_TYPE` (default `Debug`), `CLPF_SANITIZE=address|thread`,
@@ -221,8 +266,8 @@ CMake options: `CMAKE_BUILD_TYPE` (default `Debug`), `CLPF_SANITIZE=address|thre
 `CLPF_BUILD_EXAMPLES`, and `-DCLPF_DEFAULT_STACK_SIZE=...` in `CMAKE_C_FLAGS`.
 
 Using the installed library: `find_package(clpf)` and link `clpf::clpf`, or
-`pkg-config --cflags --libs clpf`. The API needs GNU C (GCC or Clang): the
-macros use statement expressions.
+`pkg-config --cflags --libs clpf`. The API needs GCC or Clang: the macros
+use GNU C statement expressions (`-std=gnu11` recommended).
 
 Limits: x86-64 Linux only (libaco's context switch and `funcall.S` are
 x86-64 assembly); up to 65 536 live processes; a process name is at most 63

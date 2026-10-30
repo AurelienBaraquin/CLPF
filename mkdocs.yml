@@ -1,0 +1,63 @@
+site_name: CLPF
+site_description: Erlang-style lightweight processes, message passing and supervision for C
+site_url: https://aurelienbaraquin.github.io/CLPF/
+repo_url: https://github.com/AurelienBaraquin/CLPF
+repo_name: AurelienBaraquin/CLPF
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - content.code.copy
+    - search.highlight
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/weather-night
+        name: Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/weather-sunny
+        name: Light mode
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - tables
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - Concepts: concepts.md
+  - Guides:
+      - Processes: guides/processes.md
+      - Messages: guides/messages.md
+      - Monitors, links and failures: guides/failures.md
+      - Supervision: guides/supervision.md
+      - Timers: guides/timers.md
+      - Registry: guides/registry.md
+      - Input and output: guides/io.md
+      - Memory: guides/memory.md
+      - Scheduling and performance: guides/scheduling.md
+  - Patterns: patterns.md
+  - API reference: api.md
+  - Architecture: architecture.md
+  - Building and contributing: building.md
+  - Troubleshooting and FAQ: troubleshooting.md
+
+# Broken links and anchors fail `mkdocs build --strict`
+validation:
+  omitted_files: warn
+  absolute_links: warn
+  unrecognized_links: warn
+  anchors: warn
