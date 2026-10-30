@@ -41,7 +41,9 @@ TASK0(busy) {
         YIELD();
 }
 
+// Waits for "go" so that the test monitors it before it ends
 TASK0(kill_myself) {
+    MSG_FREE(RECEIVE(MAKE_STR_TAG("go")));
     KILL(self->pid);
     EXIT_NORMAL(); // never reached
 }
@@ -88,6 +90,7 @@ TASK(entry, int argc, char *argv[]) {
 
     Pid suicidal = SPAWN0(kill_myself);
     MONITOR(suicidal);
+    SEND(suicidal, NULL, 0, MAKE_STR_TAG("go"));
     TEST_ASSERT(down_reason(self, suicidal) == EXIT_REASON_KILLED);
 
     // An abnormal exit travels along a link...
