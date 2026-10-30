@@ -17,10 +17,11 @@ SUP_ST DEF(sup_handler_spawn, Message *msg, supervisor_t *sup) {
     Pid child_pid = INVALID_PID;
     SupChildSpec *spec = (SupChildSpec *)msg->payload;
 
-    if (msg->size != sizeof(SupChildSpec) || spec->magic != MAGIC_SUP_CHILD) {
+    if (msg->size < sizeof(SupChildSpec) || spec->magic != MAGIC_SUP_CHILD ||
+        msg->size != sizeof(SupChildSpec) + spec->arg_block_size) {
         fprintf(stderr, "[SUPERVISOR] Invalid child spec\n");
     } else {
-        SupChildSlot *child = CALL(sup_child_list_insert, &sup->sup_childs, spec);
+        SupChildSlot *child = CALL(sup_child_list_insert, &sup->sup_childs, spec, spec + 1);
         if (child) {
             if (!CALL(sup_start_child, child)) {
                 fprintf(stderr, "[SUPERVISOR] Failed to spawn child process\n");

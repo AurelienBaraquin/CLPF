@@ -30,11 +30,26 @@ bool clpf_match_kind(const Message *msg, Tag pattern);     // same TagKind (use 
 #define FETCH_IF(match, pattern) clpf_fetch(self, match, pattern)
 
 // Copies size bytes of data into the receiver's heap: pointers inside the
-// payload are meaningless to the receiver. Returns 0, or -1 if pid is gone.
+// payload are meaningless to the receiver. Returns 0, -1 if pid is gone, or
+// SEND_FULL if its mailbox already holds its mailbox_limit messages.
 #define SEND(pid, data, size, tag) clpf_send(self, pid, data, size, tag)
 
 // Sends, then waits for the reply carrying the same tag (NULL if pid is gone)
 #define REQUEST(pid, data, size, tag) clpf_request(self, pid, data, size, tag)
+
+// REQUEST that gives up after timeout_ms (CLPF_INFINITY: never) and returns NULL
+#define REQUEST_TIMEOUT(pid, data, size, tag, timeout_ms) clpf_request_timeout(self, pid, data, size, tag, timeout_ms)
+
+// A value unique for the whole run of the program, never 0
+#define MAKE_REF() clpf_make_ref()
+
+// Sends a request tagged with a fresh Ref and waits up to timeout_ms (CLPF_INFINITY:
+// forever) for the answer the server sends with REPLY. NULL if pid is gone or on
+// timeout; a reply arriving after that is dropped.
+#define REQUEST_REF(pid, data, size, timeout_ms) clpf_request_ref(self, pid, data, size, timeout_ms)
+
+// Answers a received request: works for REQUEST_REF and for REQUEST (same tag)
+#define REPLY(msg, data, size) clpf_reply(self, msg, data, size)
 
 #define MSG_IS(msg, tag) clpf_match_same(msg, tag)
 

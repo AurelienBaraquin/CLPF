@@ -39,8 +39,9 @@ dedicated thread that sends results with `clpf_send(NULL, ...)`.
 
 ### `REQUEST` never returns
 
-The server never replied with the **same tag**, or it died. Reply with
-`msg->tag`. If the server may die, see
+The server never replied with the **same tag**, or it died. Answer with
+`REPLY(msg, ...)`, and prefer `REQUEST_REF(pid, data, size, timeout_ms)`,
+which bounds the wait. If the server may die, see
 [calling a server that may die](patterns.md#calling-a-server-that-may-die).
 
 ### A pid I stored stopped working after a restart
@@ -127,6 +128,5 @@ Between one sender and one receiver, yes. Between different senders, no.
 - x86-64 Linux only: libaco's context switch and the argument trampoline are
   x86-64 assembly.
 - Preemption only happens in runtime calls and `REDUCE`.
-- No timeout on `REQUEST` (use `RECEIVE_IF_TIMEOUT`).
 - A process name is at most 63 characters.
 - Experimental: the API may still change.

@@ -39,3 +39,18 @@ Qualité et outillage
 - [x] Référence de l'API + dossier examples/
 - [x] Tests manquants : registre, GETLINE, ratio LOW, NOTIFY, OOM
 - [x] Commentaires mélangeant français et anglais
+
+Nouvelles fonctionnalités
+- [x] Références uniques, REQUEST_REF / REPLY, REQUEST_TIMEOUT
+- [ ] I/O asynchrones (epoll) : IO_WAIT, IO_WATCH
+- [ ] Groupes de process : GROUP_JOIN / GROUP_SEND
+- [ ] Introspection : PROCESS_INFO, PROCESS_LIST, dump sur SIGUSR1
+- [x] Enfants de superviseur avec toutes les options de spawn (SUP_ADD_CHILD_OPTS)
+- [x] Timers périodiques (SEND_INTERVAL)
+- [x] Limite de mailbox (SEND_FULL)
+- [ ] Logger (LOG_DEBUG ... LOG_ERROR, CLPF_LOG_LEVEL)
+- [ ] Watchdog des process qui ne rendent pas la main
+- [ ] Binaires partagés à compteur de références (BIN_ALLOC / SEND_BIN)
+- [ ] Tables partagées à la ETS
+- [ ] Benchmarks
+- [ ] Distribution réseau (non prévu)

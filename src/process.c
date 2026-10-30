@@ -46,6 +46,8 @@ int process_init(Process *process, Funcall_t *taskcall, const SpawnOptions *opti
     process->acoro = NULL;
     process->share_stack = NULL;
     process->stack_size = options->stack_size ? options->stack_size : CLPF_DEFAULT_STACK_SIZE;
+    process->mailbox_limit = options->mailbox_limit;
+    atomic_store(&process->queued, 0);
 
     if (safe_heap_create(&process->heap, MINIMAL_HEAP_POOL_SIZE) != 0)
         return -1;
@@ -68,6 +70,7 @@ int process_init(Process *process, Funcall_t *taskcall, const SpawnOptions *opti
     process->exit_notified = false;
     process->linked = NULL;
     process->trap_exit = false;
+    process->awaited_reply = 0;
     process->system = options->system;
     process->entry = options->entry;
     process->exit_reason = 0;

@@ -1,7 +1,8 @@
 #include <native_task/supervisor.h>
 #include <api/memory.h>
+#include <string.h>
 
-SupChildSlot *DEF(sup_child_list_insert, SupChildList *list, SupChildSpec *child) {
+SupChildSlot *DEF(sup_child_list_insert, SupChildList *list, SupChildSpec *child, const void *arg_block) {
     if (!list || !child)
         return NULL;
 
@@ -12,6 +13,15 @@ SupChildSlot *DEF(sup_child_list_insert, SupChildList *list, SupChildSpec *child
     }
     new_child->pid = INVALID_PID;
     new_child->spec = *child;
+    new_child->arg_block = NULL;
+    if (child->arg_block_size > 0) {
+        new_child->arg_block = ALLOC(child->arg_block_size);
+        if (!new_child->arg_block) {
+            FREE(new_child);
+            return NULL;
+        }
+        memcpy(new_child->arg_block, arg_block, child->arg_block_size);
+    }
     TAILQ_INSERT_TAIL(list, new_child, entry);
 
     return new_child;
@@ -19,6 +29,7 @@ SupChildSlot *DEF(sup_child_list_insert, SupChildList *list, SupChildSpec *child
 
 void DEF(sup_child_list_remove, SupChildList *list, SupChildSlot *child) {
     TAILQ_REMOVE(list, child, entry);
+    FREE(child->arg_block);
     FREE(child);
 }
 

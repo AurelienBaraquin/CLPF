@@ -8,6 +8,11 @@
 #define SEND_AFTER(target, delay_ms, data, size, tag) timer_add(self->pid, target, delay_ms, data, size, tag)
 
 // Returns 0, or -1 if the timer already fired (its message was sent) or was cancelled
+// Sends a copy of the message to target every interval_ms (> 0), until CANCEL_TIMER or
+// until target is gone. Ticks missed while the machine was overloaded are skipped.
+#define SEND_INTERVAL(target, interval_ms, data, size, tag) \
+    timer_add_interval(self->pid, target, interval_ms, data, size, tag)
+
 #define CANCEL_TIMER(id) timer_cancel(id)
 
 // RECEIVE that gives up after timeout_ms and returns NULL (0 only polls, like FETCH)

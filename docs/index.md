@@ -52,10 +52,10 @@ sequence of steps instead of a tangle of callbacks.
 | Area | Features |
 |---|---|
 | Processes | `SPAWN` with arguments or a copied data block, priorities, configurable stacks with overflow reports |
-| Messages | `SEND`, selective `RECEIVE` by tag or matcher, `REQUEST`/reply, notifications, timeouts |
+| Messages | `SEND`, selective `RECEIVE` by tag or matcher, `REQUEST_REF`/`REPLY` with unique references, notifications, timeouts, mailbox limits |
 | Failures | `MONITOR` (DOWN messages), `LINK`, `TRAP_EXIT`, `KILL` |
 | Supervision | `ONE_FOR_ONE`, `ONE_FOR_ALL`, `REST_FOR_ONE`, permanent/transient/temporary children, restart intensity |
-| Services | Name registry, timers, ordered output (`PRINT`), non-blocking stdin (`GETLINE`) |
+| Services | Name registry, one-shot and periodic timers, ordered output (`PRINT`), non-blocking stdin (`GETLINE`) |
 | Runtime | Work-stealing schedulers, reduction-based preemption, sleeping when idle, clean shutdown with an exit code |
 | Quality | Tested in Debug and Release, and under AddressSanitizer and ThreadSanitizer, in CI |
 

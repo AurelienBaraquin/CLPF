@@ -8,7 +8,16 @@ static Message *take_matching(Process *self, MessageMatch match, Tag pattern) {
     mailbox_transfer_inbox_to_seen(&self->mailbox);
     pthread_mutex_unlock(&self->lock);
 
-    return mailbox_take_matching(&self->mailbox, match, pattern);
+    Message *msg = mailbox_take_matching(&self->mailbox, match, pattern);
+    if (msg)
+        atomic_fetch_sub(&self->queued, 1);
+    return msg;
+}
+
+// What the runtime sends always gets in, even into a full mailbox
+static bool from_runtime(Pid from, Tag tag) {
+    return from == INVALID_PID || tag.kind == TAG_KIND_DOWN || tag.kind == TAG_KIND_EXIT ||
+           tag.kind == TAG_KIND_TIMEOUT || tag.kind == TAG_KIND_REPLY;
 }
 
 Message *clpf_receive(Process *self, MessageMatch match, Tag pattern) {
@@ -23,6 +32,9 @@ Message *clpf_receive(Process *self, MessageMatch match, Tag pattern) {
 }
 
 Message *clpf_receive_timeout(Process *self, MessageMatch match, Tag pattern, uint64_t timeout_ms) {
+    if (timeout_ms == CLPF_INFINITY)
+        return clpf_receive(self, match, pattern);
+
     Message *msg = take_matching(self, match, pattern);
     if (msg || timeout_ms == 0)
         return msg;
@@ -70,9 +82,23 @@ int clpf_deliver(Pid from, Pid pid, void *data, size_t size, Tag tag) {
     if (!other_process)
         return -1;
 
+    // The answer to a REQUEST_REF that already gave up is dropped, not left in the mailbox
+    if (tag.kind == TAG_KIND_REPLY && other_process->awaited_reply != tag.int_value) {
+        process_unlock(other_process);
+        return 0;
+    }
+
+    if (other_process->mailbox_limit > 0 && atomic_load(&other_process->queued) >= other_process->mailbox_limit &&
+        !from_runtime(from, tag)) {
+        process_unlock(other_process);
+        return SEND_FULL;
+    }
+
     int delivered = mailbox_send_message(&other_process->mailbox, &other_process->heap, data, size, from, tag);
-    if (delivered == 0)
+    if (delivered == 0) {
+        atomic_fetch_add(&other_process->queued, 1);
         process_notify_locked(other_process);
+    }
     process_unlock(other_process);
     if (delivered != 0) {
         fprintf(stderr, "Failed to deliver a message to process %ld\n", pid);
@@ -89,9 +115,42 @@ int clpf_send(Process *self, Pid pid, void *data, size_t size, Tag tag) {
 }
 
 Message *clpf_request(Process *self, Pid pid, void *data, size_t size, Tag tag) {
+    return clpf_request_timeout(self, pid, data, size, tag, CLPF_INFINITY);
+}
+
+Message *clpf_request_timeout(Process *self, Pid pid, void *data, size_t size, Tag tag, uint64_t timeout_ms) {
     if (clpf_send(self, pid, data, size, tag) != 0)
         return NULL;
-    return clpf_receive(self, TM_SAME, tag);
+    return clpf_receive_timeout(self, TM_SAME, tag, timeout_ms);
+}
+
+static _Atomic Ref last_ref;
+
+Ref clpf_make_ref(void) {
+    return atomic_fetch_add(&last_ref, 1) + 1;
+}
+
+static void await_reply(Process *self, Ref ref) {
+    pthread_mutex_lock(&self->lock);
+    self->awaited_reply = (int64_t)ref;
+    pthread_mutex_unlock(&self->lock);
+}
+
+Message *clpf_request_ref(Process *self, Pid pid, void *data, size_t size, uint64_t timeout_ms) {
+    Ref ref = clpf_make_ref();
+
+    // Expect the reply before sending: it may come back before SEND returns
+    await_reply(self, ref);
+    Message *reply = NULL;
+    if (clpf_send(self, pid, data, size, MAKE_REF_TAG(ref)) == 0)
+        reply = clpf_receive_timeout(self, TM_SAME, MAKE_REPLY_TAG(ref), timeout_ms);
+    await_reply(self, 0);
+    return reply;
+}
+
+int clpf_reply(Process *self, const Message *msg, void *data, size_t size) {
+    Tag tag = msg->tag.kind == TAG_KIND_REF ? MAKE_REPLY_TAG(msg->tag.int_value) : msg->tag;
+    return clpf_send(self, msg->sender_pid, data, size, tag);
 }
 
 void clpf_msg_free(Process *self, Message *msg) {
@@ -112,7 +171,9 @@ bool clpf_match_same(const Message *msg, Tag pattern) {
         case TAG_KIND_INTEGER:
         case TAG_KIND_DOWN:
         case TAG_KIND_EXIT:
-        case TAG_KIND_TIMEOUT: return msg->tag.int_value == pattern.int_value;
+        case TAG_KIND_TIMEOUT:
+        case TAG_KIND_REF:
+        case TAG_KIND_REPLY: return msg->tag.int_value == pattern.int_value;
         case TAG_KIND_STRING:
         case TAG_KIND_NOTIFY: return strcmp(msg->tag.str_value, pattern.str_value) == 0;
         case TAG_KIND_INTERNAL: return msg->tag.internal_code == pattern.internal_code;

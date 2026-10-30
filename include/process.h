@@ -54,6 +54,8 @@ typedef struct process_s {
     aco_t *acoro;
     aco_share_stack_t *share_stack;
     size_t stack_size;
+    size_t mailbox_limit; // Messages that may wait in the mailbox (0: no limit)
+    atomic_size_t queued; // Messages waiting: incremented by deliveries under lock, decremented by the owner
 
     process_state state;
     process_priority priority;
@@ -69,6 +71,7 @@ typedef struct process_s {
     bool exit_notified;       // Guarded by lock: monitors were already sent DOWN, new ones get NOPROC
     links_t *linked;          // Guarded by lock: bidirectional links (see LINK)
     bool trap_exit;           // Guarded by lock: exit signals arrive as EXIT messages
+    int64_t awaited_reply;    // Guarded by lock: the Ref REQUEST_REF waits for (0: none), other replies are dropped
     bool system;              // See SpawnOptions, set at creation
     bool entry;               // See SpawnOptions, set at creation
     unsigned int exit_reason; // Guarded by lock, set once exit_notified
@@ -91,11 +94,12 @@ typedef struct {
     bool monitor;              // the spawner monitors the new process from its very start
     const void *arg_block;     // copied into the new process heap and passed as its argument
     size_t arg_block_size;
-    size_t stack_size; // CLPF_DEFAULT_STACK_SIZE by default
-    bool link;         // links the spawner and the new process before it can run
-    int scheduler;     // 1 + index of the scheduler to start on; 0 picks the least loaded
-    bool system;       // runtime-internal: survives until the user processes are gone
-    bool entry;        // runtime-internal: its end shuts the runtime down
+    size_t stack_size;    // CLPF_DEFAULT_STACK_SIZE by default
+    bool link;            // links the spawner and the new process before it can run
+    size_t mailbox_limit; // SEND fails with SEND_FULL once this many messages wait (0: no limit)
+    int scheduler;        // 1 + index of the scheduler to start on; 0 picks the least loaded
+    bool system;          // runtime-internal: survives until the user processes are gone
+    bool entry;           // runtime-internal: its end shuts the runtime down
 } SpawnOptions;
 
 int process_init(Process *process, Funcall_t *taskcall, const SpawnOptions *options, Pid pid, Pid parent_pid);

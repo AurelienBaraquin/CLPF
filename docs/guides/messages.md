@@ -15,7 +15,9 @@ with:
 - `0`: the message is in the mailbox;
 - `-1`: the receiver does not exist (anymore), or its heap cannot hold the
   message. Sending to a dead process is not an error for the runtime: in an
-  actor system, processes come and go.
+  actor system, processes come and go;
+- `SEND_FULL` (`-2`): the receiver was spawned with a `mailbox_limit`, and that
+  many messages already wait in its mailbox (see [backpressure](#backpressure)).
 
 `data` may be `NULL` with `size` 0: the tag alone carries the information.
 
@@ -166,9 +168,55 @@ static bool from_pid(const Message *msg, Tag pattern) {
 
 ## Request and reply
 
+### With a unique reference (recommended)
+
+`REQUEST_REF(pid, data, size, timeout_ms)` tags the request with a fresh
+**reference**, unique for the whole run, and waits for the answer the server
+sends with `REPLY(msg, data, size)`. It returns the reply, or `NULL` if `pid`
+is gone or the timeout expired (`CLPF_INFINITY` waits for ever).
+
+- Two requests in flight can never take each other's replies.
+- A reply arriving after the caller gave up is **dropped**, so it does not
+  pile up in the mailbox.
+
+```c
+#include <api/task.h>
+#include <api/message.h>
+#include <api/io.h>
+
+// Doubles numbers; the server does not need to know how it was called
+TASK0(doubler) {
+    while (1) {
+        Message *msg = RECEIVE(NO_TAG);
+        int result = *(int *)msg->payload * 2;
+        REPLY(msg, &result, sizeof result);
+        MSG_FREE(msg);
+    }
+}
+
+TASK(entry, int argc, char *argv[]) {
+    Pid server = SPAWN0(doubler);
+    int value = 21;
+    Message *reply = REQUEST_REF(server, &value, sizeof value, 1000 /* ms */);
+    if (reply)
+        PRINT("%d\n", *(int *)reply->payload); // 42
+    else
+        PRINT("no answer within a second\n");
+    MSG_FREE(reply);
+}
+
+CLPF_ENTRY(entry)
+```
+
+`MAKE_REF()` gives you such a reference for your own protocols, and
+`MAKE_REF_TAG(ref)` turns it into a tag.
+
+### With a tag
+
 `REQUEST(pid, data, size, tag)` sends a message, then waits for the reply
-**carrying the same tag**, and returns it (or `NULL` if `pid` is gone). The
-server side replies to `msg->sender_pid` with `msg->tag`:
+**carrying the same tag**, and returns it (or `NULL` if `pid` is gone).
+`REQUEST_TIMEOUT(pid, data, size, tag, ms)` gives up after `ms`. The server
+answers with `REPLY(msg, ...)`, or with `SEND(msg->sender_pid, ..., msg->tag)`:
 
 ```c
 // client
@@ -178,17 +226,32 @@ MSG_FREE(reply);
 
 // server
 Message *msg = RECEIVE(NO_TAG);
-SEND(msg->sender_pid, &total, sizeof total, msg->tag);
+REPLY(msg, &total, sizeof total);
 MSG_FREE(msg);
 ```
 
-When a client may have several requests in flight to the same server, give
-each request its own tag, for instance `MAKE_INT_TAG(request_id)`, so that
-replies cannot be confused.
+Two requests with the same tag in flight can take each other's replies, and
+a late reply to a `REQUEST_TIMEOUT` stays in the mailbox. Prefer
+`REQUEST_REF` unless the protocol needs readable tags.
 
-!!! note "No timeout"
-    `REQUEST` waits for ever. If the server may die, monitor it and wait with
-    `RECEIVE_IF_TIMEOUT`, or for its DOWN message (see [patterns](../patterns.md#calling-a-server-that-may-die)).
+!!! note "Servers that may die"
+    A timeout bounds the wait, but a dead server is only noticed at the
+    timeout. To react at once, monitor it and wait for the reply or its DOWN
+    (see [patterns](../patterns.md#calling-a-server-that-may-die)).
+
+## Backpressure
+
+A process spawned with `SpawnOptions.mailbox_limit = n` accepts at most `n`
+waiting messages: past that, `SEND` returns `SEND_FULL` and the message is not
+queued. The sender decides what to do: drop it, retry later, slow down.
+Messages from the runtime (DOWN, EXIT, timeouts, `REPLY`s, messages sent from
+outside processes) always get in, so a full mailbox never hides a failure.
+
+```c
+Pid consumer = SPAWN_OPTS(slow_consumer, .mailbox_limit = 100);
+if (SEND(consumer, &item, sizeof item, MAKE_STR_TAG("item")) == SEND_FULL)
+    SLEEP(10); // let it catch up
+```
 
 ## Notifications
 
