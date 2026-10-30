@@ -73,6 +73,8 @@ programs.
   per-process stack size with overflow reports, up to 65 536 at once.
 - **Messages:** `SEND`, selective `RECEIVE` by tag or matcher, `REQUEST_REF`/`REPLY`
   with unique references, notifications, timeouts, mailbox limits.
+- **Shared data:** process groups, reference-counted binaries sent without a
+  copy, shared key-value tables.
 - **Failure handling:** `MONITOR` (DOWN messages), `LINK`, `TRAP_EXIT`, `KILL`.
 - **Supervision:** `ONE_FOR_ONE`, `ONE_FOR_ALL`, `REST_FOR_ONE`;
   permanent, transient and temporary children; restart intensity.
@@ -86,7 +88,7 @@ programs.
 ## Status
 
 **Experimental, feature-complete for its scope.** Everything above works and
-is covered by 45 tests. The CI runs them in Debug and Release, and under
+is covered by 48 tests. The CI runs them in Debug and Release, and under
 AddressSanitizer and ThreadSanitizer.
 
 Limits:

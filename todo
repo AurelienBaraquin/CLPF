@@ -43,15 +43,15 @@ Qualité et outillage
 Nouvelles fonctionnalités
 - [x] Références uniques, REQUEST_REF / REPLY, REQUEST_TIMEOUT
 - [x] I/O asynchrones (epoll) : IO_WAIT, IO_WATCH
-- [ ] Groupes de process : GROUP_JOIN / GROUP_SEND
+- [x] Groupes de process : GROUP_JOIN / GROUP_SEND
 - [x] Introspection : PROCESS_INFO, PROCESS_LIST, dump sur SIGUSR1
 - [x] Enfants de superviseur avec toutes les options de spawn (SUP_ADD_CHILD_OPTS)
 - [x] Timers périodiques (SEND_INTERVAL)
 - [x] Limite de mailbox (SEND_FULL)
 - [x] Logger (LOG_DEBUG ... LOG_ERROR, CLPF_LOG_LEVEL)
 - [x] Watchdog des process qui ne rendent pas la main
-- [ ] Binaires partagés à compteur de références (BIN_ALLOC / SEND_BIN)
-- [ ] Tables partagées à la ETS
+- [x] Binaires partagés à compteur de références (BIN_ALLOC / SEND_BIN)
+- [x] Tables partagées à la ETS
 - [x] Benchmarks
 - [ ] Distribution réseau (non prévu)
 - [ ] Pool de piles et de tas : spawn et fin de process coûtent ~60 µs (mmap/munmap, flush TLB à la mort en masse, voir docs/benchmarks.md)

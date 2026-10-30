@@ -188,6 +188,33 @@ from a cancelled or replaced watch is ignored. When an fd fires, the thread
 removes it from epoll and sends `MAKE_FD_TAG(fd)` to the watcher. The main
 thread drops the watches of a process when it destroys it.
 
+## Groups, binaries and tables
+
+`src/clpf_api/group.c`, `src/bin.c`, `src/clpf_api/bin.c`, `src/clpf_api/table.c`
+
+**Groups** are arrays of pids under one lock. `GROUP_SEND` copies the members
+and sends outside the lock, since sending takes the receivers' locks.
+
+A **binary** is a `malloc` block with a header: a magic number, an atomic
+reference count and the size. Each process keeps, under its slot lock, a
+list of the references it holds. A binary message is allocated in the
+receiver's heap as the header, the list node, then the tag string; its
+payload points into the binary. Delivery takes the reference and links the
+node; `MSG_FREE` unlinks it and releases the reference. `process_destroy`
+releases the whole list before the heap goes, which covers queued messages
+and received ones never freed.
+
+A **table** is a chained hash map behind a `pthread_rwlock_t`. A directory
+of slots, under its own lock, maps a `TableId` (`generation << 32 | index + 1`)
+to the table. An operation takes the table lock before it releases the
+directory lock, and a deletion first removes the table from the directory,
+then takes the write lock: it waits for the operations in progress, and no
+new one can start.
+
+The main thread drops a dead process's fd watches, group memberships and
+tables before destroying it; per-process counters skip the work for
+processes that had none.
+
 ## Shutdown
 
 When the entry process ends, the main thread:

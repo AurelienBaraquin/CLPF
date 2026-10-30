@@ -37,6 +37,9 @@ behaviour in depth.
 | `api/supervisor.h` | `SPAWN_SUPERVISOR`, `SUP_ADD_CHILD*`, `SUP_REMOVE_CHILD` |
 | `api/memory.h` | `ALLOC`, `FREE` |
 | `api/io.h` | `PRINT`, `FORMAT`, `GETLINE`, `IO_WAIT*`, `IO_WATCH`, `IO_UNWATCH` |
+| `api/group.h` | `GROUP_JOIN`, `GROUP_LEAVE`, `GROUP_MEMBERS`, `GROUP_SEND` |
+| `api/bin.h` | `BIN_ALLOC`, `SEND_BIN`, `BIN_FREE`, `BIN_SIZE`, `BIN_REFS` |
+| `api/table.h` | `TABLE_NEW`, `TABLE_FIND`, `TABLE_PUT`, `TABLE_GET`, `TABLE_DELETE`, `TABLE_COUNT`, `TABLE_DROP` |
 | `api/introspection.h` | `PROCESS_INFO`, `PROCESS_LIST`, `clpf_dump`, `ProcessInfo` |
 | `api/log.h` | `LOG_DEBUG`, `LOG_INFO`, `LOG_WARN`, `LOG_ERROR`, `clpf_set_log_level` |
 
@@ -195,6 +198,25 @@ The I/O server is registered as `server::io`.
 | `CANCEL_TIMER(id)` | 0, or -1 if it already fired or was cancelled |
 | `RECEIVE_TIMEOUT(tag, ms)`, `RECEIVE_IF_TIMEOUT(matcher, pattern, ms)` | `RECEIVE` returning `NULL` after `ms` (0 only polls) |
 | `SLEEP(ms)` | Waits without blocking the scheduler |
+
+## Groups and shared data
+
+See [groups and shared data](guides/shared-data.md).
+
+| Macro | Meaning |
+|---|---|
+| `GROUP_JOIN(name)`, `GROUP_LEAVE(name)` | `0` or `-1`; a process leaves its groups when it ends |
+| `GROUP_MEMBERS(name, buffer, max)` | Up to `max` members in join order; returns how many there are |
+| `GROUP_SEND(name, data, size, tag)` | A copy to every member; returns how many got it |
+| `BIN_ALLOC(size)` | A shared binary, or `NULL`; the caller holds a reference |
+| `SEND_BIN(pid, data, tag)` | Sends the binary without a copy; `MSG_FREE` releases the receiver's reference |
+| `BIN_FREE(data)` | Releases the caller's `BIN_ALLOC` reference: `0` or `-1` |
+| `BIN_SIZE(data)`, `BIN_REFS(data)` | Size and current references |
+| `TABLE_NEW(name)`, `TABLE_FIND(name)` | A `TableId`, or `0` |
+| `TABLE_PUT(id, key, data, size)`, `TABLE_DELETE(id, key)` | `0` or `-1` |
+| `TABLE_GET(id, key, size_out)` | A copy in the caller's heap (`FREE` it), or `NULL` |
+| `TABLE_COUNT(id)` | Keys, or `-1` |
+| `TABLE_DROP(id)` | Owner only: `0` or `-1`; a table is also deleted with its owner |
 
 ## Supervisors
 
