@@ -17,6 +17,7 @@ typedef enum {
     TAG_KIND_EXIT,    // int_value is the pid whose exit signal was trapped (see TRAP_EXIT)
     TAG_KIND_REF,     // int_value is a Ref: a request made with REQUEST_REF
     TAG_KIND_REPLY,   // int_value is a Ref: the answer to a REQUEST_REF (see REPLY)
+    TAG_KIND_FD,      // int_value is a file descriptor that became ready (see IO_WATCH)
 } TagKind;
 
 #define MAKE_INTERNAL_TAG(code) ((Tag){.kind = TAG_KIND_INTERNAL, .internal_code = (code)})
@@ -31,6 +32,7 @@ typedef enum {
 #define MAKE_TIMEOUT_TAG(id) ((Tag){.kind = TAG_KIND_TIMEOUT, .int_value = (int64_t)(id)})
 #define MAKE_REF_TAG(ref)    ((Tag){.kind = TAG_KIND_REF, .int_value = (int64_t)(ref)})
 #define MAKE_REPLY_TAG(ref)  ((Tag){.kind = TAG_KIND_REPLY, .int_value = (int64_t)(ref)})
+#define MAKE_FD_TAG(fd)      ((Tag){.kind = TAG_KIND_FD, .int_value = (fd)})
 #define MAKE_TAG_KIND(k)     ((Tag){.kind = (k)})
 
 #define NO_TAG ((Tag){.kind = TAG_KIND_NONE})

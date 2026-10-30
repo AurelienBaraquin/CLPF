@@ -75,3 +75,27 @@ char *clpf_getline(Process *self) {
     MSG_FREE(reply);
     return line;
 }
+
+int clpf_io_watch(Process *self, int fd, int events) {
+    return io_poller_watch(self->pid, fd, events);
+}
+
+int clpf_io_unwatch(Process *self, int fd) {
+    return io_poller_unwatch(self->pid, fd);
+}
+
+int clpf_io_wait_timeout(Process *self, int fd, int events, uint64_t timeout_ms) {
+    if (io_poller_watch(self->pid, fd, events) != 0)
+        return -1;
+
+    Message *ready = clpf_receive_timeout(self, TM_SAME, MAKE_FD_TAG(fd), timeout_ms);
+    if (!ready) {
+        if (io_poller_unwatch(self->pid, fd) == 0)
+            return 0;
+        // It fired as the wait ended: its message is on the way
+        ready = RECEIVE(MAKE_FD_TAG(fd));
+    }
+    int flags = *(int *)ready->payload;
+    MSG_FREE(ready);
+    return flags;
+}
