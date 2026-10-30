@@ -82,6 +82,7 @@ typedef struct process_s {
     unsigned int kill_reason;
 
     Mailbox mailbox;
+    BinHold *bin_holds; // Guarded by lock: shared binaries it holds (see SEND_BIN)
 
     struct process_s *next;   // For the scheduler's private run queues
     MPSCQNode shared_node;    // For the scheduler's shared run queues

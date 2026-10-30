@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <utils/pid.h>
 #include <memory/safe_heap.h>
+#include <bin.h>
 
 typedef enum {
     TAG_KIND_NONE,
@@ -54,6 +55,7 @@ typedef struct Message {
     void *payload; // NULL when size is 0
     size_t size;
     Pid sender_pid; // INVALID_PID when sent by the runtime
+    Bin *bin;       // The shared binary payload points into (see SEND_BIN), or NULL
     struct Message *next;
 } Message;
 
@@ -76,6 +78,11 @@ void mailbox_destroy(Mailbox *mailbox);
 // Copies data into dest_heap (the receiver's heap) and queues it, returns -1 if the allocation fails.
 // The caller holds the receiver's slot lock, as for mailbox_transfer_inbox_to_seen.
 int mailbox_send_message(Mailbox *dest, safe_heap_t *dest_heap, void *data, size_t size, Pid sender, Tag tag);
+// Queues a message whose payload is the binary itself, and takes a reference
+// to it, listed in holds (the receiver's). Same locking as above.
+int mailbox_send_bin(Mailbox *dest, safe_heap_t *dest_heap, BinHold **holds, Bin *bin, Pid sender, Tag tag);
+// The reference a binary message holds
+BinHold *mailbox_bin_hold(Message *msg);
 void mailbox_transfer_inbox_to_seen(Mailbox *mbox);
 // Unlinks and returns the oldest seen message matching pattern, or NULL (owner only)
 Message *mailbox_take_matching(Mailbox *mbox, MessageMatch match, Tag pattern);

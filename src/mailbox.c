@@ -25,6 +25,15 @@ static bool tag_has_string(Tag tag) {
     return tag.kind == TAG_KIND_STRING || tag.kind == TAG_KIND_NOTIFY;
 }
 
+static void enqueue(Mailbox *dest, Message *msg) {
+    msg->next = NULL;
+    if (dest->inbox_tail)
+        dest->inbox_tail->next = msg;
+    else
+        dest->inbox_head = msg;
+    dest->inbox_tail = msg;
+}
+
 int mailbox_send_message(Mailbox *dest, safe_heap_t *dest_heap, void *data, size_t size, Pid sender, Tag tag) {
     if (!data)
         size = 0;
@@ -47,14 +56,43 @@ int mailbox_send_message(Mailbox *dest, safe_heap_t *dest_heap, void *data, size
     }
 
     msg->sender_pid = sender;
-    msg->next = NULL;
+    msg->bin = NULL;
+    enqueue(dest, msg);
+    return 0;
+}
 
-    if (dest->inbox_tail)
-        dest->inbox_tail->next = msg;
-    else
-        dest->inbox_head = msg;
-    dest->inbox_tail = msg;
+// A binary message: the header, the reference it holds, then the tag string if any
+#define BIN_HOLD_SIZE ((sizeof(BinHold) + 15) & ~(size_t)15)
 
+BinHold *mailbox_bin_hold(Message *msg) {
+    return (BinHold *)((char *)msg + MESSAGE_HEADER_SIZE);
+}
+
+int mailbox_send_bin(Mailbox *dest, safe_heap_t *dest_heap, BinHold **holds, Bin *bin, Pid sender, Tag tag) {
+    size_t string_size = tag_has_string(tag) ? strlen(tag.str_value) + 1 : 0;
+
+    Message *msg = safe_heap_alloc(dest_heap, MESSAGE_HEADER_SIZE + BIN_HOLD_SIZE + string_size);
+    if (!msg)
+        return -1;
+
+    msg->payload = bin_data(bin);
+    msg->size = bin_size(bin);
+    msg->tag = tag;
+    if (string_size > 0) {
+        char *string = (char *)msg + MESSAGE_HEADER_SIZE + BIN_HOLD_SIZE;
+        memcpy(string, tag.str_value, string_size);
+        msg->tag.str_value = string;
+    }
+    msg->sender_pid = sender;
+    msg->bin = bin;
+
+    BinHold *hold = mailbox_bin_hold(msg);
+    hold->bin = bin;
+    hold->owned = false;
+    bin_retain(bin);
+    bin_hold_link(holds, hold);
+
+    enqueue(dest, msg);
     return 0;
 }
 

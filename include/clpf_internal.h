@@ -128,6 +128,8 @@ void clpf_sleep(Process *self, uint64_t ms);
 int clpf_send(Process *self, Pid pid, void *data, size_t size, Tag tag);
 // Delivers a message on behalf of `from` without yielding (usable from any thread)
 int clpf_deliver(Pid from, Pid pid, void *data, size_t size, Tag tag);
+// The same with a shared binary instead of a copy (see SEND_BIN)
+int clpf_deliver_bin(Pid from, Pid pid, Bin *bin, Tag tag);
 Message *clpf_request(Process *self, Pid pid, void *data, size_t size, Tag tag);
 Message *clpf_request_timeout(Process *self, Pid pid, void *data, size_t size, Tag tag, uint64_t timeout_ms);
 
