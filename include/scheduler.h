@@ -36,6 +36,10 @@ typedef struct scheduler_s {
     atomic_int ready_count;
 
     aco_t *scheduler_acoro;
+
+    // For the watchdog: when the current process was resumed (0: none runs), and which
+    _Atomic uint64_t running_since;
+    _Atomic Pid running_pid;
 } Scheduler;
 
 int scheduler_init(Scheduler *scheduler, Pid pid);
