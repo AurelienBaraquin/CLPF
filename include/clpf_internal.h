@@ -121,6 +121,9 @@ Message *clpf_fetch(Process *self, MessageMatch match, Tag pattern);
 // Like clpf_receive, but returns NULL once timeout_ms passed without a matching message
 Message *clpf_receive_timeout(Process *self, MessageMatch match, Tag pattern, uint64_t timeout_ms);
 void clpf_sleep(Process *self, uint64_t ms);
+// SEND result when the receiver's mailbox holds its mailbox_limit messages
+#define SEND_FULL (-2)
+
 // self may be NULL when the runtime itself sends
 int clpf_send(Process *self, Pid pid, void *data, size_t size, Tag tag);
 // Delivers a message on behalf of `from` without yielding (usable from any thread)

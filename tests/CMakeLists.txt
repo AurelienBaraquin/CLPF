@@ -42,6 +42,7 @@ clpf_add_test(test_work_stealing)
 clpf_add_test(test_out_of_memory)
 clpf_add_test(test_refs)
 clpf_add_test(test_send_interval)
+clpf_add_test(test_mailbox_limit)
 
 # Exit code and complete output of a program whose entry task fails
 clpf_add_test_program(test_shutdown)

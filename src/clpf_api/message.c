@@ -8,7 +8,16 @@ static Message *take_matching(Process *self, MessageMatch match, Tag pattern) {
     mailbox_transfer_inbox_to_seen(&self->mailbox);
     pthread_mutex_unlock(&self->lock);
 
-    return mailbox_take_matching(&self->mailbox, match, pattern);
+    Message *msg = mailbox_take_matching(&self->mailbox, match, pattern);
+    if (msg)
+        atomic_fetch_sub(&self->queued, 1);
+    return msg;
+}
+
+// What the runtime sends always gets in, even into a full mailbox
+static bool from_runtime(Pid from, Tag tag) {
+    return from == INVALID_PID || tag.kind == TAG_KIND_DOWN || tag.kind == TAG_KIND_EXIT ||
+           tag.kind == TAG_KIND_TIMEOUT || tag.kind == TAG_KIND_REPLY;
 }
 
 Message *clpf_receive(Process *self, MessageMatch match, Tag pattern) {
@@ -79,9 +88,17 @@ int clpf_deliver(Pid from, Pid pid, void *data, size_t size, Tag tag) {
         return 0;
     }
 
+    if (other_process->mailbox_limit > 0 && atomic_load(&other_process->queued) >= other_process->mailbox_limit &&
+        !from_runtime(from, tag)) {
+        process_unlock(other_process);
+        return SEND_FULL;
+    }
+
     int delivered = mailbox_send_message(&other_process->mailbox, &other_process->heap, data, size, from, tag);
-    if (delivered == 0)
+    if (delivered == 0) {
+        atomic_fetch_add(&other_process->queued, 1);
         process_notify_locked(other_process);
+    }
     process_unlock(other_process);
     if (delivered != 0) {
         fprintf(stderr, "Failed to deliver a message to process %ld\n", pid);

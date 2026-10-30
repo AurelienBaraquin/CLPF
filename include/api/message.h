@@ -30,7 +30,8 @@ bool clpf_match_kind(const Message *msg, Tag pattern);     // same TagKind (use 
 #define FETCH_IF(match, pattern) clpf_fetch(self, match, pattern)
 
 // Copies size bytes of data into the receiver's heap: pointers inside the
-// payload are meaningless to the receiver. Returns 0, or -1 if pid is gone.
+// payload are meaningless to the receiver. Returns 0, -1 if pid is gone, or
+// SEND_FULL if its mailbox already holds its mailbox_limit messages.
 #define SEND(pid, data, size, tag) clpf_send(self, pid, data, size, tag)
 
 // Sends, then waits for the reply carrying the same tag (NULL if pid is gone)
