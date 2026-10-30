@@ -49,9 +49,11 @@ nav:
       - Input and output: guides/io.md
       - Memory: guides/memory.md
       - Scheduling and performance: guides/scheduling.md
+      - Observability: guides/observability.md
   - Patterns: patterns.md
   - API reference: api.md
   - Architecture: architecture.md
+  - Benchmarks: benchmarks.md
   - Building and contributing: building.md
   - Troubleshooting and FAQ: troubleshooting.md
 

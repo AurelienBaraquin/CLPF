@@ -56,6 +56,7 @@ sequence of steps instead of a tangle of callbacks.
 | Failures | `MONITOR` (DOWN messages), `LINK`, `TRAP_EXIT`, `KILL` |
 | Supervision | `ONE_FOR_ONE`, `ONE_FOR_ALL`, `REST_FOR_ONE`, permanent/transient/temporary children, restart intensity |
 | Services | Name registry, one-shot and periodic timers, ordered output (`PRINT`), non-blocking stdin (`GETLINE`), sockets and pipes (`IO_WAIT`, `IO_WATCH`), leveled logs |
+| Observability | `PROCESS_INFO`, `PROCESS_LIST`, a dump on `SIGUSR1`, a watchdog for processes that never yield, [benchmarks](benchmarks.md) |
 | Runtime | Work-stealing schedulers, reduction-based preemption, sleeping when idle, clean shutdown with an exit code |
 | Quality | Tested in Debug and Release, and under AddressSanitizer and ThreadSanitizer, in CI |
 
@@ -67,6 +68,7 @@ sequence of steps instead of a tangle of callbacks.
 - **[Patterns](patterns.md):** servers, worker pools, pipelines, and moving from threads.
 - **[API reference](api.md):** every macro and type.
 - **[Architecture](architecture.md):** how the runtime works inside.
+- **[Benchmarks](benchmarks.md):** what processes and messages cost.
 - **[Troubleshooting and FAQ](troubleshooting.md):** the usual pitfalls.
 
 !!! warning "Status"

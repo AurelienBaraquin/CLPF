@@ -30,6 +30,13 @@ The scheduler is cooperative: a loop that never calls the runtime keeps its
 thread, and every process on that scheduler waits behind it. Call `REDUCE(n)`
 in long loops (see [scheduling](guides/scheduling.md)).
 
+### Finding the process that blocks everyone
+
+The [watchdog](guides/observability.md#the-watchdog) names a process that
+runs too long without yielding. To see every process at once, send
+`SIGUSR1` to the program: it writes a [dump](guides/observability.md#dumping-everything)
+to stderr, with each process's state and queued messages.
+
 ### Everything freezes during I/O
 
 A blocking system call (`read`, `accept`, `recv`, `sleep`...) blocks the
