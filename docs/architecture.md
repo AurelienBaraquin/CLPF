@@ -17,7 +17,8 @@ repository root.
             | core messages                      | messages     | steal requests
    +--------+-----------+                 +------+--------------v-------+
    | stdin reader thread |  ---------->   | process table (65 536 slots) |
-   +---------------------+   messages     +------------------------------+
+   | epoll poller thread |   messages     +------------------------------+
+   +---------------------+
 ```
 
 ## Processes and pids
@@ -163,11 +164,19 @@ timeout message.
 At startup the runtime spawns a **launcher**. The launcher starts the
 **system supervisor**, which keeps the **I/O server** (`server::io`) running,
 then spawns the entry process. `PRINT` sends formatted text to the I/O server,
-which writes it with `write()`, retrying short writes.
+which writes it with `write()`, retrying short writes. Log lines take the
+same path to stderr.
 
 `GETLINE` requests go to a dedicated **stdin thread** (`src/stdin_reader.c`),
 which blocks in `getline()` and answers with a message. Supervisors are
 ordinary processes (`src/native_task/supervisor/`).
+
+`IO_WAIT` and `IO_WATCH` register the fd with a dedicated **epoll thread**
+(`src/io_poller.c`), one-shot. A table indexed by fd records the watcher
+and a sequence number, which travels in the epoll event so that an event
+from a cancelled or replaced watch is ignored. When an fd fires, the thread
+removes it from epoll and sends `MAKE_FD_TAG(fd)` to the watcher. The main
+thread drops the watches of a process when it destroys it.
 
 ## Shutdown
 

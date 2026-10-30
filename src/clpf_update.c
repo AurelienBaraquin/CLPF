@@ -3,6 +3,7 @@
 #include <api/message.h>
 #include <stdlib.h>
 #include <string.h>
+#include <io_poller.h>
 
 void clpf_message_destroy(CoreMessage *msg) {
     if (msg) {
@@ -51,6 +52,7 @@ int clpf_main_update() {
                     link_remove_child(&parent->links, pid);
                     process_unlock(parent);
                 }
+                io_poller_forget(pid);
                 process_destroy(process);
                 clpf_slot_release(PID_INDEX(pid));
                 break;
