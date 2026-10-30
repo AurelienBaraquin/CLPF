@@ -97,6 +97,7 @@ static void clpf_destroy(void) {
     }
 
     stack_pool_drain();
+    safe_heap_drain_pools();
     timers_destroy();
     idle_destroy(&clpf.main_idle);
 }

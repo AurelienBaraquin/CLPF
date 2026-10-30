@@ -13,6 +13,7 @@
 #define BLOCKS_PER_THREAD 64
 #define ROUNDS            2000
 #define LARGE_STACK_SIZE  ((size_t)64 * 1024)
+#define LARGE_POOL_SIZE   ((size_t)64 * 1024)
 
 static int failures = 0;
 
@@ -164,10 +165,50 @@ static void test_stack_pool(void) {
     stack_pool_drain();
 }
 
+static void *first_pool_base(safe_heap_t *heap) {
+    safe_heap_pool_t *pool = SLIST_FIRST(&heap->pools);
+    return pool ? pool->base : NULL;
+}
+
+static void test_heap_pool(void) {
+    safe_heap_t heap;
+    CHECK(safe_heap_create(&heap, MINIMAL_HEAP_POOL_SIZE) == 0);
+    void *base = first_pool_base(&heap);
+    char *data = safe_heap_alloc(&heap, 1000);
+    CHECK(data != NULL);
+    if (data)
+        memset(data, 0x5A, 1000);
+    safe_heap_destroy(&heap);
+
+    // A new heap starts in the initial pool of the last destroyed one
+    CHECK(safe_heap_create(&heap, MINIMAL_HEAP_POOL_SIZE) == 0);
+    CHECK(first_pool_base(&heap) == base);
+    data = safe_heap_alloc(&heap, 1000);
+    CHECK(data != NULL);
+    CHECK(safe_heap_size(&heap) == MINIMAL_HEAP_POOL_SIZE);
+    safe_heap_free(&heap, data);
+
+    // Larger pools bypass the free list
+    CHECK(safe_heap_grow(&heap, LARGE_POOL_SIZE) == 0);
+    CHECK(safe_heap_size(&heap) == MINIMAL_HEAP_POOL_SIZE + LARGE_POOL_SIZE);
+    data = safe_heap_alloc(&heap, MINIMAL_HEAP_POOL_SIZE * 2);
+    CHECK(data != NULL);
+    safe_heap_free(&heap, data);
+    safe_heap_destroy(&heap);
+
+    // The pooled pools are unmapped, not leaked
+    safe_heap_drain_pools();
+    CHECK(safe_heap_create(&heap, MINIMAL_HEAP_POOL_SIZE) == 0);
+    CHECK(safe_heap_alloc(&heap, 1000) != NULL);
+    safe_heap_destroy(&heap);
+    safe_heap_drain_pools();
+}
+
 int main(void) {
     test_block_pool();
     test_block_pool_threads();
     test_stack_pool();
+    test_heap_pool();
 
     if (failures)
         fprintf(stderr, "%d check(s) failed\n", failures);

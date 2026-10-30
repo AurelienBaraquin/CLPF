@@ -1,4 +1,5 @@
 #include <memory/safe_heap.h>
+#include <memory/block_pool.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -17,6 +18,27 @@ static void *safe_mmap(size_t size) {
     return base;
 }
 
+static block_pool_t free_pools = BLOCK_POOL_INITIALIZER;
+
+// Pools of the minimal size, the initial pool of every process, come from a bounded free list
+static void *pool_map(size_t size) {
+    void *base = size == MINIMAL_HEAP_POOL_SIZE ? block_pool_take(&free_pools) : NULL;
+    return base ? base : safe_mmap(size);
+}
+
+static void unmap_minimal_pool(void *base) {
+    munmap(base, MINIMAL_HEAP_POOL_SIZE);
+}
+
+static void pool_unmap(void *base, size_t size) {
+    if (size != MINIMAL_HEAP_POOL_SIZE || !block_pool_put(&free_pools, base))
+        munmap(base, size);
+}
+
+void safe_heap_drain_pools(void) {
+    block_pool_drain(&free_pools, unmap_minimal_pool);
+}
+
 int safe_heap_create(safe_heap_t *safe_heap, size_t size) {
     if (!safe_heap) {
         fprintf(stderr, "safe_heap_create: null pointer\n");
@@ -29,13 +51,13 @@ int safe_heap_create(safe_heap_t *safe_heap, size_t size) {
     if (size < MINIMAL_HEAP_POOL_SIZE)
         size = MINIMAL_HEAP_POOL_SIZE;
 
-    void *base = safe_mmap(size);
+    void *base = pool_map(size);
     if (!base)
         return -1;
 
     tlsf_t tlsf = tlsf_create_with_pool(base, size);
     if (!tlsf) {
-        munmap(base, size);
+        pool_unmap(base, size);
         fprintf(stderr, "safe_heap_create: tlsf_create_with_pool failed\n");
         return -1;
     }
@@ -43,7 +65,7 @@ int safe_heap_create(safe_heap_t *safe_heap, size_t size) {
     safe_heap_pool_t *pool = calloc(1, sizeof(safe_heap_pool_t));
     if (!pool) {
         tlsf_destroy(tlsf);
-        munmap(base, size);
+        pool_unmap(base, size);
         fprintf(stderr, "safe_heap_create: pool malloc failed\n");
         return -1;
     }
@@ -73,7 +95,7 @@ void safe_heap_destroy(safe_heap_t *safe_heap) {
         SLIST_REMOVE_HEAD(&safe_heap->pools, next);
 
         if (pool->base && pool->size > 0)
-            munmap(pool->base, pool->size);
+            pool_unmap(pool->base, pool->size);
         else
             fprintf(stderr, "safe_heap_destroy: invalid pool detected\n");
 
@@ -101,7 +123,7 @@ int safe_heap_grow(safe_heap_t *safe_heap, size_t size) {
     if (size < MINIMAL_HEAP_POOL_SIZE)
         size = MINIMAL_HEAP_POOL_SIZE;
 
-    void *base = safe_mmap(size);
+    void *base = pool_map(size);
     if (!base)
         return -1;
 
@@ -109,7 +131,7 @@ int safe_heap_grow(safe_heap_t *safe_heap, size_t size) {
 
     void *ref = tlsf_add_pool(safe_heap->tlsf, base, size);
     if (!ref) {
-        munmap(base, size);
+        pool_unmap(base, size);
         spinlock_unlock(&safe_heap->lock);
         fprintf(stderr, "safe_heap_grow: tlsf_add_pool failed\n");
         return -1;
@@ -117,7 +139,7 @@ int safe_heap_grow(safe_heap_t *safe_heap, size_t size) {
 
     safe_heap_pool_t *pool = calloc(1, sizeof(safe_heap_pool_t));
     if (!pool) {
-        munmap(base, size);
+        pool_unmap(base, size);
         spinlock_unlock(&safe_heap->lock);
         fprintf(stderr, "safe_heap_grow: malloc failed\n");
         return -1;
