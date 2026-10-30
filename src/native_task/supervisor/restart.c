@@ -20,6 +20,10 @@ bool DEF(sup_start_child, SupChildSlot *child) {
     SpawnOptions options = {
         .name = child->spec.name,
         .priority = child->spec.priority,
+        .stack_size = child->spec.stack_size,
+        .mailbox_limit = child->spec.mailbox_limit,
+        .arg_block = child->arg_block,
+        .arg_block_size = child->spec.arg_block_size,
         .monitor = true, // the DOWN drives restarts
         .link = true,    // children die with their supervisor
         .system = self->system,

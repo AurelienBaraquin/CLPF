@@ -39,4 +39,12 @@ int clpf_sup_remove_child(Process *self, Pid sup, Pid child);
 #define SUP_ADD_CHILD0(sup, restart, func, name) \
     clpf_sup_add_child(self, name, sup, restart, PROCESS_PRIORITY_MEDIUM, func, 0)
 
+// Adds a child with any SpawnOptions: name, priority, stack_size, mailbox_limit, and an
+// argument block for a TASK_WITH task, copied by the supervisor and given to every restart.
+// The supervisor decides monitoring, linking and placement itself.
+#define SUP_ADD_CHILD_OPTS(sup, restart, func, ...) \
+    clpf_sup_add_child_opts(self, sup, restart, func, (SpawnOptions){__VA_ARGS__})
+
+Pid clpf_sup_add_child_opts(Process *self, Pid sup, RestartType restart, void (*func)(), SpawnOptions options);
+
 #define SUP_REMOVE_CHILD(sup, pid) clpf_sup_remove_child(self, sup, pid)

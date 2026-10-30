@@ -20,12 +20,16 @@ typedef enum sup_strat_e {
 
 #define MAGIC_SUP_CHILD 0xC5C1D4C1
 
+// Sent to the supervisor, followed by arg_block_size bytes of argument block
 typedef struct sup_child_spec_s {
     magic_number magic;
     ProcessName name;
     Funcall_t taskcall;
     process_priority priority;
     RestartType restart;
+    size_t stack_size;
+    size_t mailbox_limit;
+    size_t arg_block_size;
 } SupChildSpec;
 
 typedef enum supervisor_state_e {
@@ -37,6 +41,7 @@ typedef enum supervisor_state_e {
 typedef struct SupChildSlot {
     Pid pid; // INVALID_PID while stopped
     SupChildSpec spec;
+    void *arg_block; // copy kept in the supervisor heap, given to every start
 
     TAILQ_ENTRY(SupChildSlot) entry; // in start order
 } SupChildSlot;
@@ -58,7 +63,7 @@ typedef struct supervisor_s {
 
 TASK(clpf_supervisor, SUP_STRAT strategy, uint64_t period_ms, int max_restarts);
 
-SupChildSlot *DEF(sup_child_list_insert, SupChildList *list, SupChildSpec *child);
+SupChildSlot *DEF(sup_child_list_insert, SupChildList *list, SupChildSpec *child, const void *arg_block);
 void DEF(sup_child_list_remove, SupChildList *list, SupChildSlot *child);
 SupChildSlot *sup_child_find_by_pid(supervisor_t *sv, Pid pid);
 
