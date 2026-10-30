@@ -212,6 +212,7 @@ int clpf_main(Task entry_point, int argc, char *argv[]) {
         pthread_join(scheduler->system_thread_id, NULL);
     }
 
+    clpf_dump_signal_stop();
     clpf_destroy();
     return clpf.entry_exit_reason == EXIT_REASON_NORMAL ? 0 : 1;
 }

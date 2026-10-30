@@ -92,14 +92,20 @@ void clpf_dump(FILE *out) {
 }
 
 static sigset_t dump_signals;
+static pthread_t dump_thread_id;
+static bool dump_thread_started;
+static atomic_bool dump_stopping;
 
 // Waits for SIGUSR1 outside any signal handler, so the dump may take locks
 static void *dump_thread(void *arg) {
     (void)arg;
     while (1) {
         int signal = 0;
-        if (sigwait(&dump_signals, &signal) == 0)
-            clpf_dump(stderr);
+        if (sigwait(&dump_signals, &signal) != 0)
+            continue;
+        if (atomic_load(&dump_stopping))
+            break;
+        clpf_dump(stderr);
     }
     return NULL;
 }
@@ -111,7 +117,15 @@ void clpf_dump_signal_init(void) {
     if (pthread_sigmask(SIG_BLOCK, &dump_signals, NULL) != 0)
         return;
 
-    pthread_t thread;
-    if (pthread_create(&thread, NULL, dump_thread, NULL) == 0)
-        pthread_detach(thread);
+    dump_thread_started = pthread_create(&dump_thread_id, NULL, dump_thread, NULL) == 0;
+}
+
+void clpf_dump_signal_stop(void) {
+    if (!dump_thread_started)
+        return;
+    // A dump in progress reads the process table: it must end before the table is freed
+    atomic_store(&dump_stopping, true);
+    pthread_kill(dump_thread_id, SIGUSR1);
+    pthread_join(dump_thread_id, NULL);
+    dump_thread_started = false;
 }
