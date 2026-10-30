@@ -34,7 +34,7 @@ int clpf_process_info(Pid pid, ProcessInfo *info) {
         .heap_bytes = safe_heap_size(&process->heap),
         .runs = atomic_load_explicit(&process->runs, memory_order_relaxed),
         .links = link_count(process->linked),
-        .children = link_count(process->links.children),
+        .children = process->links.child_count,
         .monitored_by = link_count(process->monitor.monitored_by),
         .trap_exit = process->trap_exit,
         .system = process->system,
