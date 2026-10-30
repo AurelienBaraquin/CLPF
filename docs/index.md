@@ -54,6 +54,7 @@ sequence of steps instead of a tangle of callbacks.
 | Processes | `SPAWN` with arguments or a copied data block, priorities, configurable stacks with overflow reports |
 | Messages | `SEND`, selective `RECEIVE` by tag or matcher, `REQUEST_REF`/`REPLY` with unique references, notifications, timeouts, mailbox limits |
 | Failures | `MONITOR` (DOWN messages), `LINK`, `TRAP_EXIT`, `KILL` |
+| Shared data | Process groups (`GROUP_SEND`), shared binaries sent without a copy (`SEND_BIN`), shared key-value tables (`TABLE_*`) |
 | Supervision | `ONE_FOR_ONE`, `ONE_FOR_ALL`, `REST_FOR_ONE`, permanent/transient/temporary children, restart intensity |
 | Services | Name registry, one-shot and periodic timers, ordered output (`PRINT`), non-blocking stdin (`GETLINE`), sockets and pipes (`IO_WAIT`, `IO_WATCH`), leveled logs |
 | Observability | `PROCESS_INFO`, `PROCESS_LIST`, a dump on `SIGUSR1`, a watchdog for processes that never yield, [benchmarks](benchmarks.md) |

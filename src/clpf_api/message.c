@@ -76,7 +76,8 @@ Message *clpf_fetch(Process *self, MessageMatch match, Tag pattern) {
     return take_matching(self, match, pattern);
 }
 
-int clpf_deliver(Pid from, Pid pid, void *data, size_t size, Tag tag) {
+// bin: a shared binary to send instead of a copy of data
+static int deliver(Pid from, Pid pid, void *data, size_t size, Tag tag, Bin *bin) {
     // Sending to a process that no longer exists is not an error for the runtime
     Process *other_process = process_lock(pid);
     if (!other_process)
@@ -94,7 +95,9 @@ int clpf_deliver(Pid from, Pid pid, void *data, size_t size, Tag tag) {
         return SEND_FULL;
     }
 
-    int delivered = mailbox_send_message(&other_process->mailbox, &other_process->heap, data, size, from, tag);
+    int delivered =
+        bin ? mailbox_send_bin(&other_process->mailbox, &other_process->heap, &other_process->bin_holds, bin, from, tag)
+            : mailbox_send_message(&other_process->mailbox, &other_process->heap, data, size, from, tag);
     if (delivered == 0) {
         atomic_fetch_add(&other_process->queued, 1);
         process_notify_locked(other_process);
@@ -105,6 +108,14 @@ int clpf_deliver(Pid from, Pid pid, void *data, size_t size, Tag tag) {
         return -1;
     }
     return 0;
+}
+
+int clpf_deliver(Pid from, Pid pid, void *data, size_t size, Tag tag) {
+    return deliver(from, pid, data, size, tag, NULL);
+}
+
+int clpf_deliver_bin(Pid from, Pid pid, Bin *bin, Tag tag) {
+    return deliver(from, pid, NULL, 0, tag, bin);
 }
 
 int clpf_send(Process *self, Pid pid, void *data, size_t size, Tag tag) {
@@ -154,6 +165,13 @@ int clpf_reply(Process *self, const Message *msg, void *data, size_t size) {
 }
 
 void clpf_msg_free(Process *self, Message *msg) {
+    if (msg && msg->bin) {
+        // Senders link new references to the same list: unlink under the lock
+        pthread_mutex_lock(&self->lock);
+        bin_hold_unlink(&self->bin_holds, mailbox_bin_hold(msg));
+        pthread_mutex_unlock(&self->lock);
+        bin_release(msg->bin);
+    }
     safe_heap_free(&self->heap, msg);
 }
 

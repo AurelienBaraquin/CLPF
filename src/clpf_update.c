@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <io_poller.h>
+#include <groups.h>
+#include <tables.h>
 
 void clpf_message_destroy(CoreMessage *msg) {
     if (msg) {
@@ -53,6 +55,10 @@ int clpf_main_update() {
                     process_unlock(parent);
                 }
                 io_poller_forget(pid);
+                if (process->group_count > 0)
+                    groups_forget(pid);
+                if (process->table_count > 0)
+                    tables_forget(pid);
                 process_destroy(process);
                 clpf_slot_release(PID_INDEX(pid));
                 break;

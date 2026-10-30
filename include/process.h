@@ -72,6 +72,8 @@ typedef struct process_s {
     bool exit_notified;       // Guarded by lock: monitors were already sent DOWN, new ones get NOPROC
     links_t *linked;          // Guarded by lock: bidirectional links (see LINK)
     bool trap_exit;           // Guarded by lock: exit signals arrive as EXIT messages
+    int table_count;          // Tables it owns (owner only; read by the main thread once it ended)
+    int group_count;          // Groups joined (owner only; read by the main thread once it ended)
     int64_t awaited_reply;    // Guarded by lock: the Ref REQUEST_REF waits for (0: none), other replies are dropped
     bool system;              // See SpawnOptions, set at creation
     bool entry;               // See SpawnOptions, set at creation
@@ -81,6 +83,7 @@ typedef struct process_s {
     unsigned int kill_reason;
 
     Mailbox mailbox;
+    BinHold *bin_holds; // Guarded by lock: shared binaries it holds (see SEND_BIN)
 
     struct process_s *next;   // For the scheduler's private run queues
     MPSCQNode shared_node;    // For the scheduler's shared run queues
