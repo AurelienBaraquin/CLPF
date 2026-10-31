@@ -2,7 +2,7 @@
 #include <bin.h>
 
 void *clpf_bin_alloc(Process *self, size_t size) {
-    BinHold *hold = safe_heap_alloc(&self->heap, sizeof(BinHold));
+    BinHold *hold = clpf_alloc(self, sizeof(BinHold));
     Bin *bin = hold ? bin_new(size) : NULL;
     if (!bin) {
         safe_heap_free(&self->heap, hold);

@@ -1,4 +1,5 @@
 #include <api/message.h>
+#include <api/base.h>
 #include <timer.h>
 #include <stdio.h>
 #include <string.h>
@@ -118,8 +119,13 @@ Message *clpf_fetch(Process *self, MessageMatch match, Tag pattern) {
 // A waiting receiver only wakes for a message it may take, or one from the runtime
 // (timeouts, DOWN, exit signals...). The new message is the last of its inbox.
 static bool wakes_receiver(Process *receiver, Pid from, Tag tag) {
-    return !receiver->wait_match || from_runtime(from, tag) ||
-           receiver->wait_match(receiver->mailbox.inbox_tail, receiver->wait_pattern);
+    if (!receiver->wait_match || from_runtime(from, tag))
+        return true;
+    // The receiver's matcher runs here, under its lock: it must not yield
+    clpf_preemption_hold();
+    bool wanted = receiver->wait_match(receiver->mailbox.inbox_tail, receiver->wait_pattern);
+    clpf_preemption_release();
+    return wanted;
 }
 
 // bin: a shared binary to send instead of a copy of data
@@ -149,12 +155,13 @@ static int deliver(Pid from, Pid pid, void *data, size_t size, Tag tag, Bin *bin
         if (wakes_receiver(other_process, from, tag))
             process_notify_locked(other_process);
     }
-    process_unlock(other_process);
-    if (delivered != 0) {
+    // Past its heap limit, the receiver ends, as if it had allocated the message itself
+    if (delivered != 0 && safe_heap_over_limit(&other_process->heap))
+        process_exit_signal_locked(other_process, INVALID_PID, EXIT_REASON_HEAP_LIMIT, true);
+    else if (delivered != 0)
         fprintf(stderr, "Failed to deliver a message to process %ld\n", pid);
-        return -1;
-    }
-    return 0;
+    process_unlock(other_process);
+    return delivered == 0 ? 0 : -1;
 }
 
 int clpf_deliver(Pid from, Pid pid, void *data, size_t size, Tag tag) {

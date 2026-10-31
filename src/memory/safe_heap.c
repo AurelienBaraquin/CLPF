@@ -1,6 +1,7 @@
 #include <memory/safe_heap.h>
 #include <memory/block_pool.h>
 #include <memory/reaper.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -147,6 +148,13 @@ int safe_heap_grow(safe_heap_t *safe_heap, size_t size) {
     if (size < MINIMAL_HEAP_POOL_SIZE)
         size = MINIMAL_HEAP_POOL_SIZE;
 
+    if (safe_heap->max_size > 0 && safe_heap_size(safe_heap) + size > safe_heap->max_size) {
+        spinlock_lock(&safe_heap->lock);
+        safe_heap->over_limit = true;
+        spinlock_unlock(&safe_heap->lock);
+        return -1;
+    }
+
     void *base = pool_map(size);
     if (!base)
         return -1;
@@ -177,6 +185,13 @@ int safe_heap_grow(safe_heap_t *safe_heap, size_t size) {
     return 0;
 }
 
+// A pool where an allocation of size fits: TLSF keeps its own headers in the
+// pool, and looks for a free block in the size class above the request, up to
+// 1/32 larger (its 32 second-level classes)
+static size_t pool_size_for(size_t size) {
+    return ALIGN_UP(size + size / 32 + tlsf_pool_overhead() + tlsf_alloc_overhead(), 4096);
+}
+
 void *safe_heap_alloc(safe_heap_t *safe_heap, size_t size) {
     if (!safe_heap || !safe_heap->tlsf || size == 0)
         return NULL;
@@ -188,10 +203,8 @@ void *safe_heap_alloc(safe_heap_t *safe_heap, size_t size) {
     spinlock_unlock(&safe_heap->lock);
 
     if (!ptr) {
-        if (safe_heap_grow(safe_heap, size) != 0) {
-            fprintf(stderr, "safe_heap_alloc: failed to grow heap\n");
+        if (safe_heap_grow(safe_heap, pool_size_for(size)) != 0)
             return NULL;
-        }
 
         spinlock_lock(&safe_heap->lock);
         ptr = tlsf_malloc(safe_heap->tlsf, size);
@@ -227,4 +240,76 @@ size_t safe_heap_size(safe_heap_t *safe_heap) {
     SLIST_FOREACH(pool, &safe_heap->pools, next) total += pool->size;
     spinlock_unlock(&safe_heap->lock);
     return total;
+}
+
+bool safe_heap_over_limit(safe_heap_t *safe_heap) {
+    spinlock_lock(&safe_heap->lock);
+    bool over = safe_heap->over_limit;
+    spinlock_unlock(&safe_heap->lock);
+    return over;
+}
+
+static void note_used(void *ptr, size_t size, int used, void *user) {
+    (void)ptr;
+    (void)size;
+    if (used)
+        *(bool *)user = true;
+}
+
+#define PAGE_SIZE 4096
+// TLSF keeps the free-list links at the start of a free block and the next
+// block's back pointer at its end: only the pages strictly inside are unused
+#define FREE_BLOCK_MARGIN ((size_t)64)
+
+// Hands the unused pages inside a free block back to the system: they read as
+// zeros when touched again, and nothing lives there
+static void purge_free_block(void *ptr, size_t size, int used, void *user) {
+    (void)user;
+    if (used || size <= 2 * FREE_BLOCK_MARGIN)
+        return;
+    uintptr_t address = (uintptr_t)ptr;
+    uintptr_t start = ALIGN_UP(address + FREE_BLOCK_MARGIN, PAGE_SIZE);
+    uintptr_t end = (address + size - FREE_BLOCK_MARGIN) & ~(uintptr_t)(PAGE_SIZE - 1);
+    if (end > start)
+        madvise((char *)ptr + (start - address), end - start, MADV_DONTNEED);
+}
+
+size_t safe_heap_trim(safe_heap_t *safe_heap) {
+    SLIST_HEAD(, safe_heap_pool_s) released = SLIST_HEAD_INITIALIZER(released);
+
+    spinlock_lock(&safe_heap->lock);
+    safe_heap_pool_t *previous = NULL;
+    safe_heap_pool_t *pool = SLIST_FIRST(&safe_heap->pools);
+    while (pool) {
+        safe_heap_pool_t *next = SLIST_NEXT(pool, next);
+        bool used = false;
+        // The first pool holds the allocator itself: it stays
+        if (pool->base != (void *)safe_heap->tlsf)
+            tlsf_walk_pool(pool->base, note_used, &used);
+        if (pool->base == (void *)safe_heap->tlsf) {
+            tlsf_walk_pool(tlsf_get_pool(safe_heap->tlsf), purge_free_block, NULL);
+            previous = pool;
+        } else if (!used) {
+            tlsf_remove_pool(safe_heap->tlsf, pool->base);
+            if (previous)
+                SLIST_NEXT(previous, next) = next;
+            else
+                SLIST_FIRST(&safe_heap->pools) = next;
+            SLIST_INSERT_HEAD(&released, pool, next);
+        } else {
+            previous = pool;
+        }
+        pool = next;
+    }
+    spinlock_unlock(&safe_heap->lock);
+
+    size_t bytes = 0;
+    while (!SLIST_EMPTY(&released)) {
+        pool = SLIST_FIRST(&released);
+        SLIST_REMOVE_HEAD(&released, next);
+        bytes += pool->size;
+        pool_unmap(pool->base, pool->size);
+        free(pool);
+    }
+    return bytes;
 }

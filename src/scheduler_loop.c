@@ -21,6 +21,23 @@ void co_entrypoint() {
     exiting(proc, EXIT_REASON_NORMAL);
 }
 
+// The process's coroutine ended to hibernate: drop it and its stack, trim the
+// heap, and park the process until a message comes (any message)
+static process_state hibernate(Process *process) {
+    process->hibernating = false;
+    aco_destroy(process->acoro);
+    process->acoro = NULL;
+    process_release_stack(process);
+    safe_heap_trim(&process->heap);
+
+    pthread_mutex_lock(&process->lock);
+    bool ready = process->mailbox.inbox_head || process->mailbox.seen_head || atomic_load(&process->kill_pending);
+    process->wait_match = NULL;
+    process->state = ready ? PROCESS_READY : PROCESS_WAITING;
+    pthread_mutex_unlock(&process->lock);
+    return process->state;
+}
+
 process_state execute_process(Scheduler *scheduler, Process *process) {
     if (!process)
         return PROCESS_EXITING;
@@ -46,6 +63,9 @@ process_state execute_process(Scheduler *scheduler, Process *process) {
     aco_resume(process->acoro);
     watchdog_leave(scheduler);
     stack_guard_set_running(NULL);
+
+    if (UNLIKELY(process->hibernating))
+        return hibernate(process);
 
     return process->state;
 }

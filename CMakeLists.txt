@@ -41,6 +41,14 @@ target_compile_options(clpf PRIVATE -Wall -Wextra)
 target_compile_definitions(clpf PRIVATE _GNU_SOURCE $<$<BOOL:${CLPF_TRACE}>:CLPF_TRACE>)
 target_link_libraries(clpf PUBLIC clpf_tlsf clpf_aco clpf_stb_sprintf Threads::Threads)
 
+# Automatic reductions: consumers are built with -finstrument-functions, and
+# get the hooks that turn each of their function calls into a reduction
+add_library(clpf_auto_reduce STATIC auto_reduce/auto_reduce.c)
+add_library(clpf::auto_reduce ALIAS clpf_auto_reduce)
+target_compile_options(clpf_auto_reduce PRIVATE -Wall -Wextra INTERFACE -finstrument-functions)
+target_link_libraries(clpf_auto_reduce PUBLIC clpf)
+set_target_properties(clpf_auto_reduce PROPERTIES EXPORT_NAME auto_reduce)
+
 # Demo
 add_executable(clpf_demo main.c)
 target_compile_options(clpf_demo PRIVATE -Wall -Wextra)
@@ -48,7 +56,7 @@ target_link_libraries(clpf_demo clpf)
 
 # Install: libraries, headers under include/clpf (with the vendored headers they
 # expose), a CMake package (find_package(clpf), target clpf::clpf) and a pkg-config file
-install(TARGETS clpf clpf_tlsf clpf_aco clpf_stb_sprintf EXPORT clpfTargets
+install(TARGETS clpf clpf_auto_reduce clpf_tlsf clpf_aco clpf_stb_sprintf EXPORT clpfTargets
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/clpf)
 install(FILES external/tlsf/tlsf.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/clpf/tlsf)

@@ -1,5 +1,6 @@
 #include <api/table.h>
 #include <tables.h>
+#include <utils/hash_map.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -15,6 +16,7 @@ typedef struct Entry {
 
 typedef struct {
     char name[NAME_MAX_LENGTH];
+    size_t slot_index; // Its slot in the directory
     Pid owner;
     pthread_rwlock_t lock; // Guards everything below
     Entry **buckets;
@@ -30,8 +32,9 @@ typedef struct {
 } Slot;
 
 static pthread_mutex_t directory_lock = PTHREAD_MUTEX_INITIALIZER;
-static Slot *slots; // Guarded by directory_lock, as slot_count
+static Slot *slots; // Guarded by directory_lock, as slot_count and names
 static size_t slot_count;
+static HashMap *names; // name -> the live Table
 
 static uint64_t hash_key(const char *key) {
     uint64_t hash = 14695981039346656037ULL; // FNV-1a
@@ -50,11 +53,8 @@ static bool valid_name(const char *name) {
 
 // Index of the live table with that name, or -1
 static long find_index(const char *name) {
-    for (size_t i = 0; i < slot_count; ++i) {
-        if (slots[i].table && strcmp(slots[i].table->name, name) == 0)
-            return (long)i;
-    }
-    return -1;
+    const Table *table = names ? hash_map_get(names, name) : NULL;
+    return table ? (long)table->slot_index : -1;
 }
 
 static Slot *slot_of(TableId id) {
@@ -130,6 +130,7 @@ static Table *detach(Slot *slot) {
     Table *table = slot->table;
     slot->table = NULL;
     ++slot->generation;
+    hash_map_remove(names, table->name);
     pthread_rwlock_wrlock(&table->lock);
     pthread_rwlock_unlock(&table->lock);
     return table;
@@ -173,8 +174,11 @@ TableId clpf_table_new(Process *self, const char *name) {
     TableId id = 0;
     pthread_mutex_lock(&directory_lock);
     size_t index = 0;
-    Slot *slot = find_index(name) >= 0 ? NULL : free_slot(&index);
-    if (slot) {
+    if (!names)
+        names = hash_map_new();
+    Slot *slot = !names || find_index(name) >= 0 ? NULL : free_slot(&index);
+    if (slot && hash_map_put(names, name, table)) {
+        table->slot_index = index;
         slot->table = table;
         id = id_of(index);
         ++self->table_count;
@@ -264,7 +268,7 @@ void *clpf_table_get(Process *self, TableId id, const char *key, size_t *size_ou
         return NULL;
     Entry *entry = *find_entry(table, key, hash_key(key));
     // One byte at least, so that an empty value is not mistaken for a missing one
-    void *copy = entry ? safe_heap_alloc(&self->heap, entry->size ? entry->size : 1) : NULL;
+    void *copy = entry ? clpf_alloc(self, entry->size ? entry->size : 1) : NULL;
     if (copy) {
         memcpy(copy, entry->data, entry->size);
         if (size_out)

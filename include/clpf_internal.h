@@ -31,7 +31,7 @@ typedef struct {
     Scheduler scheduler_table[MAX_SCHEDULERS];
     int scheduler_count;
 
-    TrieNode *name_table;
+    NameTable *name_table;
 
     // Guards the free slot stack, the name table and every Process.registered_name:
     // processes are created and registered from any thread, and destroyed by the
@@ -70,6 +70,18 @@ void clpf_slot_cache_attach(SlotCache *cache);
 void clpf_wake_main(void);
 // Wakes the main thread and every scheduler, so they notice exit_in_progress
 void clpf_wake_all(void);
+// The runtime runs program code (RECEIVE_IF matchers) under locks it must not
+// yield with: automatic reductions (see clpf::auto_reduce) wait meanwhile
+void clpf_preemption_hold(void);
+void clpf_preemption_release(void);
+bool clpf_preemption_allowed(void);
+
+// Ends self's coroutine, to start call at the next message (see HIBERNATE)
+_Noreturn void clpf_hibernate(Process *self, const Funcall_t *call);
+
+// Allocates in self's heap; ends self with EXIT_REASON_HEAP_LIMIT past its max_heap_size
+void *clpf_alloc(Process *self, size_t size);
+
 // Scheduler thread, once nothing can reach an exited process: releases its
 // name, its links and everything it held, destroys it and frees its slot
 void clpf_process_end(Process *process);

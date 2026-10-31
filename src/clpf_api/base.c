@@ -1,4 +1,5 @@
 #include <api/base.h>
+#include <string.h>
 #include <api/monitor.h>
 #include <api/link.h>
 #include <assert.h>
@@ -32,7 +33,7 @@ void process_exit_signal_locked(Process *target, Pid from, unsigned int reason, 
     if ((!untrappable && reason == EXIT_REASON_NORMAL) || atomic_load(&target->kill_pending))
         return;
 
-    target->kill_reason = untrappable ? EXIT_REASON_KILLED : reason;
+    target->kill_reason = reason;
     atomic_store(&target->kill_pending, true);
     process_notify_locked(target);
 }
@@ -79,4 +80,39 @@ void exiting(Process *self, exit_reason reason) {
     aco_exit();
     // The scheduler never resumes a finished coroutine
     abort();
+}
+
+void *clpf_alloc(Process *self, size_t size) {
+    void *block = safe_heap_alloc(&self->heap, size);
+    if (!block && safe_heap_over_limit(&self->heap))
+        exiting(self, EXIT_REASON_HEAP_LIMIT);
+    return block;
+}
+
+void clpf_hibernate(Process *self, const Funcall_t *call) {
+    if (call->argc > 5)
+        exiting(self, EXIT_REASON_ERROR);
+
+    Funcall_t next = {.func = call->func, .argc = call->argc + 1};
+    next.args[0] = (uintptr_t)self;
+    memcpy(&next.args[1], call->args, sizeof(uintptr_t) * (size_t)call->argc);
+    self->taskcall = next;
+    self->hibernating = true;
+    aco_exit();
+    // The scheduler never resumes a finished coroutine
+    abort();
+}
+
+static _Thread_local int preemption_holds;
+
+void clpf_preemption_hold(void) {
+    ++preemption_holds;
+}
+
+void clpf_preemption_release(void) {
+    --preemption_holds;
+}
+
+bool clpf_preemption_allowed(void) {
+    return preemption_holds == 0;
 }

@@ -1,58 +1,46 @@
 #include <api/group.h>
 #include <groups.h>
+#include <utils/hash_map.h>
 #include <stdlib.h>
 #include <string.h>
 
 typedef struct {
-    char name[NAME_MAX_LENGTH];
-    Pid *members; // In join order
+    const char *name; // The key of the group in groups
+    Pid *members;     // In join order
     size_t count;
     size_t capacity;
 } Group;
 
-// Groups are few and small: arrays searched under one lock are enough
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
-static Group **groups; // Guarded by lock, as below; empty groups are freed
-static size_t group_count;
-static size_t group_capacity;
+static HashMap *groups; // Guarded by lock: name -> Group; empty groups are removed
 
 static bool valid_name(const char *name) {
     return name && name[0] != '\0' && strlen(name) < NAME_MAX_LENGTH;
 }
 
-static Group *find(const char *name, size_t *index) {
-    for (size_t i = 0; i < group_count; ++i) {
-        if (strcmp(groups[i]->name, name) == 0) {
-            if (index)
-                *index = i;
-            return groups[i];
-        }
-    }
-    return NULL;
+static Group *find(const char *name) {
+    return groups ? hash_map_get(groups, name) : NULL;
 }
 
 static Group *create(const char *name) {
-    if (group_count == group_capacity) {
-        size_t capacity = group_capacity ? group_capacity * 2 : 8;
-        Group **grown = (Group **)realloc((void *)groups, capacity * sizeof(Group *));
-        if (!grown)
-            return NULL;
-        groups = grown;
-        group_capacity = capacity;
-    }
-    Group *group = calloc(1, sizeof(Group));
+    if (!groups)
+        groups = hash_map_new();
+    Group *group = groups ? calloc(1, sizeof(Group)) : NULL;
     if (!group)
         return NULL;
-    memcpy(group->name, name, strlen(name) + 1); // length checked by valid_name
-    groups[group_count++] = group;
+    group->name = hash_map_put(groups, name, group);
+    if (!group->name) {
+        free(group);
+        return NULL;
+    }
     return group;
 }
 
-// The last group takes its place
-static void drop_group(size_t index) {
-    free(groups[index]->members);
-    free(groups[index]);
-    groups[index] = groups[--group_count];
+static void drop_group(Group *group) {
+    // The key is only freed once the entry is found
+    hash_map_remove(groups, group->name);
+    free(group->members);
+    free(group);
 }
 
 static bool add_member(Group *group, Pid pid) {
@@ -68,15 +56,14 @@ static bool add_member(Group *group, Pid pid) {
     return true;
 }
 
-// Removes pid from the group at index, and the group once empty; returns false if pid is not in it
-static bool remove_member(size_t index, Pid pid) {
-    Group *group = groups[index];
+// Removes pid from the group, and the group once empty; returns false if pid is not in it
+static bool remove_member(Group *group, Pid pid) {
     for (size_t i = 0; i < group->count; ++i) {
         if (group->members[i] != pid)
             continue;
         memmove(&group->members[i], &group->members[i + 1], (group->count - i - 1) * sizeof(Pid));
         if (--group->count == 0)
-            drop_group(index);
+            drop_group(group);
         return true;
     }
     return false;
@@ -96,20 +83,17 @@ int clpf_group_join(Process *self, const char *name) {
 
     int result = -1;
     pthread_mutex_lock(&lock);
-    size_t index = 0;
-    Group *group = find(name, &index);
+    Group *group = find(name);
     if (group && contains(group, self->pid)) {
         result = 0;
     } else {
-        if (!group) {
+        if (!group)
             group = create(name);
-            index = group_count - 1;
-        }
         if (group && add_member(group, self->pid)) {
             ++self->group_count;
             result = 0;
         } else if (group && group->count == 0) {
-            drop_group(index); // A group never stays empty
+            drop_group(group); // A group never stays empty
         }
     }
     pthread_mutex_unlock(&lock);
@@ -122,8 +106,8 @@ int clpf_group_leave(Process *self, const char *name) {
 
     int result = -1;
     pthread_mutex_lock(&lock);
-    size_t index = 0;
-    if (find(name, &index) && remove_member(index, self->pid)) {
+    Group *group = find(name);
+    if (group && remove_member(group, self->pid)) {
         --self->group_count;
         result = 0;
     }
@@ -136,7 +120,7 @@ size_t clpf_group_members(const char *name, Pid *buffer, size_t max) {
         return 0;
 
     pthread_mutex_lock(&lock);
-    Group *group = find(name, NULL);
+    Group *group = find(name);
     size_t count = group ? group->count : 0;
     if (buffer && count > 0)
         memcpy(buffer, group->members, (count < max ? count : max) * sizeof(Pid));
@@ -150,7 +134,7 @@ size_t clpf_group_send(Process *self, const char *name, void *data, size_t size,
 
     // Sending takes the receivers' locks: copy the members and send outside the group lock
     pthread_mutex_lock(&lock);
-    Group *group = find(name, NULL);
+    Group *group = find(name);
     size_t count = group ? group->count : 0;
     Pid *members = count > 0 ? malloc(count * sizeof(Pid)) : NULL;
     if (members)
@@ -168,13 +152,28 @@ size_t clpf_group_send(Process *self, const char *name, void *data, size_t size,
     return delivered;
 }
 
+typedef struct {
+    Pid pid;
+    Group *found; // A group pid is in, or NULL
+} Membership;
+
+static void find_membership(const char *name, void *value, void *arg) {
+    (void)name;
+    Membership *membership = arg;
+    if (!membership->found && contains(value, membership->pid))
+        membership->found = value;
+}
+
 void groups_forget(Pid pid) {
     pthread_mutex_lock(&lock);
-    // remove_member may move the last group to index i: look at i again then
-    for (size_t i = 0; i < group_count;) {
-        size_t before = group_count;
-        if (!remove_member(i, pid) || group_count == before)
-            ++i;
+    // Leaving may remove a group, which visiting cannot allow: one group per pass.
+    // A process is in few groups (see Process.group_count).
+    while (groups) {
+        Membership membership = {.pid = pid, .found = NULL};
+        hash_map_for_each(groups, find_membership, &membership);
+        if (!membership.found)
+            break;
+        remove_member(membership.found, pid);
     }
     pthread_mutex_unlock(&lock);
 }

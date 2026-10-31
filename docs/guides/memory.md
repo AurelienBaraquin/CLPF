@@ -33,7 +33,26 @@ no longer needs, or its heap keeps growing.
   outlives a process or is shared on purpose, such as read-only tables, and
   then protect it yourself as in any threaded program.
 - Running out of memory is reported, not fatal: `ALLOC` returns `NULL`, and
-  `SEND` returns `-1` when the receiver's heap cannot hold the message.
+  `SEND` returns `-1` when the receiver's heap cannot hold the message. A
+  heap grows by as much as an allocation needs, so large blocks and large
+  messages work like small ones.
+
+## Heap limit
+
+A heap grows without bound by default, so a process that leaks, or receives
+faster than it handles, can take all the memory of the program. Give it a
+limit at spawn:
+
+```c
+Pid pid = SPAWN_OPTS(worker, .max_heap_size = 4 * 1024 * 1024, .monitor = true);
+```
+
+Past the limit, the process ends with `EXIT_REASON_HEAP_LIMIT`: when an
+`ALLOC`, or an allocation the runtime makes for it (`FORMAT`, `TABLE_GET`...),
+would grow the heap past it, and when a message would, in which case the
+sender's `SEND` returns `-1`. As with Erlang's `max_heap_size`, its monitors
+and its supervisor see it fail, and the rest of the program is safe. The
+limit counts the heap's pools (16 KiB at least), not the stack.
 
 ## Stacks
 

@@ -22,9 +22,10 @@
 typedef enum exit_reason_e {
     EXIT_REASON_NORMAL,
     EXIT_REASON_ERROR,
-    EXIT_REASON_NOPROC,   // The monitored process did not exist (anymore) when the monitor was set
-    EXIT_REASON_KILLED,   // Ended by KILL
-    EXIT_REASON_SHUTDOWN, // Asked to stop by its supervisor or the runtime
+    EXIT_REASON_NOPROC,     // The monitored process did not exist (anymore) when the monitor was set
+    EXIT_REASON_KILLED,     // Ended by KILL
+    EXIT_REASON_SHUTDOWN,   // Asked to stop by its supervisor or the runtime
+    EXIT_REASON_HEAP_LIMIT, // Its heap would have grown past SpawnOptions.max_heap_size
 } exit_reason;
 
 #define EXIT(reason) exiting(self, reason)
@@ -39,6 +40,23 @@ typedef enum exit_reason_e {
 #define NB_CHILDREN() process_get_child_count(self)
 
 #define YIELD() yield(self)
+
+// Drops the call stack, gives the stack and the unused heap back, and waits
+// for a message: then the process starts again in func with these arguments
+// (integers, as for SPAWN). Pid, mailbox, links, monitors and name stay.
+// For processes that wait long: they then cost little more than their heap.
+#define HIBERNATE(func, argc, ...)                         \
+    do {                                                   \
+        Funcall_t clpf_next;                               \
+        funcall_init(&clpf_next, func, argc, __VA_ARGS__); \
+        clpf_hibernate(self, &clpf_next);                  \
+    } while (0)
+#define HIBERNATE0(func)                   \
+    do {                                   \
+        Funcall_t clpf_next;               \
+        funcall_init(&clpf_next, func, 0); \
+        clpf_hibernate(self, &clpf_next);  \
+    } while (0)
 
 // Accounts for n units of work. The scheduler is cooperative: a process only
 // gives the CPU away at API calls, so a long computation should REDUCE

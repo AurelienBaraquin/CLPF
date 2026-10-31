@@ -61,6 +61,22 @@ CLPF_ENTRY(entry)
 is fine in hot loops. Scale `n` to the work done: `REDUCE(10)` for an
 iteration that does ten times more.
 
+### Automatic reductions
+
+Code you do not control, or would rather not fill with `REDUCE`, can count
+its reductions itself: link the CMake target `clpf::auto_reduce`. It builds
+your code with `-finstrument-functions`, and each of your function calls
+then spends a reduction:
+
+```cmake
+target_link_libraries(my_program clpf::auto_reduce)
+```
+
+Without CMake, compile your code with `-finstrument-functions` and link
+`-lclpf_auto_reduce` before `-lclpf`. A loop that calls no function, or only
+inlined ones, still never yields: keep `REDUCE` there. Each instrumented
+call costs a few nanoseconds; the runtime itself is never instrumented.
+
 ## Priorities
 
 `PROCESS_PRIORITY_VERY_HIGH` and `HIGH` processes run before medium and low

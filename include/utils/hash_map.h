@@ -21,3 +21,5 @@ const char *hash_map_put(HashMap *map, const char *key, void *value);
 // Removes key; returns its value, or NULL if it was not there
 void *hash_map_remove(HashMap *map, const char *key);
 size_t hash_map_count(const HashMap *map);
+// Calls visit on every entry, in no particular order; visit must not change the map
+void hash_map_for_each(const HashMap *map, void (*visit)(const char *key, void *value, void *arg), void *arg);

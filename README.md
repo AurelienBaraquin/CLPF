@@ -70,6 +70,7 @@ programs.
 ## Features
 
 - **Processes:** `SPAWN` with arguments or a copied data block, priorities,
+  heap limits, `HIBERNATE` for processes that wait long,
   per-process stack size with overflow reports, up to 65 535 at once.
 - **Messages:** `SEND`, selective `RECEIVE` by tag or matcher, `REQUEST_REF`/`REPLY`
   with unique references, notifications, timeouts, mailbox limits.
@@ -88,7 +89,7 @@ programs.
 ## Status
 
 **Experimental, feature-complete for its scope.** Everything above works and
-is covered by 48 tests. The CI runs them in Debug and Release, and under
+is covered by 63 tests. The CI runs them in Debug and Release, and under
 AddressSanitizer and ThreadSanitizer.
 
 Limits:

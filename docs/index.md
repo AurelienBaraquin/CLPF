@@ -51,7 +51,7 @@ sequence of steps instead of a tangle of callbacks.
 
 | Area | Features |
 |---|---|
-| Processes | `SPAWN` with arguments or a copied data block, priorities, configurable stacks with overflow reports |
+| Processes | `SPAWN` with arguments or a copied data block, priorities, configurable stacks with overflow reports, heap limits, `HIBERNATE` |
 | Messages | `SEND`, selective `RECEIVE` by tag or matcher, `REQUEST_REF`/`REPLY` with unique references, notifications, timeouts, mailbox limits |
 | Failures | `MONITOR` (DOWN messages), `LINK`, `TRAP_EXIT`, `KILL` |
 | Shared data | Process groups (`GROUP_SEND`), shared binaries sent without a copy (`SEND_BIN`), shared key-value tables (`TABLE_*`) |

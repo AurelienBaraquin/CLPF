@@ -65,7 +65,7 @@ Améliorations internes
 - [x] Slots et timers locaux aux schedulers
 - [x] Un seul réveil de scheduler par choix de process
 - [x] Préchauffage des pools (CLPF_POOL_PREWARM)
-- [ ] Limite de tas par process (max_heap_size)
-- [ ] HIBERNATE
-- [ ] Table de hachage pour le registre, les groupes et les tables
-- [ ] CLPF_AUTO_REDUCE
+- [x] Limite de tas par process (max_heap_size)
+- [x] HIBERNATE
+- [x] Table de hachage pour le registre, les groupes et les tables
+- [x] CLPF_AUTO_REDUCE
