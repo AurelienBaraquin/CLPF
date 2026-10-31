@@ -130,3 +130,10 @@ void *hash_map_remove(HashMap *map, const char *key) {
 size_t hash_map_count(const HashMap *map) {
     return map->count;
 }
+
+void hash_map_for_each(const HashMap *map, void (*visit)(const char *key, void *value, void *arg), void *arg) {
+    for (size_t i = 0; i < map->bucket_count; ++i) {
+        for (const Entry *entry = map->buckets[i]; entry; entry = entry->next)
+            visit(entry->key, entry->value, arg);
+    }
+}

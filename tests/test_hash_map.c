@@ -21,6 +21,11 @@ static void count_free(void *value) {
     ++freed;
 }
 
+static void sum_values(const char *key, void *value, void *arg) {
+    (void)key;
+    *(long *)arg += *(int *)value;
+}
+
 int main(void) {
     HashMap *map = hash_map_new();
     CHECK(map != NULL);
@@ -55,6 +60,11 @@ int main(void) {
         int *value = hash_map_get(map, name);
         CHECK(value && *value == i);
     }
+
+    // Visiting sees every entry once
+    long visited_sum = 0;
+    hash_map_for_each(map, sum_values, &visited_sum);
+    CHECK(visited_sum == (long)MANY * (MANY - 1) / 2 + 2);
 
     // Removing returns the value; the others stay reachable
     CHECK(hash_map_remove(map, "key:5") == &values[5]);
