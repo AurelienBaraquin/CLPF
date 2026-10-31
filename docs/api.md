@@ -303,6 +303,7 @@ A thread of your own that blocks on I/O can feed a process this way.
 |---|---|
 | `CLPF_LOG_LEVEL` | `debug`, `info` (default), `warn`, `error` or `none` |
 | `CLPF_WATCHDOG_MS` | Report a process running this long without yielding (default 1000, `0` disables) |
+| `CLPF_POOL_PREWARM` | Map this many stacks and heaps at startup (up to the pools' capacity, 1024), so that the first processes spawn without mapping memory |
 
 ## Constants
 

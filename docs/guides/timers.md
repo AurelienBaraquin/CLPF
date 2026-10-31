@@ -59,6 +59,12 @@ CLPF_ENTRY(entry)
 
 ## How they work
 
-The main thread keeps all timers in a min-heap and sleeps until the next
-deadline, so pending timers cost nothing while they wait. Adding a timer
-wakes it so that it can sleep for less.
+Each scheduler keeps the timers armed by the processes it runs in its own
+min-heap, fires them in its loop and sleeps until the next one, so pending
+timers cost nothing while they wait, and arming one takes no global lock.
+A `TimerId` names its queue and slot, so `CANCEL_TIMER` finds a timer at
+once however many are pending.
+
+A timer fires on the scheduler that armed it, even if the process moved
+since. A scheduler busy running a process that does not yield fires its
+timers late: call `REDUCE` in long loops (see [scheduling](scheduling.md)).
