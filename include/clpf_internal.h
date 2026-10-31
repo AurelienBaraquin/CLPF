@@ -12,30 +12,14 @@
 #define PID_MAKE(index, generation) ((Pid)(((generation) << PID_INDEX_BITS) | (index)))
 #define PID_INDEX(pid)              ((pid) & (MAX_PROCESSES - 1))
 
-typedef enum core_message_type_e {
-    CORE_MESSAGE_TYPE_PROCESS_EXIT,
-} CoreMessageType;
-
-// Requests handled by the main thread
-typedef struct {
-    MPSCQNode node;
-    CoreMessageType op;
-
-    union {
-        struct {
-            Pid pid;
-        } process_exit;
-    } data;
-} CoreMessage;
-
 typedef struct {
     Process *process_table; // MAX_PROCESSES slots, allocated by clpf_init
     int process_count;
     int user_process_count; // processes that are not system ones
 
-    // Set by the main thread when the entry process ended
-    bool shutdown_requested;
-    unsigned int entry_exit_reason;
+    // Set when the entry process ended, by the scheduler that ends it
+    atomic_bool shutdown_requested;
+    _Atomic unsigned int entry_exit_reason;
     _Atomic Pid system_supervisor; // supervises the system servers, set by the launcher
 
     // Stack of free process table indices
@@ -52,11 +36,13 @@ typedef struct {
 
     // Guards the free slot stack, the process counts, the name table and every
     // Process.registered_name: processes are created and registered from any
-    // thread, destroyed by the main thread
+    // thread, and destroyed by the scheduler that ran them
     pthread_mutex_t table_lock;
 
-    MPSCQ message_queue;
-    IdleWaiter main_idle; // The main thread sleeps here while it has no core message
+    // The main thread sleeps here between timers. Schedulers wake it when the
+    // entry process ends, and for every process that ends during the shutdown.
+    IdleWaiter main_idle;
+    atomic_uint main_events; // Counts the wakeups, so that none is lost (see clpf_wake_main)
 } CLPF;
 
 extern CLPF clpf;
@@ -71,7 +57,6 @@ void process_notify_locked(Process *process);
 // Runs entry_point and the runtime until the entry process ends and every
 // process is gone; returns 0 if the entry process exited normally, 1 otherwise
 int clpf_main(Task entry_point, int argc, char *argv[]);
-int clpf_main_update();
 // Takes a free process table index, or returns -1 if the table is full
 int clpf_slot_alloc(void);
 // Scans of the process table stop here (any thread)
@@ -79,12 +64,14 @@ int clpf_slot_end(void);
 // Gives back the index of a destroyed process
 void clpf_slot_release(int index);
 
-// Thread-safe: queues a core message for the main thread and wakes it
-void clpf_post(CoreMessage *msg);
+// Thread-safe: wakes the main thread after the caller changed something it watches
+// (process counts, timers, the watchdog), even if it is about to fall asleep
+void clpf_wake_main(void);
 // Wakes the main thread and every scheduler, so they notice exit_in_progress
 void clpf_wake_all(void);
-// Frees a core message and what it owns
-void clpf_message_destroy(CoreMessage *msg);
+// Scheduler thread, once nothing can reach an exited process: releases its
+// name, its links and everything it held, destroys it and frees its slot
+void clpf_process_end(Process *process);
 
 // Thread-safe. Creates a process on the least loaded scheduler and returns its pid, or INVALID_PID.
 // monitored_by (or INVALID_PID) gets a DOWN message when the new process exits, even if it exits right away

@@ -1,5 +1,6 @@
 #include <memory/safe_heap.h>
 #include <memory/block_pool.h>
+#include <memory/reaper.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -30,8 +31,14 @@ static void unmap_minimal_pool(void *base) {
     munmap(base, MINIMAL_HEAP_POOL_SIZE);
 }
 
+static void unmap_pool(void *base, size_t size) {
+    munmap(base, size);
+}
+
 static void pool_unmap(void *base, size_t size) {
-    if (size != MINIMAL_HEAP_POOL_SIZE || !block_pool_put(&free_pools, base))
+    if (size == MINIMAL_HEAP_POOL_SIZE && block_pool_put(&free_pools, base))
+        return;
+    if (reaper_defer(unmap_pool, base, size) != 0)
         munmap(base, size);
 }
 

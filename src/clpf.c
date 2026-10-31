@@ -7,6 +7,7 @@
 #include <flags_internal.h>
 #include <utils/time.h>
 #include <watchdog.h>
+#include <memory/reaper.h>
 #include <utils/stack_guard.h>
 #include <timer.h>
 
@@ -61,11 +62,12 @@ static int clpf_init(void) {
     clpf.scheduler_count = 0;
     pthread_mutex_init(&clpf.table_lock, NULL);
 
-    mpscq_init(&clpf.message_queue);
     idle_init(&clpf.main_idle);
     timers_init();
     clpf_log_init();
     watchdog_init();
+    // The main thread unmaps the memory of ended processes, off the schedulers
+    reaper_set_wake(clpf_wake_main);
     return 0;
 }
 
@@ -110,25 +112,15 @@ static void clpf_destroy(void) {
 
     name_table_free(clpf.name_table);
 
-    for (MPSCQNode *n = mpscq_drain(&clpf.message_queue); n != NULL;) {
-        MPSCQNode *next = n->next;
-        clpf_message_destroy(container_of(n, CoreMessage, node));
-        n = next;
-    }
-
+    reaper_run();
     stack_pool_drain();
     safe_heap_drain_pools();
     timers_destroy();
     idle_destroy(&clpf.main_idle);
 }
 
-void clpf_post(CoreMessage *msg) {
-    mpscq_push(&clpf.message_queue, &msg->node);
-    idle_wake(&clpf.main_idle);
-}
-
 void clpf_wake_all(void) {
-    idle_wake(&clpf.main_idle);
+    clpf_wake_main();
     for (int i = 0; i < clpf.scheduler_count; i++)
         scheduler_wake(&clpf.scheduler_table[i]);
 }
@@ -145,9 +137,14 @@ static void kill_user_processes(void) {
     }
 }
 
+void clpf_wake_main(void) {
+    atomic_fetch_add(&clpf.main_events, 1);
+    idle_wake(&clpf.main_idle);
+}
+
+// arg: the event count when the main thread last looked at everything
 static bool main_has_work(void *arg) {
-    (void)arg;
-    return exit_in_progress || !mpscq_empty(&clpf.message_queue);
+    return exit_in_progress || atomic_load(&clpf.main_events) != *(unsigned int *)arg;
 }
 
 int clpf_main(Task entry_point, int argc, char *argv[]) {
@@ -189,7 +186,7 @@ int clpf_main(Task entry_point, int argc, char *argv[]) {
 
     // Without a launcher no process exists: the loop below ends at once
     if (init_task(entry_point, argc, argv) != 0)
-        clpf.entry_exit_reason = EXIT_REASON_ERROR;
+        atomic_store(&clpf.entry_exit_reason, EXIT_REASON_ERROR);
 
     // Once the entry process ended: kill the user processes, then ask the
     // system servers (I/O last) to stop, then wait until every process is gone
@@ -197,17 +194,20 @@ int clpf_main(Task entry_point, int argc, char *argv[]) {
     bool system_stopped = false;
 
     while (1) {
+        // Changes made from now on bump the count: the wait below sees them
+        unsigned int events = atomic_load(&clpf.main_events);
         size_t total_process_count = 0;
         for (int i = 0; i < clpf.scheduler_count; ++i)
             total_process_count += atomic_load(&clpf.scheduler_table[i].process_count);
 
-        int updated = clpf_main_update();
+        reaper_run();
         uint64_t next_timer = timers_fire_due();
 
-        if (total_process_count == 0 && mpscq_empty(&clpf.message_queue) && updated == 0)
+        // Schedulers count a process out once they destroyed it
+        if (total_process_count == 0)
             break;
 
-        if (clpf.shutdown_requested && updated == 0) {
+        if (atomic_load(&clpf.shutdown_requested)) {
             pthread_mutex_lock(&clpf.table_lock);
             int users = clpf.user_process_count;
             pthread_mutex_unlock(&clpf.table_lock);
@@ -229,8 +229,7 @@ int clpf_main(Task entry_point, int argc, char *argv[]) {
         uint64_t next_check = watchdog_check(now_ms());
         if (!next_timer || (next_check && next_check < next_timer))
             next_timer = next_check;
-        if (updated == 0)
-            idle_wait_until(&clpf.main_idle, main_has_work, NULL, next_timer);
+        idle_wait_until(&clpf.main_idle, main_has_work, &events, next_timer);
     }
 
     exit_in_progress = 1;
@@ -243,5 +242,5 @@ int clpf_main(Task entry_point, int argc, char *argv[]) {
 
     clpf_dump_signal_stop();
     clpf_destroy();
-    return clpf.entry_exit_reason == EXIT_REASON_NORMAL ? 0 : 1;
+    return atomic_load(&clpf.entry_exit_reason) == EXIT_REASON_NORMAL ? 0 : 1;
 }

@@ -50,17 +50,6 @@ process_state execute_process(Scheduler *scheduler, Process *process) {
     return process->state;
 }
 
-void request_process_exit(Process *process) {
-    CoreMessage *msg = malloc(sizeof(CoreMessage));
-    if (!msg)
-        return;
-
-    msg->op = CORE_MESSAGE_TYPE_PROCESS_EXIT;
-    msg->data.process_exit.pid = process->pid;
-
-    clpf_post(msg);
-}
-
 static bool scheduler_has_work(void *arg) {
     Scheduler *scheduler = arg;
 
@@ -134,10 +123,13 @@ void scheduler_loop(Scheduler *scheduler) {
                 break;
             case PROCESS_EXITING:
                 // exiting() stopped further wakeups; take its pending one out of
-                // the queue before the main thread frees or reuses the slot
+                // the queue before the slot is freed or reused
                 scheduler_drain_wakeups(scheduler);
+                clpf_process_end(process);
                 atomic_fetch_sub(&scheduler->process_count, 1);
-                request_process_exit(process);
+                // The main thread drives the shutdown: it waits for these ends
+                if (atomic_load(&clpf.shutdown_requested))
+                    clpf_wake_main();
                 break;
             default: break;
         }

@@ -2,6 +2,7 @@
 #include <clpf_internal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <utils/time.h>
 
 #define WATCHDOG_DEFAULT_MS 1000
@@ -43,12 +44,17 @@ void watchdog_leave(Scheduler *scheduler) {
 }
 
 static void report(int index, Pid pid, uint64_t running_ms) {
-    // Only the main thread destroys processes: the slot cannot change under us
-    Process *process = &clpf.process_table[PID_INDEX(pid)];
+    // Its scheduler may end it meanwhile: read the name under its lock
+    ProcessName name = "?";
+    Process *process = process_lock(pid);
+    if (process) {
+        memcpy(name, process->name, sizeof name);
+        process_unlock(process);
+    }
     fprintf(stderr,
             "clpf: watchdog: process '%s' (pid %ld) has run for %lu ms on scheduler %d without yielding; "
             "call REDUCE in long loops\n",
-            process->name, pid, (unsigned long)running_ms, index);
+            name, pid, (unsigned long)running_ms, index);
 }
 
 static bool check_schedulers(uint64_t now) {
