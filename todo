@@ -55,3 +55,17 @@ Nouvelles fonctionnalités
 - [x] Benchmarks
 - [ ] Distribution réseau (non prévu)
 - [x] Pool de piles et de tas : spawn et fin de process coûtent ~60 µs (mmap/munmap, flush TLB à la mort en masse, voir docs/benchmarks.md)
+
+Améliorations internes
+- [x] Table des process paresseuse : 34 Mo -> 2 Mo résidents au démarrage
+- [x] Parcours de la table bornés au dernier slot utilisé
+- [x] RECEIVE sélectif incrémental, sans réveil pour les messages non attendus ; REQUEST_REF saute l'arriéré
+- [x] Tags atomes (MAKE_ATOM_TAG)
+- [ ] Destruction des process sur leur scheduler
+- [ ] Slots et timers locaux aux schedulers
+- [ ] Un seul réveil de scheduler par choix de process
+- [ ] Préchauffage des pools (CLPF_POOL_PREWARM)
+- [ ] Limite de tas par process (max_heap_size)
+- [ ] HIBERNATE
+- [ ] Table de hachage pour le registre, les groupes et les tables
+- [ ] CLPF_AUTO_REDUCE

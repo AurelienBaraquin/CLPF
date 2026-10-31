@@ -20,6 +20,8 @@ Release:
 |---|---|---|
 | spawn + exit | 230 000 processes/s | Spawns 100 000 processes that send one message and end |
 | one-way messages | 2.0 million messages/s | One process sends 1 000 000 small messages to another |
+| request, 1000 messages queued | 1.6 µs | `REQUEST_REF` to a server while 1000 unrelated messages wait in the mailbox (9 µs before the receive cursor) |
+| idle program, resident memory | 2.2 MB | A program whose entry does nothing (34 MB before the lazy process table) |
 | ping-pong round trip | 1.6 µs | Two processes exchange 200 000 request/answer pairs |
 | spawn of waiting processes | 49 µs each | Spawns 10 000 processes that wait in `RECEIVE` |
 | memory per waiting process | 15 KiB | Resident memory of those 10 000 processes, stack and heap |

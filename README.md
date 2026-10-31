@@ -70,7 +70,7 @@ programs.
 ## Features
 
 - **Processes:** `SPAWN` with arguments or a copied data block, priorities,
-  per-process stack size with overflow reports, up to 65 536 at once.
+  per-process stack size with overflow reports, up to 65 535 at once.
 - **Messages:** `SEND`, selective `RECEIVE` by tag or matcher, `REQUEST_REF`/`REPLY`
   with unique references, notifications, timeouts, mailbox limits.
 - **Shared data:** process groups, reference-counted binaries sent without a
