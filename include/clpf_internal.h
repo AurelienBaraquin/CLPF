@@ -86,7 +86,8 @@ void *clpf_alloc(Process *self, size_t size);
 // name, its links and everything it held, destroys it and frees its slot
 void clpf_process_end(Process *process);
 
-// Thread-safe. Creates a process on the least loaded scheduler and returns its pid, or INVALID_PID.
+// Thread-safe. Creates a process on the calling scheduler (the least loaded from
+// other threads) and returns its pid, or INVALID_PID.
 // monitored_by (or INVALID_PID) gets a DOWN message when the new process exits, even if it exits right away
 Pid clpf_task_add(Funcall_t *fun, const SpawnOptions *options, Pid parent_pid, Pid monitored_by);
 

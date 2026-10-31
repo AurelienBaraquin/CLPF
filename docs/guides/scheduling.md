@@ -7,9 +7,13 @@ the main thread and the system, and at least one. The count honours CPU
 affinity (`taskset`, containers). Each scheduler runs its processes one at a
 time; different schedulers run in parallel.
 
-New processes go to the least loaded scheduler. When a scheduler runs out of
-work, it asks the busiest one, which hands over half of its ready processes
-the next time it picks one. Processes therefore move between threads:
+A new process starts on the scheduler of the process that spawned it: a
+server and the clients it spawns, or two stages of a pipeline, then share a
+thread, and a message between them needs no wakeup of another thread.
+Processes spawned from outside the schedulers go to the least loaded one.
+When a scheduler runs out of work, it asks the busiest one, which hands over
+half of its ready processes the next time it picks one, and an overloaded
+scheduler wakes sleeping ones to come and take some. Processes therefore move between threads:
 never keep thread-local state, or a thread id, in a process.
 
 A scheduler with nothing to do spins for a few microseconds, so that quick

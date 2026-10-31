@@ -41,7 +41,8 @@ can change).
 ## Spawning
 
 Every spawn is synchronous: it returns the new pid (or `INVALID_PID`) before
-the child can run. The child goes to the least loaded scheduler.
+the child can run. The child starts on its parent's scheduler, and work
+stealing moves it if that one is busy.
 
 | Macro | Use |
 |---|---|
@@ -101,7 +102,7 @@ Fields you leave out take their default:
 | `stack_size` | 16 KiB | Stack size |
 | `mailbox_limit` | `0` (none) | Messages that may wait; past it `SEND` returns `SEND_FULL` |
 | `max_heap_size` | `0` (none) | Bytes its heap may take; past it, the process ends with `EXIT_REASON_HEAP_LIMIT` (see [memory](memory.md#heap-limit)) |
-| `scheduler` | `0` | `1 +` the index of the scheduler to start on; `0` picks the least loaded |
+| `scheduler` | `0` | `1 +` the index of the scheduler to start on; `0` starts on the spawner's |
 
 ```c
 Pid pid = SPAWN_OPTS(big_recursion, .name = "parser", .stack_size = 256 * 1024, .monitor = true);

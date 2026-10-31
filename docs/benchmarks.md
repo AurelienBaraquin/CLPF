@@ -14,19 +14,19 @@ benchmark working, not to measure anything.
 ## Results
 
 On a 6-core x86-64 machine (Linux under WSL2, so 4 scheduler threads), in
-Release:
+Release, medians of 5 runs:
 
 | Benchmark | Result | What it does |
 |---|---|---|
-| spawn + exit | 255 000 processes/s | Spawns 100 000 processes that send one message and end |
+| spawn + exit | 230 000 processes/s | Spawns 100 000 processes that send one message and end |
 | parallel spawn + exit (8) | 1 million processes/s | 8 processes spawn 12 500 such processes each, at once |
-| one-way messages | 2.3 million messages/s | One process sends 1 000 000 small messages to another |
-| ping-pong round trip | 1.5 µs | Two processes exchange 200 000 request/answer pairs |
-| request, 1000 messages queued | 1.6 µs | `REQUEST_REF` to a server while 1000 unrelated messages wait in the mailbox |
-| spawn of waiting processes | 42 µs each | Spawns 10 000 processes that wait in `RECEIVE` |
+| one-way messages | 5.7 million messages/s | One process sends 1 000 000 small messages to another |
+| ping-pong round trip | 0.9 µs | Two processes exchange 200 000 request/answer pairs |
+| request, 1000 messages queued | 1.0 µs | `REQUEST_REF` to a server while 1000 unrelated messages wait in the mailbox |
+| spawn of waiting processes | 40 to 80 µs each | Spawns 10 000 processes that wait in `RECEIVE` |
 | memory per waiting process | 16 KiB | Resident memory of those 10 000 processes, stack and heap |
-| wake and collect all | 18 ms | Wakes the 10 000 with a message each, and collects their answers |
-| parallel ping-pong (8 pairs) | 2.7 million round trips/s | 8 ping-pong pairs at once, spread over the schedulers |
+| wake and collect all | 30 ms | Wakes the 10 000 with a message each, and collects their answers |
+| parallel ping-pong (8 pairs) | 1.9 million round trips/s | 8 ping-pong pairs at once, spread over the schedulers |
 | idle program, resident memory | 2.2 MB | A program whose entry does nothing |
 
 Your numbers will differ: run the benchmark on your machine.
@@ -44,12 +44,16 @@ Your numbers will differ: run the benchmark on your machine.
 | A process waiting for its next message | 17 KiB | 12 KiB | With `HIBERNATE`: no stack, unused heap given back |
 | Registered name of 63 characters | up to 33 KiB | about 100 bytes | The registry is a hash map instead of a trie |
 | `ALLOC` or message larger than the free heap | failed | works | The heap grows by enough for TLSF's headers and size classes |
+| Ping-pong round trip | 2.5 µs | 0.9 µs | A spawned process starts on its spawner's scheduler |
+| One-way messages | 1.8 million/s | 5.7 million/s | The same: sender and receiver share a thread |
 
 ## Reading them
 
-- **Messages are cheap.** A message costs about the same as a function call
-  that takes a lock. Ping-pong pairs scale with the schedulers, as pairs run
-  in parallel.
+- **Messages are cheap between neighbours.** Processes that talk usually
+  spawned one another, so they share a scheduler: a round trip then costs
+  under a microsecond. Across schedulers, each message also wakes another
+  thread, about three times slower: work stealing only moves processes when
+  a scheduler has too much to do.
 - **Short-lived processes are cheap.** A process that ends gives its stack
   and its initial heap pool back to a pool, and the next process starts on
   them without any system call: spawning and ending costs about 4 µs. Each
