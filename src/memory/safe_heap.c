@@ -42,6 +42,23 @@ static void pool_unmap(void *base, size_t size) {
         munmap(base, size);
 }
 
+size_t safe_heap_prewarm_pools(size_t count) {
+    while (block_pool_count(&free_pools) < count) {
+        void *base = safe_mmap(MINIMAL_HEAP_POOL_SIZE);
+        if (!base)
+            break;
+        if (!block_pool_put(&free_pools, base)) {
+            munmap(base, MINIMAL_HEAP_POOL_SIZE);
+            break;
+        }
+    }
+    return block_pool_count(&free_pools);
+}
+
+size_t safe_heap_pool_count(void) {
+    return block_pool_count(&free_pools);
+}
+
 void safe_heap_drain_pools(void) {
     block_pool_drain(&free_pools, unmap_minimal_pool);
 }

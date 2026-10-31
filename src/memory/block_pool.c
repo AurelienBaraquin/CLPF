@@ -21,3 +21,10 @@ void block_pool_drain(block_pool_t *pool, void (*release)(void *block)) {
     while ((block = block_pool_take(pool)) != NULL)
         release(block);
 }
+
+size_t block_pool_count(block_pool_t *pool) {
+    spinlock_lock(&pool->lock);
+    size_t count = pool->count;
+    spinlock_unlock(&pool->lock);
+    return count;
+}

@@ -29,3 +29,6 @@ void safe_heap_free(safe_heap_t *safe_heap, void *ptr);
 size_t safe_heap_size(safe_heap_t *safe_heap);
 // Unmaps the pools that destroyed heaps left for the next ones
 void safe_heap_drain_pools(void);
+// Maps count initial pools ahead of time, as far as the pool has room; returns how many it holds then
+size_t safe_heap_prewarm_pools(size_t count);
+size_t safe_heap_pool_count(void);

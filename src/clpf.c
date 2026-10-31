@@ -34,6 +34,22 @@ static bool zeroed_mutex_is_valid(void) {
     return true;
 }
 
+// CLPF_POOL_PREWARM=N maps N stacks and heaps ahead, so that the first N
+// processes spawn without mapping memory (at most the pools' capacity)
+static void prewarm_pools(void) {
+    const char *value = getenv("CLPF_POOL_PREWARM");
+    if (!value)
+        return;
+    char *end = NULL;
+    unsigned long long count = strtoull(value, &end, 10);
+    if (end == value || *end != '\0') {
+        fprintf(stderr, "CLPF_POOL_PREWARM: \"%s\" is not a number of processes\n", value);
+        return;
+    }
+    stack_pool_prewarm((size_t)count);
+    safe_heap_prewarm_pools((size_t)count);
+}
+
 static int clpf_init(void) {
     clpf.process_table = calloc(MAX_PROCESSES, sizeof(Process));
     clpf.free_slots = malloc(MAX_PROCESSES * sizeof(int));
@@ -67,6 +83,7 @@ static int clpf_init(void) {
     watchdog_init();
     // The main thread unmaps the memory of ended processes, off the schedulers
     reaper_set_wake(clpf_wake_main);
+    prewarm_pools();
     return 0;
 }
 

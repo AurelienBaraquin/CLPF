@@ -33,6 +33,21 @@ void stack_release(aco_share_stack_t *stack, size_t size) {
         stack_destroy(stack);
 }
 
+size_t stack_pool_prewarm(size_t count) {
+    while (block_pool_count(&stack_pool) < count) {
+        aco_share_stack_t *stack = aco_share_stack_new(CLPF_DEFAULT_STACK_SIZE);
+        if (!block_pool_put(&stack_pool, stack)) {
+            aco_share_stack_destroy(stack);
+            break;
+        }
+    }
+    return block_pool_count(&stack_pool);
+}
+
+size_t stack_pool_count(void) {
+    return block_pool_count(&stack_pool);
+}
+
 void stack_pool_drain(void) {
     block_pool_drain(&stack_pool, stack_destroy);
 }
