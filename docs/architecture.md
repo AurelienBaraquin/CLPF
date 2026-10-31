@@ -199,8 +199,10 @@ its threads, and joins that thread before freeing the process table.
 
 The scheduler that ran a process ends it, once its coroutine is done and
 its pending wakeup taken out of the queue: it releases its registered name,
-leaves its parent's children, drops its fd watches, groups and tables,
-destroys it and frees its slot. Only then does it count the process out,
+leaves its parent's children, drops its groups and tables, destroys it
+and frees its slot. Its fd watches are dropped earlier, before its DOWN
+messages are sent, so that a monitor that owns its sockets may close them
+at once. Only then does it count the process out,
 so the main thread never frees the runtime under a process being destroyed.
 
 Each scheduler keeps up to 64 free slots and trades them with the table by
@@ -242,8 +244,8 @@ ordinary processes (`src/native_task/supervisor/`).
 (`src/io_poller.c`), one-shot. A table indexed by fd records the watcher
 and a sequence number, which travels in the epoll event so that an event
 from a cancelled or replaced watch is ignored. When an fd fires, the thread
-removes it from epoll and sends `MAKE_FD_TAG(fd)` to the watcher. The main
-thread drops the watches of a process when it destroys it.
+removes it from epoll and sends `MAKE_FD_TAG(fd)` to the watcher. A process's
+watches are dropped as it ends, before its monitors hear of it.
 
 ## Hibernation
 
@@ -290,9 +292,9 @@ directory lock, and a deletion first removes the table from the directory,
 then takes the write lock: it waits for the operations in progress, and no
 new one can start.
 
-The main thread drops a dead process's fd watches, group memberships and
-tables before destroying it; per-process counters skip the work for
-processes that had none.
+The scheduler that ends a process drops its group memberships and tables
+before destroying it; per-process counters skip the work for processes that
+had none.
 
 ## Shutdown
 
@@ -313,3 +315,11 @@ The `tests/` directory checks each behaviour above with a small CLPF program:
 lost wakeups, pid reuse, stack alignment, starvation, stealing, shutdown
 output, and so on. The CI runs the suite in Debug and Release, and under
 AddressSanitizer and ThreadSanitizer.
+
+ThreadSanitizer keeps a shadow call stack per thread, which coroutines that
+move between threads would unbalance. Under it, each process is a
+ThreadSanitizer fiber (`include/utils/fiber.h`): the scheduler switches to
+it right before resuming the process, and the process switches back right
+before giving the CPU away. libaco, which only switches stacks, is built
+without the instrumentation, so that these switches line up with the stack
+switches.

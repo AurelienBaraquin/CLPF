@@ -67,6 +67,7 @@ sequence of steps instead of a tangle of callbacks.
 - **[Concepts](concepts.md):** the model, and why it fits C.
 - **[Guides](guides/processes.md):** each feature in depth, with examples.
 - **[Patterns](patterns.md):** servers, worker pools, pipelines, and moving from threads.
+- **[Example: a chat server](examples/chat.md):** a complete TCP server, and the problems CLPF solves in it.
 - **[API reference](api.md):** every macro and type.
 - **[Architecture](architecture.md):** how the runtime works inside.
 - **[Benchmarks](benchmarks.md):** what processes and messages cost.
