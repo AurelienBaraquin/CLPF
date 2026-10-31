@@ -1,5 +1,6 @@
 #include <api/base.h>
 #include <string.h>
+#include <io_poller.h>
 #include <api/monitor.h>
 #include <api/link.h>
 #include <assert.h>
@@ -47,6 +48,9 @@ void clpf_signal_exit(Pid pid, unsigned int reason, bool untrappable) {
 }
 
 void process_terminate(Process *process, unsigned int reason) {
+    // Its fds are free before anyone hears of the end: a monitor may close or reuse them
+    io_poller_forget(process->pid);
+
     // Detach under the lock, notify without holding it: no other slot lock is taken while ours is held
     pthread_mutex_lock(&process->lock);
     links_t *watchers = process->monitor.monitored_by;

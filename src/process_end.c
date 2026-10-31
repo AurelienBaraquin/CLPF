@@ -1,5 +1,4 @@
 #include <clpf_internal.h>
-#include <io_poller.h>
 #include <groups.h>
 #include <tables.h>
 
@@ -35,7 +34,6 @@ void clpf_process_end(Process *process) {
         link_remove_child(&parent->links, &process->links);
         process_unlock(parent);
     }
-    io_poller_forget(pid);
     if (process->group_count > 0)
         groups_forget(pid);
     if (process->table_count > 0)
