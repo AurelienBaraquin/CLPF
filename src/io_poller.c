@@ -21,6 +21,7 @@ static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 static Watch *watches; // Guarded by lock, as everything below
 static int capacity;
 static int active;
+static int watched_end; // 1 + the highest fd ever watched: scans stop there
 
 static uint32_t to_epoll(int events) {
     return (events & IO_READ ? EPOLLIN | EPOLLRDHUP : 0) | (events & IO_WRITE ? EPOLLOUT : 0) | EPOLLONESHOT;
@@ -128,6 +129,8 @@ int io_poller_watch(Pid pid, int fd, int events) {
         if (register_fd(fd, known, &event) == 0) {
             if (!known)
                 ++active;
+            if (fd >= watched_end)
+                watched_end = fd + 1;
             watch->pid = pid;
             result = 0;
         } else if (known) {
@@ -155,7 +158,7 @@ int io_poller_unwatch(Pid pid, int fd) {
 
 void io_poller_forget(Pid pid) {
     pthread_mutex_lock(&lock);
-    for (int fd = 0; active > 0 && fd < capacity; ++fd) {
+    for (int fd = 0; active > 0 && fd < watched_end; ++fd) {
         if (watches[fd].pid != pid)
             continue;
         watches[fd].pid = INVALID_PID;
