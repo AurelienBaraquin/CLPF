@@ -28,8 +28,10 @@ TASK(entry, int argc, char *argv[]) {
     for (int i = 0; i < SPAWNED; ++i)
         SPAWN0(waiter);
     SLEEP(50); // A stack is taken when a process first runs
-    TEST_ASSERT(stack_pool_count() == stacks - SPAWNED);
-    TEST_ASSERT(safe_heap_pool_count() == heaps - SPAWNED);
+    // Runtime processes ending meanwhile (the launcher) give theirs back
+    TEST_ASSERT(stack_pool_count() >= stacks - SPAWNED && stack_pool_count() <= stacks - SPAWNED + RUNTIME_PROCESSES);
+    TEST_ASSERT(safe_heap_pool_count() >= heaps - SPAWNED &&
+                safe_heap_pool_count() <= heaps - SPAWNED + RUNTIME_PROCESSES);
 
     TEST_PASS();
 }
