@@ -70,6 +70,9 @@ void clpf_slot_cache_attach(SlotCache *cache);
 void clpf_wake_main(void);
 // Wakes the main thread and every scheduler, so they notice exit_in_progress
 void clpf_wake_all(void);
+// Ends self's coroutine, to start call at the next message (see HIBERNATE)
+_Noreturn void clpf_hibernate(Process *self, const Funcall_t *call);
+
 // Allocates in self's heap; ends self with EXIT_REASON_HEAP_LIMIT past its max_heap_size
 void *clpf_alloc(Process *self, size_t size);
 

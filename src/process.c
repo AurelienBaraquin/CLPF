@@ -29,6 +29,7 @@ int process_init(Process *process, Funcall_t *taskcall, const SpawnOptions *opti
     process->priority = priority;
     atomic_store_explicit(&process->runs, 0, memory_order_relaxed);
     process->group_count = 0;
+    process->hibernating = false;
     process->table_count = 0;
     process->bin_holds = NULL;
     process->wait_match = NULL;
@@ -94,6 +95,18 @@ int process_init(Process *process, Funcall_t *taskcall, const SpawnOptions *opti
     return 0;
 }
 
+void process_release_stack(Process *process) {
+    if (!process->share_stack)
+        return;
+#ifdef __SANITIZE_ADDRESS__
+    // AddressSanitizer does not know about coroutine stacks: clear the redzones
+    // their frames left, or the next process on this stack looks overflowed
+    ASAN_UNPOISON_MEMORY_REGION(process->share_stack->real_ptr, process->share_stack->real_sz);
+#endif
+    stack_release(process->share_stack, process->stack_size);
+    process->share_stack = NULL;
+}
+
 void process_destroy(Process *process) {
     if (!process || process_slot_free(process))
         return;
@@ -115,15 +128,7 @@ void process_destroy(Process *process) {
     safe_heap_destroy(&process->heap);
     if (process->acoro)
         aco_destroy(process->acoro);
-    if (process->share_stack) {
-#ifdef __SANITIZE_ADDRESS__
-        // AddressSanitizer does not know about coroutine stacks: clear the redzones
-        // their frames left, or the next process on this stack looks overflowed
-        ASAN_UNPOISON_MEMORY_REGION(process->share_stack->real_ptr, process->share_stack->real_sz);
-#endif
-        stack_release(process->share_stack, process->stack_size);
-        process->share_stack = NULL;
-    }
+    process_release_stack(process);
     links_clear(&process->links);
     free_link_list(process->linked);
     process->linked = NULL;

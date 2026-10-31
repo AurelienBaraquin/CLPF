@@ -41,6 +41,23 @@ typedef enum exit_reason_e {
 
 #define YIELD() yield(self)
 
+// Drops the call stack, gives the stack and the unused heap back, and waits
+// for a message: then the process starts again in func with these arguments
+// (integers, as for SPAWN). Pid, mailbox, links, monitors and name stay.
+// For processes that wait long: they then cost little more than their heap.
+#define HIBERNATE(func, argc, ...)                         \
+    do {                                                   \
+        Funcall_t clpf_next;                               \
+        funcall_init(&clpf_next, func, argc, __VA_ARGS__); \
+        clpf_hibernate(self, &clpf_next);                  \
+    } while (0)
+#define HIBERNATE0(func)                   \
+    do {                                   \
+        Funcall_t clpf_next;               \
+        funcall_init(&clpf_next, func, 0); \
+        clpf_hibernate(self, &clpf_next);  \
+    } while (0)
+
 // Accounts for n units of work. The scheduler is cooperative: a process only
 // gives the CPU away at API calls, so a long computation should REDUCE
 // regularly, or it keeps its scheduler to itself.

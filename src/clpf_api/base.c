@@ -1,4 +1,5 @@
 #include <api/base.h>
+#include <string.h>
 #include <api/monitor.h>
 #include <api/link.h>
 #include <assert.h>
@@ -86,4 +87,18 @@ void *clpf_alloc(Process *self, size_t size) {
     if (!block && safe_heap_over_limit(&self->heap))
         exiting(self, EXIT_REASON_HEAP_LIMIT);
     return block;
+}
+
+void clpf_hibernate(Process *self, const Funcall_t *call) {
+    if (call->argc > 5)
+        exiting(self, EXIT_REASON_ERROR);
+
+    Funcall_t next = {.func = call->func, .argc = call->argc + 1};
+    next.args[0] = (uintptr_t)self;
+    memcpy(&next.args[1], call->args, sizeof(uintptr_t) * (size_t)call->argc);
+    self->taskcall = next;
+    self->hibernating = true;
+    aco_exit();
+    // The scheduler never resumes a finished coroutine
+    abort();
 }

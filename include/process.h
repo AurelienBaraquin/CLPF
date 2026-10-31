@@ -75,6 +75,7 @@ typedef struct process_s {
     bool exit_notified;       // Guarded by lock: monitors were already sent DOWN, new ones get NOPROC
     links_t *linked;          // Guarded by lock: bidirectional links (see LINK)
     bool trap_exit;           // Guarded by lock: exit signals arrive as EXIT messages
+    bool hibernating;         // Owner only: its coroutine ends, to start taskcall again at the next message
     int table_count;          // Tables it owns (owner only; read by the main thread once it ended)
     int group_count;          // Groups joined (owner only; read by the main thread once it ended)
     int64_t awaited_reply;    // Guarded by lock: the Ref REQUEST_REF waits for (0: none), other replies are dropped
@@ -118,6 +119,8 @@ typedef struct {
 
 int process_init(Process *process, Funcall_t *taskcall, const SpawnOptions *options, Pid pid, Pid parent_pid);
 void process_destroy(Process *process);
+// Gives the process's stack back, once its coroutine is gone
+void process_release_stack(Process *process);
 static inline bool process_slot_free(const Process *process) {
     return process->pid == PID_FREE;
 }

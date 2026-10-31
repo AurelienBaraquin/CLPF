@@ -28,6 +28,9 @@ void safe_heap_destroy(safe_heap_t *safe_heap);
 void *safe_heap_alloc(safe_heap_t *safe_heap, size_t size);
 void *safe_heap_realloc(safe_heap_t *safe_heap, void *ptr, size_t size);
 void safe_heap_free(safe_heap_t *safe_heap, void *ptr);
+// Gives back the pools grown after the first one that hold no allocation, and
+// the unused pages of the first one; returns the bytes of the pools released
+size_t safe_heap_trim(safe_heap_t *safe_heap);
 // Whether an allocation failed because of max_size
 bool safe_heap_over_limit(safe_heap_t *safe_heap);
 // Bytes reserved by all the pools of the heap
