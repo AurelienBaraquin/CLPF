@@ -43,9 +43,11 @@ that it still holds that pid. Senders hold that lock while they deliver, and
 the main thread holds it while it marks a slot free. A message therefore
 either reaches a live process or fails cleanly.
 
-Spawning runs on the caller's thread: it takes a free slot under the table
-lock, initialises the process under its slot lock, and pushes it to the least
-loaded scheduler. The child cannot run before `SPAWN` returns its pid.
+Spawning runs on the caller's thread: it takes a free slot from its
+scheduler's cache, initialises the process under its slot lock, and pushes
+it to the shared queue of the caller's own scheduler, or of the least loaded
+one when called from outside the schedulers. The child cannot run before
+`SPAWN` returns its pid.
 
 ## Coroutines
 

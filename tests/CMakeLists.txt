@@ -61,6 +61,7 @@ clpf_add_test(test_prewarm)
 clpf_add_test(test_large_alloc)
 clpf_add_test(test_heap_limit)
 clpf_add_test(test_hibernate)
+clpf_add_test(test_spawn_placement)
 clpf_add_test(test_migration_stress)
 # Heavy: alone, so that it does not skew the tests that measure time
 set_tests_properties(test_migration_stress PROPERTIES RUN_SERIAL TRUE)

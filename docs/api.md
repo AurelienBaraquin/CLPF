@@ -71,8 +71,8 @@ otherwise.
 ## Spawning
 
 `api/task.h`. Spawning is synchronous and never yields: the pid is known
-before the new process can run. New processes go to the least loaded
-scheduler. `SPAWN*` return the pid, or `INVALID_PID`.
+before the new process can run. A new process starts on its spawner's
+scheduler; work stealing spreads busy ones. `SPAWN*` return the pid, or `INVALID_PID`.
 
 | Macro | Meaning |
 |---|---|
@@ -98,7 +98,7 @@ scheduler. `SPAWN*` return the pid, or `INVALID_PID`.
 | `stack_size` | `CLPF_DEFAULT_STACK_SIZE` (16 KiB) | Stack of the process |
 | `mailbox_limit` | `0` (none) | Messages that may wait; past it `SEND` returns `SEND_FULL` |
 | `max_heap_size` | `0` (none) | Bytes its heap may take; past it, the process ends with `EXIT_REASON_HEAP_LIMIT` |
-| `scheduler` | `0` | `1 + index` of the scheduler to start on; `0` picks the least loaded |
+| `scheduler` | `0` | `1 + index` of the scheduler to start on; `0` starts on the spawner's |
 
 `clpf_spawn(self, &funcall, options)` spawns with integer arguments and options.
 

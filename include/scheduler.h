@@ -65,6 +65,11 @@ int scheduler_init(Scheduler *scheduler, Pid pid);
 void scheduler_destroy(Scheduler *scheduler);
 void scheduler_loop(Scheduler *scheduler);
 
+// The scheduler running on the calling thread, or NULL outside the schedulers
+Scheduler *scheduler_current(void);
+// Scheduler thread, when its loop starts
+void scheduler_set_current(Scheduler *scheduler);
+
 // Thread-safe push to the scheduler
 void scheduler_push_shared(Scheduler *scheduler, Process *process);
 

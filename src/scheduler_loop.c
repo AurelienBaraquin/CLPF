@@ -97,6 +97,7 @@ void scheduler_loop(Scheduler *scheduler) {
     stack_guard_thread_init();
     scheduler->scheduler_acoro = aco_create(NULL, NULL, 0, NULL, NULL);
     timer_queue_set_current(&scheduler->timers);
+    scheduler_set_current(scheduler);
     fiber_thread_init();
     clpf_slot_cache_attach(&scheduler->slot_cache);
 

@@ -3,9 +3,13 @@
 #include <stdio.h>
 
 Pid clpf_task_add(Funcall_t *fun, const SpawnOptions *options, Pid parent_pid, Pid monitored_by) {
-    Pid scheduler_index = options->scheduler > 0 && options->scheduler <= clpf.scheduler_count
-                              ? options->scheduler - 1
-                              : sch_mg_get_less_process_scheduler();
+    // A process spawned by another starts next to it: processes that talk then
+    // share a thread instead of waking each other across threads, and work
+    // stealing spreads the busy ones. Elsewhere, the least loaded scheduler.
+    Scheduler *current = scheduler_current();
+    Pid scheduler_index = options->scheduler > 0 && options->scheduler <= clpf.scheduler_count ? options->scheduler - 1
+                          : current ? current->pid
+                                    : sch_mg_get_less_process_scheduler();
     if (scheduler_index == -1) {
         fprintf(stderr, "No scheduler available\n");
         return INVALID_PID;
