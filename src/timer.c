@@ -111,7 +111,7 @@ static TimerId insert(Timer *timer, uint64_t delay_ms) {
     pthread_mutex_unlock(&timers.lock);
 
     // The main thread may be sleeping until a later deadline
-    idle_wake(&clpf.main_idle);
+    clpf_wake_main();
     return id;
 }
 

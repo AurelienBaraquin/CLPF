@@ -35,7 +35,7 @@ void watchdog_enter(Scheduler *scheduler, Process *process) {
     atomic_store(&scheduler->running_since, now_ms());
     // Pairs with watchdog_check: either it sees this run, or this sees its request
     if (atomic_load(&wake_on_run) && atomic_exchange(&wake_on_run, false))
-        idle_wake(&clpf.main_idle);
+        clpf_wake_main();
 }
 
 void watchdog_leave(Scheduler *scheduler) {
