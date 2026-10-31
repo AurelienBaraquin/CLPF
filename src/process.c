@@ -31,6 +31,7 @@ int process_init(Process *process, Funcall_t *taskcall, const SpawnOptions *opti
     process->group_count = 0;
     process->table_count = 0;
     process->bin_holds = NULL;
+    process->wait_match = NULL;
 
     process->schedule_count = priority == PROCESS_PRIORITY_LOW ? LOW_PRIORITY_SKIPS : 0;
     process->reductions = REDUCTION_BUDGET;

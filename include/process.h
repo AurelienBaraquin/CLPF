@@ -86,6 +86,10 @@ typedef struct process_s {
     unsigned int kill_reason;
 
     Mailbox mailbox;
+    // Guarded by lock: what a waiting RECEIVE accepts. Senders only wake the
+    // process for such a message, or one from the runtime (NULL: any message).
+    MessageMatch wait_match;
+    Tag wait_pattern;
     BinHold *bin_holds; // Guarded by lock: shared binaries it holds (see SEND_BIN)
 
     struct process_s *next;   // For the scheduler's private run queues

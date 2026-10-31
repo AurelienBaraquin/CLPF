@@ -3,15 +3,44 @@
 #include <stdio.h>
 #include <string.h>
 
-static Message *take_matching(Process *self, MessageMatch match, Tag pattern) {
+// cursor: the last message this RECEIVE already looked at, so that each wakeup
+// only looks at the messages that arrived since (NULL: from the start)
+static Message *take_matching(Process *self, Message **cursor, MessageMatch match, Tag pattern) {
     pthread_mutex_lock(&self->lock);
     mailbox_transfer_inbox_to_seen(&self->mailbox);
     pthread_mutex_unlock(&self->lock);
 
-    Message *msg = mailbox_take_matching(&self->mailbox, match, pattern);
+    Message *msg = mailbox_take_matching_after(&self->mailbox, cursor, match, pattern);
     if (msg)
         atomic_fetch_sub(&self->queued, 1);
     return msg;
+}
+
+static Message *take_first(Process *self, MessageMatch match, Tag pattern) {
+    Message *cursor = NULL;
+    return take_matching(self, &cursor, match, pattern);
+}
+
+// Waits until a message that may match arrives. Returns at once if messages
+// arrived since the last look: they have to be looked at first.
+static void wait_for(Process *self, MessageMatch match, Tag pattern) {
+    pthread_mutex_lock(&self->lock);
+    if (self->mailbox.inbox_head) {
+        pthread_mutex_unlock(&self->lock);
+        // A flood of messages it does not want must not keep the scheduler forever
+        clpf_reduce(self, REDUCTIONS_FETCH);
+        return;
+    }
+    self->wait_match = match;
+    self->wait_pattern = pattern;
+    self->state = PROCESS_WAITING;
+    pthread_mutex_unlock(&self->lock);
+
+    yield(self);
+
+    pthread_mutex_lock(&self->lock);
+    self->wait_match = NULL;
+    pthread_mutex_unlock(&self->lock);
 }
 
 // What the runtime sends always gets in, even into a full mailbox
@@ -21,13 +50,12 @@ static bool from_runtime(Pid from, Tag tag) {
 }
 
 Message *clpf_receive(Process *self, MessageMatch match, Tag pattern) {
+    Message *cursor = NULL;
     while (1) {
-        Message *msg = take_matching(self, match, pattern);
+        Message *msg = take_matching(self, &cursor, match, pattern);
         if (msg)
             return msg;
-
-        self->state = PROCESS_WAITING;
-        yield(self);
+        wait_for(self, match, pattern);
     }
 }
 
@@ -35,29 +63,31 @@ Message *clpf_receive_timeout(Process *self, MessageMatch match, Tag pattern, ui
     if (timeout_ms == CLPF_INFINITY)
         return clpf_receive(self, match, pattern);
 
-    Message *msg = take_matching(self, match, pattern);
+    Message *cursor = NULL;
+    Message *msg = take_matching(self, &cursor, match, pattern);
     if (msg || timeout_ms == 0)
         return msg;
 
+    // The timeout message can only be newer than what was already looked at
+    Message *timeout_cursor = cursor;
     TimerId timer = timer_add_timeout(self->pid, timeout_ms);
     Tag timeout_tag = MAKE_TIMEOUT_TAG(timer);
     while (1) {
-        msg = take_matching(self, match, pattern);
+        msg = take_matching(self, &cursor, match, pattern);
         if (msg) {
             // A timer that already fired left its message in the mailbox: drop it
             if (timer_cancel(timer) != 0)
-                clpf_msg_free(self, take_matching(self, clpf_match_same, timeout_tag));
+                clpf_msg_free(self, take_first(self, clpf_match_same, timeout_tag));
             return msg;
         }
 
-        Message *timeout = take_matching(self, clpf_match_same, timeout_tag);
+        Message *timeout = take_matching(self, &timeout_cursor, clpf_match_same, timeout_tag);
         if (timeout) {
             clpf_msg_free(self, timeout);
             return NULL;
         }
 
-        self->state = PROCESS_WAITING;
-        yield(self);
+        wait_for(self, match, pattern);
     }
 }
 
@@ -73,7 +103,14 @@ void clpf_sleep(Process *self, uint64_t ms) {
 
 Message *clpf_fetch(Process *self, MessageMatch match, Tag pattern) {
     clpf_reduce(self, REDUCTIONS_FETCH);
-    return take_matching(self, match, pattern);
+    return take_first(self, match, pattern);
+}
+
+// A waiting receiver only wakes for a message it may take, or one from the runtime
+// (timeouts, DOWN, exit signals...). The new message is the last of its inbox.
+static bool wakes_receiver(Process *receiver, Pid from, Tag tag) {
+    return !receiver->wait_match || from_runtime(from, tag) ||
+           receiver->wait_match(receiver->mailbox.inbox_tail, receiver->wait_pattern);
 }
 
 // bin: a shared binary to send instead of a copy of data
@@ -100,7 +137,8 @@ static int deliver(Pid from, Pid pid, void *data, size_t size, Tag tag, Bin *bin
             : mailbox_send_message(&other_process->mailbox, &other_process->heap, data, size, from, tag);
     if (delivered == 0) {
         atomic_fetch_add(&other_process->queued, 1);
-        process_notify_locked(other_process);
+        if (wakes_receiver(other_process, from, tag))
+            process_notify_locked(other_process);
     }
     process_unlock(other_process);
     if (delivered != 0) {

@@ -86,3 +86,7 @@ BinHold *mailbox_bin_hold(Message *msg);
 void mailbox_transfer_inbox_to_seen(Mailbox *mbox);
 // Unlinks and returns the oldest seen message matching pattern, or NULL (owner only)
 Message *mailbox_take_matching(Mailbox *mbox, MessageMatch match, Tag pattern);
+// The same, starting after *cursor, the last message a previous call looked at
+// (NULL: from the start), and moving it forward. Removing the message at
+// *cursor in between invalidates it.
+Message *mailbox_take_matching_after(Mailbox *mbox, Message **cursor, MessageMatch match, Tag pattern);

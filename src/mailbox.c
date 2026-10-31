@@ -110,8 +110,13 @@ void mailbox_transfer_inbox_to_seen(Mailbox *mbox) {
 }
 
 Message *mailbox_take_matching(Mailbox *mbox, MessageMatch match, Tag pattern) {
-    Message *prev = NULL;
-    Message *msg = mbox->seen_head;
+    Message *cursor = NULL;
+    return mailbox_take_matching_after(mbox, &cursor, match, pattern);
+}
+
+Message *mailbox_take_matching_after(Mailbox *mbox, Message **cursor, MessageMatch match, Tag pattern) {
+    Message *prev = *cursor;
+    Message *msg = prev ? prev->next : mbox->seen_head;
 
     while (msg) {
         if (match(msg, pattern)) {
@@ -125,6 +130,7 @@ Message *mailbox_take_matching(Mailbox *mbox, MessageMatch match, Tag pattern) {
             return msg;
         }
         prev = msg;
+        *cursor = msg;
         msg = msg->next;
     }
     return NULL;
