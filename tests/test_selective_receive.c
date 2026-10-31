@@ -33,6 +33,15 @@ static void *outside_sender(void *arg) {
     return NULL;
 }
 
+TASK0(doubler) {
+    while (1) {
+        Message *msg = RECEIVE(NO_TAG);
+        int value = *(int *)msg->payload * 2;
+        REPLY(msg, &value, sizeof value);
+        MSG_FREE(msg);
+    }
+}
+
 TASK(spammer, Pid target) {
     for (int i = 0; i < SPAM; ++i)
         SEND(target, NULL, 0, MAKE_STR_TAG("spam"));
@@ -86,6 +95,21 @@ TASK(entry, int argc, char *argv[]) {
     TEST_ASSERT(after.runs - before.runs <= MAX_RUNS);
     drop_all(self, "spam");
     drop_all(self, "go");
+
+    // Requests skip the backlog, which stays whole and in order
+    for (int i = 0; i < NOISE; ++i)
+        SEND(self->pid, &i, sizeof i, MAKE_STR_TAG("backlog"));
+    Pid server = SPAWN0(doubler);
+    for (int i = 0; i < 100; ++i) {
+        Message *reply = REQUEST_REF(server, &i, sizeof i, 1000);
+        TEST_ASSERT(reply && *(int *)reply->payload == 2 * i);
+        MSG_FREE(reply);
+    }
+    for (int i = 0; i < NOISE; ++i) {
+        Message *old = FETCH(MAKE_STR_TAG("backlog"));
+        TEST_ASSERT(old && *(int *)old->payload == i);
+        MSG_FREE(old);
+    }
 
     TEST_PASS();
 }

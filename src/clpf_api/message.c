@@ -46,21 +46,25 @@ static bool from_runtime(Pid from, Tag tag) {
            tag.kind == TAG_KIND_TIMEOUT || tag.kind == TAG_KIND_REPLY;
 }
 
-Message *clpf_receive(Process *self, MessageMatch match, Tag pattern) {
-    Message *cursor = NULL;
-    while (1) {
-        Message *msg = take_matching(self, &cursor, match, pattern);
-        if (msg)
-            return msg;
-        wait_for(self, match, pattern);
-    }
+// The newest message already in the mailbox: what arrives later comes after it
+static Message *mailbox_mark(Process *self) {
+    pthread_mutex_lock(&self->lock);
+    mailbox_transfer_inbox_to_seen(&self->mailbox);
+    pthread_mutex_unlock(&self->lock);
+    return self->mailbox.seen_tail;
 }
 
-Message *clpf_receive_timeout(Process *self, MessageMatch match, Tag pattern, uint64_t timeout_ms) {
-    if (timeout_ms == CLPF_INFINITY)
-        return clpf_receive(self, match, pattern);
+// Receives, looking only at the messages after cursor (NULL: all of them)
+static Message *receive_after(Process *self, Message *cursor, MessageMatch match, Tag pattern, uint64_t timeout_ms) {
+    if (timeout_ms == CLPF_INFINITY) {
+        while (1) {
+            Message *msg = take_matching(self, &cursor, match, pattern);
+            if (msg)
+                return msg;
+            wait_for(self, match, pattern);
+        }
+    }
 
-    Message *cursor = NULL;
     Message *msg = take_matching(self, &cursor, match, pattern);
     if (msg || timeout_ms == 0)
         return msg;
@@ -86,6 +90,14 @@ Message *clpf_receive_timeout(Process *self, MessageMatch match, Tag pattern, ui
 
         wait_for(self, match, pattern);
     }
+}
+
+Message *clpf_receive(Process *self, MessageMatch match, Tag pattern) {
+    return receive_after(self, NULL, match, pattern, CLPF_INFINITY);
+}
+
+Message *clpf_receive_timeout(Process *self, MessageMatch match, Tag pattern, uint64_t timeout_ms) {
+    return receive_after(self, NULL, match, pattern, timeout_ms);
 }
 
 static bool match_nothing(const Message *msg, Tag pattern) {
@@ -185,11 +197,13 @@ static void await_reply(Process *self, Ref ref) {
 Message *clpf_request_ref(Process *self, Pid pid, void *data, size_t size, uint64_t timeout_ms) {
     Ref ref = clpf_make_ref();
 
-    // Expect the reply before sending: it may come back before SEND returns
+    // Expect the reply before sending: it may come back before SEND returns.
+    // Older messages cannot be the reply: the search starts after them.
     await_reply(self, ref);
+    Message *older = mailbox_mark(self);
     Message *reply = NULL;
     if (clpf_send(self, pid, data, size, MAKE_REF_TAG(ref)) == 0)
-        reply = clpf_receive_timeout(self, TM_SAME, MAKE_REPLY_TAG(ref), timeout_ms);
+        reply = receive_after(self, older, TM_SAME, MAKE_REPLY_TAG(ref), timeout_ms);
     await_reply(self, 0);
     return reply;
 }

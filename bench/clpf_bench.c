@@ -3,6 +3,7 @@
 #include <api/task.h>
 #include <api/message.h>
 #include <api/io.h>
+#include <api/link.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,6 +16,8 @@
 #define WAITERS       10000
 #define PAIRS         8
 #define PAIR_MESSAGES 200000
+#define BACKLOG       1000
+#define REQUESTS      20000
 #define QUICK_DIVISOR 100
 // What a spawn loop charges itself per SPAWN, as SPAWN costs no reductions
 #define SPAWN_REDUCTIONS 50
@@ -56,6 +59,14 @@ TASK(echo, int round_trips) {
     for (int i = 0; i < round_trips; ++i) {
         Message *msg = RECEIVE(MAKE_STR_TAG("ping"));
         SEND(msg->sender_pid, NULL, 0, MAKE_STR_TAG("pong"));
+        MSG_FREE(msg);
+    }
+}
+
+TASK0(replier) {
+    while (1) {
+        Message *msg = RECEIVE(NO_TAG);
+        REPLY(msg, NULL, 0);
         MSG_FREE(msg);
     }
 }
@@ -116,6 +127,22 @@ static void bench_latency(Process *self) {
     report(self, "ping-pong round trip", (now_s() - start) / count * 1e6, "us");
 }
 
+// A process with unrelated messages waiting still gets its replies fast
+static void bench_backlog(Process *self) {
+    int count = REQUESTS / scale;
+    for (int i = 0; i < BACKLOG; ++i)
+        SEND(self->pid, NULL, 0, MAKE_ATOM_TAG("backlog"));
+    Pid server = SPAWN0(replier);
+    double start = now_s();
+    for (int i = 0; i < count; ++i)
+        MSG_FREE(REQUEST_REF(server, NULL, 0, CLPF_INFINITY));
+    report(self, "request, 1000 messages queued", (now_s() - start) / count * 1e6, "us");
+    Message *old;
+    while ((old = FETCH(MAKE_ATOM_TAG("backlog"))) != NULL)
+        MSG_FREE(old);
+    KILL(server);
+}
+
 static void bench_waiters(Process *self) {
     int count = WAITERS / (scale > 1 ? 10 : 1);
     static Pid pids[WAITERS];
@@ -153,6 +180,7 @@ TASK(entry, int argc, char *argv[]) {
     bench_spawn(self);
     bench_throughput(self);
     bench_latency(self);
+    bench_backlog(self);
     bench_waiters(self);
     bench_parallel(self);
 }
