@@ -66,15 +66,24 @@ long-running process that forgets them grows forever.
 
 | Constructor | Kind | Typical use |
 |---|---|---|
-| `MAKE_STR_TAG("name")` | string | Message types: `"job"`, `"stats::add"` |
+| `MAKE_ATOM_TAG("name")` | atom | Message types, the cheapest: `"job"`, `"stats::add"` |
+| `MAKE_STR_TAG("name")` | string | Names built at run time, from a temporary buffer |
 | `MAKE_INT_TAG(n)` | integer | Request ids, sequence numbers |
 | `MAKE_INTERNAL_TAG(code)` | code | Application-defined enums |
 | `MAKE_NOTIFY_TAG("name")` | notification | `NOTIFY` / `WAIT_NOTIF` |
 | `MAKE_DOWN_TAG(pid)`, `MAKE_EXIT_TAG(pid)` | runtime | [DOWN and EXIT messages](failures.md) |
 
+An **atom** is a name interned once: every `MAKE_ATOM_TAG("job")` in the
+program gives the same pointer, so atoms are compared by pointer and sent
+without copying their name. `MAKE_ATOM_TAG` takes a string literal, and
+caches its atom at each call site; for a name built at run time, use
+`clpf_atom_tag(name)`. Atoms live until the program ends, so keep them for a
+fixed set of names, not for data.
+
 String tags are copied with the message, so they may come from a temporary
-buffer. Two tags are equal when they have the same kind and the same value:
-`MAKE_STR_TAG("1")` and `MAKE_INT_TAG(1)` are different.
+buffer, and compared with `strcmp`. Two tags are equal when they have the
+same kind and the same value: `MAKE_ATOM_TAG("1")`, `MAKE_STR_TAG("1")` and
+`MAKE_INT_TAG(1)` are three different tags.
 
 ## Selective receive
 
@@ -123,7 +132,7 @@ everything your process can get.
 | Matcher | Accepts |
 |---|---|
 | `TM_SAME` | Equal tags (`NO_TAG` accepts anything). What `RECEIVE` uses |
-| `TM_PREFIX` | String tags starting with the pattern string |
+| `TM_PREFIX` | Atom or string tags starting with the pattern's name |
 | `TM_GTE`, `TM_LTE` | Integer tags `>=` / `<=` the pattern |
 | `TM_IN_RANGE` | Integer tags within `MAKE_RANGE_TAG(min, max)` (32-bit bounds) |
 | `TM_KIND` | Any tag of the kind given by `MAKE_TAG_KIND(kind)` |
@@ -271,4 +280,13 @@ WAIT_NOTIF("ready");           // in the parent
 - `SEND` never blocks and spends a few reductions; a process sending in a
   tight loop still yields regularly.
 - Delivering to a waiting process wakes it in a few microseconds, even on
-  another scheduler.
+  another scheduler. A process waiting in `RECEIVE` is only woken by a
+  message it may take, or one from the runtime (timeouts, DOWN, exit
+  signals): other messages queue up without disturbing it.
+- A `RECEIVE` looks at each queued message once, however often it wakes up.
+  A new `RECEIVE` starts again from the oldest message, except
+  `REQUEST_REF`, which starts after the messages older than its request: a
+  backlog of unrelated messages does not slow it down.
+- Matchers given to `RECEIVE_IF` also run in the senders' threads, to decide
+  whether to wake the receiver: they must only read the message and the
+  pattern, and stay fast.

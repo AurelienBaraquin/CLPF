@@ -82,7 +82,7 @@ Tips:
 
 - Spawning is cheap, but each process maps its own stack and heap: around
   32 KiB of address space at least. Tens of thousands of processes are fine;
-  the table holds 65 536 at once.
+  the table holds 65 535 at once.
 - Messages are copied: send small payloads, or batch many small ones into one
   struct.
 - Receive what arrives. A mailbox full of messages nobody matches makes every

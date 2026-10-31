@@ -31,6 +31,7 @@ int process_init(Process *process, Funcall_t *taskcall, const SpawnOptions *opti
     process->group_count = 0;
     process->table_count = 0;
     process->bin_holds = NULL;
+    process->wait_match = NULL;
 
     process->schedule_count = priority == PROCESS_PRIORITY_LOW ? LOW_PRIORITY_SKIPS : 0;
     process->reductions = REDUCTION_BUDGET;
@@ -74,7 +75,7 @@ int process_init(Process *process, Funcall_t *taskcall, const SpawnOptions *opti
     process->links.parent = parent_pid;
     process->exit_notified = false;
     process->linked = NULL;
-    process->trap_exit = false;
+    process->trap_exit = options->trap_exit;
     process->awaited_reply = 0;
     process->system = options->system;
     process->entry = options->entry;
@@ -93,7 +94,7 @@ int process_init(Process *process, Funcall_t *taskcall, const SpawnOptions *opti
 }
 
 void process_destroy(Process *process) {
-    if (!process || process->pid == INVALID_PID)
+    if (!process || process_slot_free(process))
         return;
 
 #ifdef CLPF_TRACE
@@ -102,7 +103,7 @@ void process_destroy(Process *process) {
 
     // From here on, senders see the slot as free and never reach the heap
     pthread_mutex_lock(&process->lock);
-    process->pid = INVALID_PID;
+    process->pid = PID_FREE;
     pthread_mutex_unlock(&process->lock);
 
     // The nodes live in the heap: release the binaries before it goes
@@ -129,7 +130,7 @@ void process_destroy(Process *process) {
 }
 
 Process *process_lock(Pid pid) {
-    if (pid < 0)
+    if (pid <= 0)
         return NULL;
 
     Process *process = &clpf.process_table[PID_INDEX(pid)];
@@ -146,6 +147,8 @@ void process_unlock(Process *process) {
 }
 
 void process_notify_locked(Process *process) {
+    // Woken up: until it waits again, every message may concern it
+    process->wait_match = NULL;
     // An exiting process is never queued again, so its slot can be freed safely
     if (process->exit_notified)
         return;

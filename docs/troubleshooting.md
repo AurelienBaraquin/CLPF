@@ -105,7 +105,7 @@ reloading.
 
 ### How many processes can I have?
 
-65 536 at the same time. Each costs at least about 32 KiB of address space
+65 535 at the same time. Each costs at least about 32 KiB of address space
 (stack and heap) and a few microseconds to start. Blocked processes cost no
 CPU.
 

@@ -50,13 +50,14 @@ int clpf_process_info(Pid pid, ProcessInfo *info) {
 size_t clpf_process_list(Pid *buffer, size_t max) {
     size_t count = 0;
 
-    for (int i = 0; i < MAX_PROCESSES; ++i) {
+    int end = clpf_slot_end();
+    for (int i = 1; i < end; ++i) {
         Process *process = &clpf.process_table[i];
         pthread_mutex_lock(&process->lock);
         Pid pid = process->pid;
         pthread_mutex_unlock(&process->lock);
 
-        if (pid == INVALID_PID)
+        if (pid == PID_FREE)
             continue;
         if (buffer && count < max)
             buffer[count] = pid;
@@ -70,14 +71,15 @@ void clpf_dump(FILE *out) {
             "RUNS", "NAME (REGISTERED)");
 
     size_t count = 0;
-    for (int i = 0; i < MAX_PROCESSES; ++i) {
+    int end = clpf_slot_end();
+    for (int i = 1; i < end; ++i) {
         Process *process = &clpf.process_table[i];
         pthread_mutex_lock(&process->lock);
         Pid pid = process->pid;
         pthread_mutex_unlock(&process->lock);
 
         ProcessInfo info;
-        if (pid == INVALID_PID || clpf_process_info(pid, &info) != 0)
+        if (pid == PID_FREE || clpf_process_info(pid, &info) != 0)
             continue;
         fprintf(out, "%-10ld %-8s %-9s %5d %7zu %10zu %10lu  %s", info.pid, clpf_state_name(info.state),
                 clpf_priority_name(info.priority), info.scheduler, info.queued, info.heap_bytes,

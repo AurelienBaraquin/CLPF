@@ -33,7 +33,7 @@ SUP_ST DEF(sup_handler_spawn, Message *msg, supervisor_t *sup) {
         }
     }
 
-    SEND(msg->sender_pid, &child_pid, sizeof(Pid), MAKE_STR_TAG("supervisor::spawn"));
+    SEND(msg->sender_pid, &child_pid, sizeof(Pid), MAKE_ATOM_TAG("supervisor::spawn"));
     return child_pid == INVALID_PID ? SUP_NOTHING : SUP_SUCCESS;
 }
 
@@ -49,7 +49,7 @@ SUP_ST DEF(sup_handler_remove, Message *msg, supervisor_t *sup) {
         removed = 0;
     }
 
-    SEND(msg->sender_pid, &removed, sizeof(int), MAKE_STR_TAG("supervisor::remove"));
+    SEND(msg->sender_pid, &removed, sizeof(int), MAKE_ATOM_TAG("supervisor::remove"));
     return removed == 0 ? SUP_SUCCESS : SUP_NOTHING;
 }
 
@@ -63,7 +63,7 @@ SUP_ST DEF(supervisor_handler, Message *msg, supervisor_t *sup) {
         return SUP_NOTHING;
 
     for (size_t i = 0; i < sizeof(sv_handlers) / sizeof(sv_handlers[0]); i++) {
-        if (MSG_IS(msg, MAKE_STR_TAG(sv_handlers[i].tag))) {
+        if (MSG_IS(msg, clpf_atom_tag(sv_handlers[i].tag))) {
             return sv_handlers[i].handler(self, msg, sup);
         }
     }

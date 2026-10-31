@@ -70,15 +70,15 @@ or spread the work.
 
 ```text
 PID        STATE    PRIORITY  SCHED  QUEUED       HEAP       RUNS  NAME (REGISTERED)
-65536      waiting  medium        0       1      16384          1  worker (app::worker)
-1          waiting  medium        1       0      16384          1  server::supervisor
-2          waiting  high          2       1      16384          2  server::io (server::io)
-3          running  medium        3       0      16384          2  clpf::entry
+2          waiting  medium        1       0      16384          1  server::supervisor
+3          running  high          2       1      16384          2  server::io (server::io)
+4          running  medium        3       0      16384          2  clpf::entry
+5          waiting  medium        0       1      16384          2  worker (app::worker)
 4 processes
 ```
 
-Processes are listed by slot, so a pid such as 65536 (slot 0, reused once)
-can come first.
+Processes are listed by slot. Pid 1 was the launcher, which starts the
+system processes and the entry, then ends.
 
 A running program writes the same table to stderr when it receives
 `SIGUSR1`, so you can look at a live system without changing it:

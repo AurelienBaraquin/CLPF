@@ -1,6 +1,7 @@
 #include <clpf_internal.h>
 #include <api/base.h>
 #include <stdio.h>
+#include <string.h>
 #include <pthread.h>
 #include <utils/cpu.h>
 #include <flags_internal.h>
@@ -21,6 +22,17 @@ static void *scheduler_thread(void *arg) {
     return NULL;
 }
 
+static bool zeroed_mutex_is_valid(void) {
+    const pthread_mutex_t initializer = PTHREAD_MUTEX_INITIALIZER;
+    unsigned char bytes[sizeof initializer];
+    memcpy(bytes, &initializer, sizeof bytes);
+    for (size_t i = 0; i < sizeof bytes; ++i) {
+        if (bytes[i] != 0)
+            return false;
+    }
+    return true;
+}
+
 static int clpf_init(void) {
     clpf.process_table = calloc(MAX_PROCESSES, sizeof(Process));
     clpf.free_slots = malloc(MAX_PROCESSES * sizeof(int));
@@ -33,16 +45,17 @@ static int clpf_init(void) {
         return -1;
     }
 
-    for (int i = 0; i < MAX_PROCESSES; i++) {
-        pthread_mutex_init(&clpf.process_table[i].lock, NULL);
-        clpf.process_table[i].pid = INVALID_PID;
-        clpf.process_table[i].generation = 0;
+    // The table stays untouched zeroed memory until slots are used: a zeroed
+    // slot is free (pid PID_FREE, generation 0), and so is its lock where a
+    // zeroed mutex is valid, as with glibc. Elsewhere, initialize them all.
+    if (!zeroed_mutex_is_valid()) {
+        for (int i = 0; i < MAX_PROCESSES; i++)
+            pthread_mutex_init(&clpf.process_table[i].lock, NULL);
     }
 
-    // Lowest indices on top, so the first processes get the smallest pids
-    clpf.free_slot_count = MAX_PROCESSES;
-    for (int i = 0; i < MAX_PROCESSES; i++)
-        clpf.free_slots[i] = MAX_PROCESSES - 1 - i;
+    // Slots are handed out in order, then reused from free_slots once released
+    clpf.free_slot_count = 0;
+    atomic_store(&clpf.slot_end, 1);
 
     clpf.process_count = 0;
     clpf.scheduler_count = 0;
@@ -60,10 +73,19 @@ int clpf_slot_alloc(void) {
     int index = -1;
 
     pthread_mutex_lock(&clpf.table_lock);
-    if (clpf.free_slot_count > 0)
+    int end = atomic_load(&clpf.slot_end);
+    if (clpf.free_slot_count > 0) {
         index = clpf.free_slots[--clpf.free_slot_count];
+    } else if (end < MAX_PROCESSES) {
+        index = end;
+        atomic_store(&clpf.slot_end, end + 1);
+    }
     pthread_mutex_unlock(&clpf.table_lock);
     return index;
+}
+
+int clpf_slot_end(void) {
+    return atomic_load(&clpf.slot_end);
 }
 
 void clpf_slot_release(int index) {
@@ -77,13 +99,11 @@ static void clpf_destroy(void) {
         scheduler_destroy(&clpf.scheduler_table[i]);
     }
 
-    for (int i = 0; i < MAX_PROCESSES; i++) {
+    int end = clpf_slot_end();
+    for (int i = 1; i < end; i++)
         process_destroy(&clpf.process_table[i]);
-    }
-
-    for (int i = 0; i < MAX_PROCESSES; i++) {
+    for (int i = 1; i < end; i++)
         pthread_mutex_destroy(&clpf.process_table[i].lock);
-    }
     free(clpf.process_table);
     free(clpf.free_slots);
     pthread_mutex_destroy(&clpf.table_lock);
@@ -115,10 +135,11 @@ void clpf_wake_all(void) {
 
 // Main thread, during shutdown: ends every process that is not a system one
 static void kill_user_processes(void) {
-    for (int i = 0; i < MAX_PROCESSES; i++) {
+    int end = clpf_slot_end();
+    for (int i = 1; i < end; i++) {
         Process *process = &clpf.process_table[i];
         pthread_mutex_lock(&process->lock);
-        if (process->pid != INVALID_PID && !process->system)
+        if (!process_slot_free(process) && !process->system)
             process_exit_signal_locked(process, INVALID_PID, EXIT_REASON_KILLED, true);
         pthread_mutex_unlock(&process->lock);
     }

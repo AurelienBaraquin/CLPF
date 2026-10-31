@@ -25,10 +25,16 @@ repository root.
 
 `include/process.h`, `src/process.c`, `src/clpf_api/task.c`
 
-All processes live in one table of 65 536 slots, allocated at startup, with a
-stack of free slot indices. A **pid** is `index | generation << 16`. The
-generation of a slot increases each time it is reused, so the pid of a dead
-process never designates a newer one.
+All processes live in one table of 65 536 slots, allocated at startup as
+zeroed memory and left untouched until used: a zeroed slot is a free one
+(`pid == PID_FREE`, 0), and with glibc a zeroed mutex is a valid one. Slot 0
+is never used, so no valid pid is 0. Slots are handed out in order, then
+reused from a stack of released ones, and scans of the table stop at the
+last slot ever used. An idle program is about 2 MB resident.
+
+A **pid** is `index | generation << 16`. The generation of a slot increases
+each time it is reused, so the pid of a dead process never designates a
+newer one.
 
 Each slot has a **lock** that guards everything other threads can touch: the
 pid itself, the mailbox inbox, the watcher and link lists, the trap-exit flag
@@ -89,6 +95,14 @@ scheduler. The scheduler only revisits processes that actually received
 something, so a blocked process costs nothing however many there are.
 Senders never write another process's state, so no wakeup can be lost.
 
+Before it waits, a `RECEIVE` publishes under its slot lock what it accepts:
+its matcher and pattern, unless messages arrived since it last looked, in
+which case it looks again instead of waiting. A sender only wakes it for a
+message that matcher accepts, or one from the runtime, and the waker clears
+the filter. Each `RECEIVE` keeps a cursor on the last message it examined,
+so a wakeup only scans what arrived since; `REQUEST_REF` starts its cursor
+at the newest message older than the request.
+
 ### Idle
 
 With nothing to run, a scheduler spins briefly, then sleeps on an
@@ -124,7 +138,10 @@ goes to a bounded pool for the next process. A spinlock guards it, since
 senders on other threads allocate their messages in it.
 
 A message is **one allocation in the receiver's heap**: the header, the
-16-byte aligned payload, then the tag string. The mailbox has two lists:
+16-byte aligned payload, then the tag string. Atom tags are not copied:
+`src/atom.c` interns names in a hash map (`src/utils/hash_map.c`) that lives
+as long as the program, and `MAKE_ATOM_TAG` caches its atom in a static at
+each call site. The mailbox has two lists:
 
 - the **inbox**, appended to by senders under the receiver's slot lock;
 - the **seen list**, private to the owner. A receive moves the inbox to the

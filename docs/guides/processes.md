@@ -96,6 +96,7 @@ Fields you leave out take their default:
 | `priority` | `PROCESS_PRIORITY_MEDIUM` | See below |
 | `monitor` | `false` | Monitor the child from its very start |
 | `link` | `false` | Link to the child before it runs |
+| `trap_exit` | `false` | Trap exit signals from the start: one sent before the child first runs arrives as a message instead of killing it |
 | `arg_block`, `arg_block_size` | none | Data copied into the child, passed as its argument |
 | `stack_size` | 16 KiB | Stack size |
 | `mailbox_limit` | `0` (none) | Messages that may wait; past it `SEND` returns `SEND_FULL` |

@@ -91,6 +91,7 @@ scheduler. `SPAWN*` return the pid, or `INVALID_PID`.
 | `priority` | `PROCESS_PRIORITY_MEDIUM` | Also `_LOW` (runs 1 pass in 8), `_HIGH`, `_VERY_HIGH` |
 | `monitor` | `false` | The spawner monitors the child from its very start |
 | `link` | `false` | The spawner and the child are linked before it runs |
+| `trap_exit` | `false` | Traps exit signals from the start, as if it called `TRAP_EXIT(true)` before running |
 | `arg_block`, `arg_block_size` | none | Block copied into the child heap and passed as its argument |
 | `stack_size` | `CLPF_DEFAULT_STACK_SIZE` (16 KiB) | Stack of the process |
 | `mailbox_limit` | `0` (none) | Messages that may wait; past it `SEND` returns `SEND_FULL` |
@@ -129,6 +130,8 @@ Mailboxes are FIFO per sender.
 | Constructor | Kind |
 |---|---|
 | `MAKE_INT_TAG(n)` | Integer |
+| `MAKE_ATOM_TAG("s")` | Atom: interned once per name, compared by pointer, never copied; `s` is a literal |
+| `clpf_atom_tag(s)`, `clpf_atom(s)` | The atom tag, or the atom, of any string |
 | `MAKE_STR_TAG(s)` | String, copied with the message |
 | `MAKE_INTERNAL_TAG(code)` | Application-defined code |
 | `MAKE_NOTIFY_TAG(s)` | Notification (see `NOTIFY`) |
@@ -308,7 +311,7 @@ A thread of your own that blocks on I/O can feed a process this way.
 | `INVALID_PID` | `-1` | No process |
 | `SEND_FULL` | `-2` | `SEND` result when the receiver's mailbox is full |
 | `CLPF_INFINITY` | `UINT64_MAX` | A timeout that never expires |
-| `MAX_PROCESSES` | 65 536 | Live processes at once |
+| `MAX_PROCESSES` | 65 536 | Process table slots; 65 535 live processes at once (slot 0 is never used) |
 | `MAX_SCHEDULERS` | 64 | Scheduler threads at most |
 | `NAME_MAX_LENGTH` | 64 | Labels and registered names, terminating NUL included |
 | `CLPF_DEFAULT_STACK_SIZE` | 16 KiB | Default process stack (build-time option) |
@@ -328,5 +331,5 @@ Using the installed library: `find_package(clpf)` and link `clpf::clpf`, or
 use GNU C statement expressions (`-std=gnu11` recommended).
 
 Limits: x86-64 Linux only (libaco's context switch and `funcall.S` are
-x86-64 assembly); up to 65 536 live processes; a process name is at most 63
+x86-64 assembly); up to 65 535 live processes; a process name is at most 63
 characters; preemption only happens in runtime calls.

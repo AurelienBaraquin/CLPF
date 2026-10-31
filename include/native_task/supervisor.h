@@ -30,6 +30,7 @@ typedef struct sup_child_spec_s {
     size_t stack_size;
     size_t mailbox_limit;
     size_t arg_block_size;
+    bool trap_exit;
 } SupChildSpec;
 
 typedef enum supervisor_state_e {

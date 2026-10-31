@@ -3,15 +3,41 @@
 #include <stdio.h>
 #include <string.h>
 
-static Message *take_matching(Process *self, MessageMatch match, Tag pattern) {
+// cursor: the last message this RECEIVE already looked at, so that each wakeup
+// only looks at the messages that arrived since (NULL: from the start)
+static Message *take_matching(Process *self, Message **cursor, MessageMatch match, Tag pattern) {
     pthread_mutex_lock(&self->lock);
     mailbox_transfer_inbox_to_seen(&self->mailbox);
     pthread_mutex_unlock(&self->lock);
 
-    Message *msg = mailbox_take_matching(&self->mailbox, match, pattern);
+    Message *msg = mailbox_take_matching_after(&self->mailbox, cursor, match, pattern);
     if (msg)
         atomic_fetch_sub(&self->queued, 1);
     return msg;
+}
+
+static Message *take_first(Process *self, MessageMatch match, Tag pattern) {
+    Message *cursor = NULL;
+    return take_matching(self, &cursor, match, pattern);
+}
+
+// Waits until a message that may match arrives. Returns at once if messages
+// arrived since the last look: they have to be looked at first.
+static void wait_for(Process *self, MessageMatch match, Tag pattern) {
+    pthread_mutex_lock(&self->lock);
+    if (self->mailbox.inbox_head) {
+        pthread_mutex_unlock(&self->lock);
+        // A flood of messages it does not want must not keep the scheduler forever
+        clpf_reduce(self, REDUCTIONS_FETCH);
+        return;
+    }
+    self->wait_match = match;
+    self->wait_pattern = pattern;
+    self->state = PROCESS_WAITING;
+    pthread_mutex_unlock(&self->lock);
+
+    // The waker clears wait_match under the lock (see process_notify_locked)
+    yield(self);
 }
 
 // What the runtime sends always gets in, even into a full mailbox
@@ -20,45 +46,58 @@ static bool from_runtime(Pid from, Tag tag) {
            tag.kind == TAG_KIND_TIMEOUT || tag.kind == TAG_KIND_REPLY;
 }
 
-Message *clpf_receive(Process *self, MessageMatch match, Tag pattern) {
-    while (1) {
-        Message *msg = take_matching(self, match, pattern);
-        if (msg)
-            return msg;
-
-        self->state = PROCESS_WAITING;
-        yield(self);
-    }
+// The newest message already in the mailbox: what arrives later comes after it
+static Message *mailbox_mark(Process *self) {
+    pthread_mutex_lock(&self->lock);
+    mailbox_transfer_inbox_to_seen(&self->mailbox);
+    pthread_mutex_unlock(&self->lock);
+    return self->mailbox.seen_tail;
 }
 
-Message *clpf_receive_timeout(Process *self, MessageMatch match, Tag pattern, uint64_t timeout_ms) {
-    if (timeout_ms == CLPF_INFINITY)
-        return clpf_receive(self, match, pattern);
+// Receives, looking only at the messages after cursor (NULL: all of them)
+static Message *receive_after(Process *self, Message *cursor, MessageMatch match, Tag pattern, uint64_t timeout_ms) {
+    if (timeout_ms == CLPF_INFINITY) {
+        while (1) {
+            Message *msg = take_matching(self, &cursor, match, pattern);
+            if (msg)
+                return msg;
+            wait_for(self, match, pattern);
+        }
+    }
 
-    Message *msg = take_matching(self, match, pattern);
+    Message *msg = take_matching(self, &cursor, match, pattern);
     if (msg || timeout_ms == 0)
         return msg;
 
+    // The timeout message can only be newer than what was already looked at
+    Message *timeout_cursor = cursor;
     TimerId timer = timer_add_timeout(self->pid, timeout_ms);
     Tag timeout_tag = MAKE_TIMEOUT_TAG(timer);
     while (1) {
-        msg = take_matching(self, match, pattern);
+        msg = take_matching(self, &cursor, match, pattern);
         if (msg) {
             // A timer that already fired left its message in the mailbox: drop it
             if (timer_cancel(timer) != 0)
-                clpf_msg_free(self, take_matching(self, clpf_match_same, timeout_tag));
+                clpf_msg_free(self, take_first(self, clpf_match_same, timeout_tag));
             return msg;
         }
 
-        Message *timeout = take_matching(self, clpf_match_same, timeout_tag);
+        Message *timeout = take_matching(self, &timeout_cursor, clpf_match_same, timeout_tag);
         if (timeout) {
             clpf_msg_free(self, timeout);
             return NULL;
         }
 
-        self->state = PROCESS_WAITING;
-        yield(self);
+        wait_for(self, match, pattern);
     }
+}
+
+Message *clpf_receive(Process *self, MessageMatch match, Tag pattern) {
+    return receive_after(self, NULL, match, pattern, CLPF_INFINITY);
+}
+
+Message *clpf_receive_timeout(Process *self, MessageMatch match, Tag pattern, uint64_t timeout_ms) {
+    return receive_after(self, NULL, match, pattern, timeout_ms);
 }
 
 static bool match_nothing(const Message *msg, Tag pattern) {
@@ -73,7 +112,14 @@ void clpf_sleep(Process *self, uint64_t ms) {
 
 Message *clpf_fetch(Process *self, MessageMatch match, Tag pattern) {
     clpf_reduce(self, REDUCTIONS_FETCH);
-    return take_matching(self, match, pattern);
+    return take_first(self, match, pattern);
+}
+
+// A waiting receiver only wakes for a message it may take, or one from the runtime
+// (timeouts, DOWN, exit signals...). The new message is the last of its inbox.
+static bool wakes_receiver(Process *receiver, Pid from, Tag tag) {
+    return !receiver->wait_match || from_runtime(from, tag) ||
+           receiver->wait_match(receiver->mailbox.inbox_tail, receiver->wait_pattern);
 }
 
 // bin: a shared binary to send instead of a copy of data
@@ -100,7 +146,8 @@ static int deliver(Pid from, Pid pid, void *data, size_t size, Tag tag, Bin *bin
             : mailbox_send_message(&other_process->mailbox, &other_process->heap, data, size, from, tag);
     if (delivered == 0) {
         atomic_fetch_add(&other_process->queued, 1);
-        process_notify_locked(other_process);
+        if (wakes_receiver(other_process, from, tag))
+            process_notify_locked(other_process);
     }
     process_unlock(other_process);
     if (delivered != 0) {
@@ -150,11 +197,13 @@ static void await_reply(Process *self, Ref ref) {
 Message *clpf_request_ref(Process *self, Pid pid, void *data, size_t size, uint64_t timeout_ms) {
     Ref ref = clpf_make_ref();
 
-    // Expect the reply before sending: it may come back before SEND returns
+    // Expect the reply before sending: it may come back before SEND returns.
+    // Older messages cannot be the reply: the search starts after them.
     await_reply(self, ref);
+    Message *older = mailbox_mark(self);
     Message *reply = NULL;
     if (clpf_send(self, pid, data, size, MAKE_REF_TAG(ref)) == 0)
-        reply = clpf_receive_timeout(self, TM_SAME, MAKE_REPLY_TAG(ref), timeout_ms);
+        reply = receive_after(self, older, TM_SAME, MAKE_REPLY_TAG(ref), timeout_ms);
     await_reply(self, 0);
     return reply;
 }
@@ -193,6 +242,7 @@ bool clpf_match_same(const Message *msg, Tag pattern) {
         case TAG_KIND_REF:
         case TAG_KIND_REPLY:
         case TAG_KIND_FD: return msg->tag.int_value == pattern.int_value;
+        case TAG_KIND_ATOM: return msg->tag.str_value == pattern.str_value;
         case TAG_KIND_STRING:
         case TAG_KIND_NOTIFY: return strcmp(msg->tag.str_value, pattern.str_value) == 0;
         case TAG_KIND_INTERNAL: return msg->tag.internal_code == pattern.internal_code;
@@ -200,8 +250,12 @@ bool clpf_match_same(const Message *msg, Tag pattern) {
     }
 }
 
+static bool named(TagKind kind) {
+    return kind == TAG_KIND_STRING || kind == TAG_KIND_ATOM;
+}
+
 bool clpf_match_prefix(const Message *msg, Tag pattern) {
-    return msg->tag.kind == TAG_KIND_STRING && pattern.kind == TAG_KIND_STRING &&
+    return named(msg->tag.kind) && named(pattern.kind) &&
            strncmp(msg->tag.str_value, pattern.str_value, strlen(pattern.str_value)) == 0;
 }
 

@@ -31,12 +31,12 @@ static S_IO server_io_compute_message(Message *msg) {
     if (!msg)
         return S_IO_NOTHING;
 
-    if (MSG_IS(msg, MAKE_STR_TAG("server::io::print"))) {
+    if (MSG_IS(msg, MAKE_ATOM_TAG("server::io::print"))) {
         write_all(STDOUT_FILENO, msg->payload, msg->size);
         return S_IO_SUCCESS;
     }
 
-    if (MSG_IS(msg, MAKE_STR_TAG("server::io::log"))) {
+    if (MSG_IS(msg, MAKE_ATOM_TAG("server::io::log"))) {
         write_all(STDERR_FILENO, msg->payload, msg->size);
         return S_IO_SUCCESS;
     }
@@ -54,8 +54,9 @@ TASK0(clpf_server_io) {
     Message *msg = NULL;
 
     // PRINT and GETLINE find the server by name: the launcher registers the first
-    // server before anything can print, a restarted one takes the name back
-    if (WHEREIS("server::io") != self->pid && REGISTER("server::io", self->pid) != 0)
+    // server, maybe while it already runs, and a restarted one takes the name back.
+    // Only a name held by another process is an error.
+    if (REGISTER("server::io", self->pid) != 0 && WHEREIS("server::io") != self->pid)
         EXIT_ERROR();
     TRAP_EXIT(true);
 

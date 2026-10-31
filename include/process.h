@@ -12,6 +12,9 @@
 
 #define NAME_MAX_LENGTH 64
 
+// The pid of a free slot: no process has it, as slot 0 is never used
+#define PID_FREE 0
+
 // Work a process may do before it has to let others run (see REDUCE)
 #define REDUCTION_BUDGET 2000
 
@@ -43,7 +46,7 @@ typedef struct process_s {
     // Guards pid against concurrent senders while the slot is created or destroyed.
     // Initialized once with the process table, never re-initialized.
     pthread_mutex_t lock;
-    Pid pid;                   // INVALID_PID while the slot is free
+    Pid pid;                   // PID_FREE while the slot is free
     unsigned long generation;  // Incremented each time the slot is reused, kept across reuses
     _Atomic Pid scheduler_pid; // Changes when the process migrates
 
@@ -83,6 +86,11 @@ typedef struct process_s {
     unsigned int kill_reason;
 
     Mailbox mailbox;
+    // Guarded by lock: what a waiting RECEIVE accepts. Senders only wake the
+    // process for such a message, or one from the runtime (NULL: any message).
+    // Set by RECEIVE before it waits, cleared by whoever wakes it up.
+    MessageMatch wait_match;
+    Tag wait_pattern;
     BinHold *bin_holds; // Guarded by lock: shared binaries it holds (see SEND_BIN)
 
     struct process_s *next;   // For the scheduler's private run queues
@@ -100,6 +108,7 @@ typedef struct {
     size_t arg_block_size;
     size_t stack_size;    // CLPF_DEFAULT_STACK_SIZE by default
     bool link;            // links the spawner and the new process before it can run
+    bool trap_exit;       // traps exit signals from the start, as if it called TRAP_EXIT(true) first
     size_t mailbox_limit; // SEND fails with SEND_FULL once this many messages wait (0: no limit)
     int scheduler;        // 1 + index of the scheduler to start on; 0 picks the least loaded
     bool system;          // runtime-internal: survives until the user processes are gone
@@ -108,6 +117,9 @@ typedef struct {
 
 int process_init(Process *process, Funcall_t *taskcall, const SpawnOptions *options, Pid pid, Pid parent_pid);
 void process_destroy(Process *process);
+static inline bool process_slot_free(const Process *process) {
+    return process->pid == PID_FREE;
+}
 
 void co_entrypoint();
 

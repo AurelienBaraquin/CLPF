@@ -41,6 +41,9 @@ typedef struct {
     // Stack of free process table indices
     int *free_slots;
     int free_slot_count;
+    // Slots below it were handed out at least once: the others are still
+    // untouched zeroed memory. Slot 0 is never used, so that no valid pid is 0.
+    atomic_int slot_end;
 
     Scheduler scheduler_table[MAX_SCHEDULERS];
     int scheduler_count;
@@ -71,6 +74,8 @@ int clpf_main(Task entry_point, int argc, char *argv[]);
 int clpf_main_update();
 // Takes a free process table index, or returns -1 if the table is full
 int clpf_slot_alloc(void);
+// Scans of the process table stop here (any thread)
+int clpf_slot_end(void);
 // Gives back the index of a destroyed process
 void clpf_slot_release(int index);
 

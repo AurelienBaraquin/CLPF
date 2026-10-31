@@ -59,7 +59,8 @@ static bool check_schedulers(uint64_t now) {
         if (!since)
             continue;
         running = true;
-        if (now - since >= limit_ms && reported[i] != since) {
+        // A process resumed after now was read has not run long: now - since would wrap around
+        if (since <= now && now - since >= limit_ms && reported[i] != since) {
             reported[i] = since;
             report(i, atomic_load(&scheduler->running_pid), now - since);
         }
