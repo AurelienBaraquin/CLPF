@@ -18,6 +18,7 @@ endfunction()
 clpf_add_test(test_smoke)
 clpf_add_test(test_stack_alignment)
 clpf_add_test(test_name_table)
+clpf_add_test(test_memory_pools)
 clpf_add_test(test_scheduler_throughput)
 clpf_add_test(test_pingpong_stress)
 clpf_add_test(test_pid_reuse)
@@ -67,7 +68,8 @@ set_tests_properties(test_getline_does_not_block_print PROPERTIES PASS_REGULAR_E
 # This one crashes on purpose: only its diagnostic is checked
 clpf_add_test_program(test_stack_overflow)
 add_test(NAME test_stack_overflow COMMAND sh -c "\"$0\" 2>&1; exit 0" $<TARGET_FILE:test_stack_overflow>)
-set_tests_properties(test_stack_overflow PROPERTIES
+add_test(NAME test_stack_overflow_recycled COMMAND sh -c "\"$0\" recycled 2>&1; exit 0" $<TARGET_FILE:test_stack_overflow>)
+set_tests_properties(test_stack_overflow test_stack_overflow_recycled PROPERTIES
     TIMEOUT 20
     PASS_REGULAR_EXPRESSION "stack overflow in process 'runaway'")
 

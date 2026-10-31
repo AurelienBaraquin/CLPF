@@ -4,7 +4,8 @@ Header: `api/memory.h`
 
 Each process has a **private heap**, a [TLSF](http://www.gii.upv.es/tlsf/)
 allocator on memory mapped for that process alone. It grows on demand and is
-unmapped all at once when the process ends.
+released all at once when the process ends. A new heap may start on memory an
+ended process used: like `malloc`, `ALLOC` does not clear what it returns.
 
 | Macro | Meaning |
 |---|---|

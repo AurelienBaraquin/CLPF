@@ -4,3 +4,16 @@
 #ifndef CLPF_DEFAULT_STACK_SIZE
 #define CLPF_DEFAULT_STACK_SIZE ((size_t)16 * 1024)
 #endif
+
+#include <stddef.h>
+#include <libaco/aco.h>
+
+// Process stacks, with a guard page below them. Stacks of CLPF_DEFAULT_STACK_SIZE
+// go back to a bounded pool when released; the other sizes are mapped and unmapped.
+
+// A stack ready for a new coroutine, of at least size bytes
+aco_share_stack_t *stack_acquire(size_t size);
+// Takes back a stack acquired with the same size; no coroutine may use it any more
+void stack_release(aco_share_stack_t *stack, size_t size);
+// Unmaps the pooled stacks
+void stack_pool_drain(void);

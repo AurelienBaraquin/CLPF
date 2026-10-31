@@ -27,3 +27,5 @@ void *safe_heap_realloc(safe_heap_t *safe_heap, void *ptr, size_t size);
 void safe_heap_free(safe_heap_t *safe_heap, void *ptr);
 // Bytes reserved by all the pools of the heap
 size_t safe_heap_size(safe_heap_t *safe_heap);
+// Unmaps the pools that destroyed heaps left for the next ones
+void safe_heap_drain_pools(void);

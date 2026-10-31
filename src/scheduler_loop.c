@@ -27,7 +27,7 @@ process_state execute_process(Scheduler *scheduler, Process *process) {
 
     // First run: the coroutine is created on the scheduler that runs it
     if (!process->acoro) {
-        process->share_stack = aco_share_stack_new(process->stack_size);
+        process->share_stack = stack_acquire(process->stack_size);
         process->acoro = aco_create(scheduler->scheduler_acoro, process->share_stack, 0, &co_entrypoint, process);
         aco_assertptr(process->acoro);
     }
