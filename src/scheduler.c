@@ -191,18 +191,19 @@ static Process *pick_ready(Scheduler *scheduler);
 // Overloaded: wakes one sleeping scheduler to come and take some work, unless
 // an idle one is already awake and looking for it. Once that one is busy, the
 // next pick wakes another if the work is still there.
-static void wake_helper(Scheduler *busy) {
+static void wake_helper(Scheduler *busy, int ready) {
     Scheduler *sleeper = NULL;
+    int searching = 0;
     for (int i = 0; i < clpf.scheduler_count; i++) {
         Scheduler *other = &clpf.scheduler_table[i];
         if (other == busy)
             continue;
-        if (atomic_load(&other->searching))
-            return;
+        searching += atomic_load(&other->searching);
         if (!sleeper && atomic_load(&other->idle.sleeping))
             sleeper = other;
     }
-    if (sleeper)
+    // Enough helpers are on their way for half the ready processes
+    if (sleeper && searching < ready / 2)
         scheduler_wake(sleeper);
 }
 
@@ -222,7 +223,7 @@ Process *pick_process(Scheduler *scheduler) {
     atomic_store(&scheduler->ready_count, ready);
 
     if (ready >= 2)
-        wake_helper(scheduler);
+        wake_helper(scheduler, ready);
     return picked;
 }
 
