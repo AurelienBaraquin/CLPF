@@ -268,7 +268,7 @@ void *clpf_table_get(Process *self, TableId id, const char *key, size_t *size_ou
         return NULL;
     Entry *entry = *find_entry(table, key, hash_key(key));
     // One byte at least, so that an empty value is not mistaken for a missing one
-    void *copy = entry ? safe_heap_alloc(&self->heap, entry->size ? entry->size : 1) : NULL;
+    void *copy = entry ? clpf_alloc(self, entry->size ? entry->size : 1) : NULL;
     if (copy) {
         memcpy(copy, entry->data, entry->size);
         if (size_out)

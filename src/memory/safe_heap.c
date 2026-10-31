@@ -147,6 +147,13 @@ int safe_heap_grow(safe_heap_t *safe_heap, size_t size) {
     if (size < MINIMAL_HEAP_POOL_SIZE)
         size = MINIMAL_HEAP_POOL_SIZE;
 
+    if (safe_heap->max_size > 0 && safe_heap_size(safe_heap) + size > safe_heap->max_size) {
+        spinlock_lock(&safe_heap->lock);
+        safe_heap->over_limit = true;
+        spinlock_unlock(&safe_heap->lock);
+        return -1;
+    }
+
     void *base = pool_map(size);
     if (!base)
         return -1;
@@ -195,10 +202,8 @@ void *safe_heap_alloc(safe_heap_t *safe_heap, size_t size) {
     spinlock_unlock(&safe_heap->lock);
 
     if (!ptr) {
-        if (safe_heap_grow(safe_heap, pool_size_for(size)) != 0) {
-            fprintf(stderr, "safe_heap_alloc: failed to grow heap\n");
+        if (safe_heap_grow(safe_heap, pool_size_for(size)) != 0)
             return NULL;
-        }
 
         spinlock_lock(&safe_heap->lock);
         ptr = tlsf_malloc(safe_heap->tlsf, size);
@@ -234,4 +239,11 @@ size_t safe_heap_size(safe_heap_t *safe_heap) {
     SLIST_FOREACH(pool, &safe_heap->pools, next) total += pool->size;
     spinlock_unlock(&safe_heap->lock);
     return total;
+}
+
+bool safe_heap_over_limit(safe_heap_t *safe_heap) {
+    spinlock_lock(&safe_heap->lock);
+    bool over = safe_heap->over_limit;
+    spinlock_unlock(&safe_heap->lock);
+    return over;
 }

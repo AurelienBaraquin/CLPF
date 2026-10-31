@@ -110,6 +110,7 @@ typedef struct {
     bool link;            // links the spawner and the new process before it can run
     bool trap_exit;       // traps exit signals from the start, as if it called TRAP_EXIT(true) first
     size_t mailbox_limit; // SEND fails with SEND_FULL once this many messages wait (0: no limit)
+    size_t max_heap_size; // bytes its heap may take; past it, it ends with EXIT_REASON_HEAP_LIMIT (0: no limit)
     int scheduler;        // 1 + index of the scheduler to start on; 0 picks the least loaded
     bool system;          // runtime-internal: survives until the user processes are gone
     bool entry;           // runtime-internal: its end shuts the runtime down

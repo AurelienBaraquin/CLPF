@@ -57,6 +57,7 @@ int process_init(Process *process, Funcall_t *taskcall, const SpawnOptions *opti
 
     if (safe_heap_create(&process->heap, MINIMAL_HEAP_POOL_SIZE) != 0)
         return -1;
+    process->heap.max_size = options->max_heap_size;
 
     if (options->arg_block) {
         void *block = safe_heap_alloc(&process->heap, options->arg_block_size);

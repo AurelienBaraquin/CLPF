@@ -1,4 +1,5 @@
 #include <api/message.h>
+#include <api/base.h>
 #include <timer.h>
 #include <stdio.h>
 #include <string.h>
@@ -149,12 +150,13 @@ static int deliver(Pid from, Pid pid, void *data, size_t size, Tag tag, Bin *bin
         if (wakes_receiver(other_process, from, tag))
             process_notify_locked(other_process);
     }
-    process_unlock(other_process);
-    if (delivered != 0) {
+    // Past its heap limit, the receiver ends, as if it had allocated the message itself
+    if (delivered != 0 && safe_heap_over_limit(&other_process->heap))
+        process_exit_signal_locked(other_process, INVALID_PID, EXIT_REASON_HEAP_LIMIT, true);
+    else if (delivered != 0)
         fprintf(stderr, "Failed to deliver a message to process %ld\n", pid);
-        return -1;
-    }
-    return 0;
+    process_unlock(other_process);
+    return delivered == 0 ? 0 : -1;
 }
 
 int clpf_deliver(Pid from, Pid pid, void *data, size_t size, Tag tag) {

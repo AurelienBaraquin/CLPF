@@ -32,7 +32,7 @@ void process_exit_signal_locked(Process *target, Pid from, unsigned int reason, 
     if ((!untrappable && reason == EXIT_REASON_NORMAL) || atomic_load(&target->kill_pending))
         return;
 
-    target->kill_reason = untrappable ? EXIT_REASON_KILLED : reason;
+    target->kill_reason = reason;
     atomic_store(&target->kill_pending, true);
     process_notify_locked(target);
 }
@@ -79,4 +79,11 @@ void exiting(Process *self, exit_reason reason) {
     aco_exit();
     // The scheduler never resumes a finished coroutine
     abort();
+}
+
+void *clpf_alloc(Process *self, size_t size) {
+    void *block = safe_heap_alloc(&self->heap, size);
+    if (!block && safe_heap_over_limit(&self->heap))
+        exiting(self, EXIT_REASON_HEAP_LIMIT);
+    return block;
 }

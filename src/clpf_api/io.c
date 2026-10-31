@@ -17,12 +17,12 @@ char *clpf_vformat(Process *self, const char *fmt, va_list ap) {
 
     char *out;
     if (len < (int)sizeof(tmp)) {
-        out = safe_heap_alloc(&self->heap, len + 1);
+        out = clpf_alloc(self, len + 1);
         if (!out)
             return NULL;
         memcpy(out, tmp, len + 1);
     } else {
-        out = safe_heap_alloc(&self->heap, len + 1);
+        out = clpf_alloc(self, len + 1);
         if (!out)
             return NULL;
         stbsp_vsnprintf(out, len + 1, fmt, ap);
