@@ -80,3 +80,7 @@ void stack_guard_thread_init(void) {
 void stack_guard_set_running(Process *process) {
     running_process = process;
 }
+
+Process *stack_guard_running(void) {
+    return running_process;
+}

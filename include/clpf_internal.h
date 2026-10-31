@@ -70,6 +70,12 @@ void clpf_slot_cache_attach(SlotCache *cache);
 void clpf_wake_main(void);
 // Wakes the main thread and every scheduler, so they notice exit_in_progress
 void clpf_wake_all(void);
+// The runtime runs program code (RECEIVE_IF matchers) under locks it must not
+// yield with: automatic reductions (see clpf::auto_reduce) wait meanwhile
+void clpf_preemption_hold(void);
+void clpf_preemption_release(void);
+bool clpf_preemption_allowed(void);
+
 // Ends self's coroutine, to start call at the next message (see HIBERNATE)
 _Noreturn void clpf_hibernate(Process *self, const Funcall_t *call);
 

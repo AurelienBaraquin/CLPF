@@ -102,3 +102,17 @@ void clpf_hibernate(Process *self, const Funcall_t *call) {
     // The scheduler never resumes a finished coroutine
     abort();
 }
+
+static _Thread_local int preemption_holds;
+
+void clpf_preemption_hold(void) {
+    ++preemption_holds;
+}
+
+void clpf_preemption_release(void) {
+    --preemption_holds;
+}
+
+bool clpf_preemption_allowed(void) {
+    return preemption_holds == 0;
+}

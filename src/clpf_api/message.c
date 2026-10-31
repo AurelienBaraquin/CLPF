@@ -119,8 +119,13 @@ Message *clpf_fetch(Process *self, MessageMatch match, Tag pattern) {
 // A waiting receiver only wakes for a message it may take, or one from the runtime
 // (timeouts, DOWN, exit signals...). The new message is the last of its inbox.
 static bool wakes_receiver(Process *receiver, Pid from, Tag tag) {
-    return !receiver->wait_match || from_runtime(from, tag) ||
-           receiver->wait_match(receiver->mailbox.inbox_tail, receiver->wait_pattern);
+    if (!receiver->wait_match || from_runtime(from, tag))
+        return true;
+    // The receiver's matcher runs here, under its lock: it must not yield
+    clpf_preemption_hold();
+    bool wanted = receiver->wait_match(receiver->mailbox.inbox_tail, receiver->wait_pattern);
+    clpf_preemption_release();
+    return wanted;
 }
 
 // bin: a shared binary to send instead of a copy of data

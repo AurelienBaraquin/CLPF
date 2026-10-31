@@ -11,3 +11,5 @@ void stack_guard_install(void);
 void stack_guard_thread_init(void);
 // Records the process running on this thread (NULL between two processes)
 void stack_guard_set_running(Process *process);
+// The process running on this thread, or NULL
+Process *stack_guard_running(void);
