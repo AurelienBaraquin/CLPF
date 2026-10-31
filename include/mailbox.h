@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdatomic.h>
 #include <utils/pid.h>
 #include <memory/safe_heap.h>
 #include <bin.h>
@@ -18,6 +19,7 @@ typedef enum {
     TAG_KIND_EXIT,    // int_value is the pid whose exit signal was trapped (see TRAP_EXIT)
     TAG_KIND_REF,     // int_value is a Ref: a request made with REQUEST_REF
     TAG_KIND_REPLY,   // int_value is a Ref: the answer to a REQUEST_REF (see REPLY)
+    TAG_KIND_ATOM,    // str_value is an atom: an interned name, compared by pointer (see MAKE_ATOM_TAG)
     TAG_KIND_FD,      // int_value is a file descriptor that became ready (see IO_WATCH)
 } TagKind;
 
@@ -34,7 +36,21 @@ typedef enum {
 #define MAKE_REF_TAG(ref)    ((Tag){.kind = TAG_KIND_REF, .int_value = (int64_t)(ref)})
 #define MAKE_REPLY_TAG(ref)  ((Tag){.kind = TAG_KIND_REPLY, .int_value = (int64_t)(ref)})
 #define MAKE_FD_TAG(fd)      ((Tag){.kind = TAG_KIND_FD, .int_value = (fd)})
-#define MAKE_TAG_KIND(k)     ((Tag){.kind = (k)})
+// An atom tag: its name is interned once, then compared by pointer and sent
+// without copying, which makes it the cheapest tag to match. name must be a
+// string literal: each call site keeps its atom. clpf_atom_tag takes any string.
+#define MAKE_ATOM_TAG(name) ((Tag){.kind = TAG_KIND_ATOM, .str_value = CLPF_LITERAL_ATOM(name)})
+#define CLPF_LITERAL_ATOM(name)                                                                     \
+    ({                                                                                              \
+        static const char *_Atomic clpf_atom_cache;                                                 \
+        const char *clpf_atom_value = atomic_load_explicit(&clpf_atom_cache, memory_order_acquire); \
+        if (!clpf_atom_value) {                                                                     \
+            clpf_atom_value = clpf_atom("" name); /* "" name: only a literal compiles */            \
+            atomic_store_explicit(&clpf_atom_cache, clpf_atom_value, memory_order_release);         \
+        }                                                                                           \
+        clpf_atom_value;                                                                            \
+    })
+#define MAKE_TAG_KIND(k) ((Tag){.kind = (k)})
 
 #define NO_TAG ((Tag){.kind = TAG_KIND_NONE})
 
@@ -71,6 +87,11 @@ typedef struct Mailbox {
     Message *inbox_head;
     Message *inbox_tail;
 } Mailbox;
+
+// The atom of a name: the same pointer for every equal string, valid until the
+// program ends. Thread-safe; aborts if out of memory, as a literal cannot fail.
+const char *clpf_atom(const char *name);
+Tag clpf_atom_tag(const char *name);
 
 void mailbox_init(Mailbox *mailbox);
 // Messages live in the owner's heap and are released with it

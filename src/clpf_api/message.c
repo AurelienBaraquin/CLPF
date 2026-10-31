@@ -231,6 +231,7 @@ bool clpf_match_same(const Message *msg, Tag pattern) {
         case TAG_KIND_REF:
         case TAG_KIND_REPLY:
         case TAG_KIND_FD: return msg->tag.int_value == pattern.int_value;
+        case TAG_KIND_ATOM: return msg->tag.str_value == pattern.str_value;
         case TAG_KIND_STRING:
         case TAG_KIND_NOTIFY: return strcmp(msg->tag.str_value, pattern.str_value) == 0;
         case TAG_KIND_INTERNAL: return msg->tag.internal_code == pattern.internal_code;
@@ -238,8 +239,12 @@ bool clpf_match_same(const Message *msg, Tag pattern) {
     }
 }
 
+static bool named(TagKind kind) {
+    return kind == TAG_KIND_STRING || kind == TAG_KIND_ATOM;
+}
+
 bool clpf_match_prefix(const Message *msg, Tag pattern) {
-    return msg->tag.kind == TAG_KIND_STRING && pattern.kind == TAG_KIND_STRING &&
+    return named(msg->tag.kind) && named(pattern.kind) &&
            strncmp(msg->tag.str_value, pattern.str_value, strlen(pattern.str_value)) == 0;
 }
 
