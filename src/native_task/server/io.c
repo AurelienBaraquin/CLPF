@@ -54,8 +54,9 @@ TASK0(clpf_server_io) {
     Message *msg = NULL;
 
     // PRINT and GETLINE find the server by name: the launcher registers the first
-    // server before anything can print, a restarted one takes the name back
-    if (WHEREIS("server::io") != self->pid && REGISTER("server::io", self->pid) != 0)
+    // server, maybe while it already runs, and a restarted one takes the name back.
+    // Only a name held by another process is an error.
+    if (REGISTER("server::io", self->pid) != 0 && WHEREIS("server::io") != self->pid)
         EXIT_ERROR();
     TRAP_EXIT(true);
 
