@@ -104,6 +104,7 @@ void scheduler_loop(Scheduler *scheduler) {
         Process *process = pick_process(scheduler);
 
         if (!process) {
+            atomic_store(&scheduler->searching, true);
             bool work_elsewhere = scheduler_request_work(scheduler);
 
             // Replies often come back within microseconds: spin a little before
@@ -118,6 +119,7 @@ void scheduler_loop(Scheduler *scheduler) {
             if (timer_deadline && (!deadline || timer_deadline < deadline))
                 deadline = timer_deadline;
             scheduler->sleep_deadline = deadline;
+            atomic_store(&scheduler->searching, false);
             idle_wait_until(&scheduler->idle, scheduler_has_work, scheduler, deadline);
             continue;
         }

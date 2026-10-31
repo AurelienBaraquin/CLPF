@@ -45,6 +45,8 @@ typedef struct scheduler_s {
     _Atomic uint64_t steal_requests;
     // Processes in the private run queues, published after each pick
     atomic_int ready_count;
+    // Idle but awake, looking for work: an overloaded scheduler need not wake another
+    atomic_bool searching;
 
     aco_t *scheduler_acoro;
 
