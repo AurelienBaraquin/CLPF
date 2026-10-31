@@ -44,7 +44,7 @@ Pid clpf_task_add(Funcall_t *fun, const SpawnOptions *options, Pid parent_pid, P
 
     Process *parent = process_lock(parent_pid);
     if (parent) {
-        link_add_child(&parent->links, pid);
+        link_add_child(&parent->links, &process->links, pid);
         if (options->link)
             add_to_list(&parent->linked, pid);
         process_unlock(parent);

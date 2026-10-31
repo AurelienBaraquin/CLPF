@@ -21,9 +21,9 @@ Release:
 | spawn + exit | 230 000 processes/s | Spawns 100 000 processes that send one message and end |
 | one-way messages | 2.0 million messages/s | One process sends 1 000 000 small messages to another |
 | ping-pong round trip | 1.6 µs | Two processes exchange 200 000 request/answer pairs |
-| spawn of waiting processes | 73 µs each | Spawns 10 000 processes that wait in `RECEIVE` |
+| spawn of waiting processes | 49 µs each | Spawns 10 000 processes that wait in `RECEIVE` |
 | memory per waiting process | 15 KiB | Resident memory of those 10 000 processes, stack and heap |
-| wake and collect all | 500 ms | Wakes the 10 000 with a message each, and collects their answers |
+| wake and collect all | 16 ms | Wakes the 10 000 with a message each, and collects their answers |
 | parallel ping-pong (8 pairs) | 2.3 million round trips/s | 8 ping-pong pairs at once, spread over the schedulers |
 
 Your numbers will differ: run the benchmark on your machine.
@@ -38,7 +38,8 @@ Your numbers will differ: run the benchmark on your machine.
   them without any system call: spawning and ending costs about 4 µs. Each
   pool keeps up to 1024 blocks (`-DCLPF_BLOCK_POOL_CAPACITY=...`); stacks
   of a non-default `stack_size` are always mapped and unmapped.
-- **Many children of one process are slow.** A parent keeps a list of its
-  live children, scanned at each spawn and each exit: with 10 000 waiting
-  children, a spawn or an exit costs tens of microseconds. Larger pools do
-  not change that.
+- **Many children of one process cost nothing extra.** Each process holds
+  its own place in its parent's list of children: a spawn or an exit costs
+  the same next to 10 000 live siblings as alone. A process that stays alive
+  still costs about 50 µs to spawn once the pools are empty, as its stack
+  and heap are mapped (two `mmap` and an `mprotect`).

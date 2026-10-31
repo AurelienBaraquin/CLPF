@@ -51,7 +51,7 @@ int clpf_main_update() {
 
                 Process *parent = process_lock(parent_pid);
                 if (parent) {
-                    link_remove_child(&parent->links, pid);
+                    link_remove_child(&parent->links, &process->links);
                     process_unlock(parent);
                 }
                 io_poller_forget(pid);

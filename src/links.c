@@ -4,6 +4,7 @@
 void links_init(ProcessLinks *links) {
     links->parent = -1;
     links->children = NULL;
+    links->child_count = 0;
 }
 
 void free_link_list(links_t *l) {
@@ -14,8 +15,11 @@ void free_link_list(links_t *l) {
     }
 }
 
+// The children that are still alive keep stale nodes, never read: their exit
+// finds the parent gone and leaves the list alone
 void links_clear(ProcessLinks *links) {
-    free_link_list(links->children);
+    links->children = NULL;
+    links->child_count = 0;
 }
 
 void add_to_list(links_t **list, Pid pid) {
@@ -49,12 +53,26 @@ void remove_from_list(links_t **list, Pid pid) {
     }
 }
 
-void link_add_child(ProcessLinks *links, Pid child) {
-    add_to_list(&links->children, child);
+void link_add_child(ProcessLinks *links, ProcessLinks *child, Pid child_pid) {
+    ChildNode *node = &child->node;
+    node->pid = child_pid;
+    node->prev = NULL;
+    node->next = links->children;
+    if (node->next)
+        node->next->prev = node;
+    links->children = node;
+    links->child_count++;
 }
 
-void link_remove_child(ProcessLinks *links, Pid child) {
-    remove_from_list(&links->children, child);
+void link_remove_child(ProcessLinks *links, ProcessLinks *child) {
+    ChildNode *node = &child->node;
+    if (node->prev)
+        node->prev->next = node->next;
+    else
+        links->children = node->next;
+    if (node->next)
+        node->next->prev = node->prev;
+    links->child_count--;
 }
 
 size_t link_count(links_t *list) {
@@ -64,11 +82,11 @@ size_t link_count(links_t *list) {
     return n;
 }
 
-Pid link_get_nth(links_t *list, size_t index) {
+Pid link_get_nth_child(const ProcessLinks *links, size_t index) {
     size_t i = 0;
-    for (links_t *l = list; l; l = l->next, i++) {
+    for (const ChildNode *node = links->children; node; node = node->next, i++) {
         if (i == index)
-            return l->pid;
+            return node->pid;
     }
     return -1;
 }

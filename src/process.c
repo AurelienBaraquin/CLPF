@@ -166,7 +166,7 @@ size_t process_get_child_count(Process *self) {
         return 0;
 
     pthread_mutex_lock(&self->lock);
-    size_t count = link_count(self->links.children);
+    size_t count = self->links.child_count;
     pthread_mutex_unlock(&self->lock);
     return count;
 }
@@ -176,7 +176,7 @@ Pid process_get_child_pid(Process *self, size_t index) {
         return INVALID_PID;
 
     pthread_mutex_lock(&self->lock);
-    Pid child = link_get_nth(self->links.children, index);
+    Pid child = link_get_nth_child(&self->links, index);
     pthread_mutex_unlock(&self->lock);
     return child;
 }
