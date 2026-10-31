@@ -62,6 +62,7 @@ Pid clpf_sup_add_child_opts(Process *self, Pid sup, RestartType restart, void (*
     spec.restart = restart;
     spec.stack_size = options.stack_size;
     spec.mailbox_limit = options.mailbox_limit;
+    spec.trap_exit = options.trap_exit;
     spec.arg_block_size = options.arg_block ? options.arg_block_size : 0;
 
     return CALL(request_child, sup, &spec, options.arg_block);

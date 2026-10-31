@@ -22,6 +22,7 @@ bool DEF(sup_start_child, SupChildSlot *child) {
         .priority = child->spec.priority,
         .stack_size = child->spec.stack_size,
         .mailbox_limit = child->spec.mailbox_limit,
+        .trap_exit = child->spec.trap_exit,
         .arg_block = child->arg_block,
         .arg_block_size = child->spec.arg_block_size,
         .monitor = true, // the DOWN drives restarts

@@ -108,6 +108,7 @@ typedef struct {
     size_t arg_block_size;
     size_t stack_size;    // CLPF_DEFAULT_STACK_SIZE by default
     bool link;            // links the spawner and the new process before it can run
+    bool trap_exit;       // traps exit signals from the start, as if it called TRAP_EXIT(true) first
     size_t mailbox_limit; // SEND fails with SEND_FULL once this many messages wait (0: no limit)
     int scheduler;        // 1 + index of the scheduler to start on; 0 picks the least loaded
     bool system;          // runtime-internal: survives until the user processes are gone
