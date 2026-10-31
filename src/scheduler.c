@@ -1,6 +1,16 @@
 #include <scheduler.h>
 #include <clpf_internal.h>
 
+static _Thread_local Scheduler *current_scheduler;
+
+Scheduler *scheduler_current(void) {
+    return current_scheduler;
+}
+
+void scheduler_set_current(Scheduler *scheduler) {
+    current_scheduler = scheduler;
+}
+
 int scheduler_init(Scheduler *scheduler, Pid pid) {
     if (!scheduler)
         return -1;
