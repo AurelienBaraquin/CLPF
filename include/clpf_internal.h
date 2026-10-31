@@ -31,7 +31,7 @@ typedef struct {
     Scheduler scheduler_table[MAX_SCHEDULERS];
     int scheduler_count;
 
-    TrieNode *name_table;
+    NameTable *name_table;
 
     // Guards the free slot stack, the name table and every Process.registered_name:
     // processes are created and registered from any thread, and destroyed by the

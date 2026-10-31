@@ -1,6 +1,8 @@
 #include <utils/name_table.h>
 #include <stdio.h>
 
+#define MANY_NAMES 10000
+
 static int failures = 0;
 
 #define CHECK(cond)                                                                  \
@@ -12,7 +14,7 @@ static int failures = 0;
     } while (0)
 
 int main(void) {
-    TrieNode *table = name_table_init();
+    NameTable *table = name_table_init();
     CHECK(table != NULL);
 
     // ':' must not share a slot with any other character
@@ -35,6 +37,24 @@ int main(void) {
     CHECK(name_table_insert(table, "", 4) == -1);
     CHECK(name_table_lookup(table, "") == INVALID_PID);
     CHECK(name_table_lookup(table, "unknown") == INVALID_PID);
+
+    // Many names, found and removed one by one
+    char name[32];
+    for (int i = 0; i < MANY_NAMES; ++i) {
+        snprintf(name, sizeof name, "worker::%d", i);
+        CHECK(name_table_insert(table, name, 1000 + i) == 0);
+    }
+    for (int i = 0; i < MANY_NAMES; ++i) {
+        snprintf(name, sizeof name, "worker::%d", i);
+        CHECK(name_table_lookup(table, name) == 1000 + i);
+        name_table_remove(table, name);
+        CHECK(name_table_lookup(table, name) == INVALID_PID);
+    }
+    CHECK(name_table_lookup(table, "a66b") == 2);
+
+    // Inserting a name again replaces its pid
+    CHECK(name_table_insert(table, "a66b", 7) == 0);
+    CHECK(name_table_lookup(table, "a66b") == 7);
 
     name_table_free(table);
     return failures == 0 ? 0 : 1;

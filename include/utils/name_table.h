@@ -1,26 +1,19 @@
 #pragma once
 
+#include <utils/hash_map.h>
 #include <utils/pid.h>
 
-#define ALPHABET_SIZE 64 // a-z, A-Z, 0-9, '_' and ':'
+// Registered names: a-z, A-Z, 0-9, '_' and ':', mapped to pids. Not
+// thread-safe: the runtime guards it with its table lock.
+typedef HashMap NameTable;
 
-typedef struct TrieNode {
-    struct TrieNode *children[ALPHABET_SIZE];
-    Pid pid;
-    int is_end;
-} TrieNode;
+// NULL if out of memory
+NameTable *name_table_init(void);
+void name_table_free(NameTable *table);
 
-// Initializes the table structure
-TrieNode *name_table_init(void);
-
-// Frees all the memory used
-void name_table_free(TrieNode *root);
-
-// Inserts a name with its Pid, returns -1 if the name is empty or has an invalid character
-int name_table_insert(TrieNode *root, const char *name, Pid pid);
-
-// Searches for a Pid associated with a name, returns -1 if not found
-Pid name_table_lookup(TrieNode *root, const char *name);
-
-// Removes a name from the table
-void name_table_remove(TrieNode *root, const char *name);
+// Maps name to pid, replacing any pid; returns -1 if the name is empty, has
+// an invalid character, or out of memory
+int name_table_insert(NameTable *table, const char *name, Pid pid);
+// The pid of a name, or INVALID_PID
+Pid name_table_lookup(NameTable *table, const char *name);
+void name_table_remove(NameTable *table, const char *name);
