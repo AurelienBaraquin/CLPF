@@ -12,6 +12,9 @@
 
 #define NAME_MAX_LENGTH 64
 
+// The pid of a free slot: no process has it, as slot 0 is never used
+#define PID_FREE 0
+
 // Work a process may do before it has to let others run (see REDUCE)
 #define REDUCTION_BUDGET 2000
 
@@ -43,7 +46,7 @@ typedef struct process_s {
     // Guards pid against concurrent senders while the slot is created or destroyed.
     // Initialized once with the process table, never re-initialized.
     pthread_mutex_t lock;
-    Pid pid;                   // INVALID_PID while the slot is free
+    Pid pid;                   // PID_FREE while the slot is free
     unsigned long generation;  // Incremented each time the slot is reused, kept across reuses
     _Atomic Pid scheduler_pid; // Changes when the process migrates
 
@@ -108,6 +111,9 @@ typedef struct {
 
 int process_init(Process *process, Funcall_t *taskcall, const SpawnOptions *options, Pid pid, Pid parent_pid);
 void process_destroy(Process *process);
+static inline bool process_slot_free(const Process *process) {
+    return process->pid == PID_FREE;
+}
 
 void co_entrypoint();
 

@@ -32,7 +32,7 @@ Pid clpf_task_add(Funcall_t *fun, const SpawnOptions *options, Pid parent_pid, P
         if (options->link && parent_pid != INVALID_PID)
             add_to_list(&process->linked, parent_pid);
     } else {
-        process->pid = INVALID_PID;
+        process->pid = PID_FREE;
     }
     pthread_mutex_unlock(&process->lock);
 

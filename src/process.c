@@ -93,7 +93,7 @@ int process_init(Process *process, Funcall_t *taskcall, const SpawnOptions *opti
 }
 
 void process_destroy(Process *process) {
-    if (!process || process->pid == INVALID_PID)
+    if (!process || process_slot_free(process))
         return;
 
 #ifdef CLPF_TRACE
@@ -102,7 +102,7 @@ void process_destroy(Process *process) {
 
     // From here on, senders see the slot as free and never reach the heap
     pthread_mutex_lock(&process->lock);
-    process->pid = INVALID_PID;
+    process->pid = PID_FREE;
     pthread_mutex_unlock(&process->lock);
 
     // The nodes live in the heap: release the binaries before it goes
@@ -129,7 +129,7 @@ void process_destroy(Process *process) {
 }
 
 Process *process_lock(Pid pid) {
-    if (pid < 0)
+    if (pid <= 0)
         return NULL;
 
     Process *process = &clpf.process_table[PID_INDEX(pid)];
