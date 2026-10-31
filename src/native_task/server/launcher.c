@@ -10,7 +10,10 @@ TASK(clpf_server_launcher, Task entry, int argc, char *argv[]) {
     Pid sup = clpf_spawn(self, &supervisor_call, (SpawnOptions){.name = "server::supervisor", .system = true});
     atomic_store(&clpf.system_supervisor, sup);
 
-    Pid io = SUP_ADD_CHILD_PRIO0(sup, RES_PERMANENT, clpf_server_io, "server::io", PROCESS_PRIORITY_HIGH);
+    // Registered before anything can print, and trapping exits before it first
+    // runs: an early shutdown then arrives after the lines already printed
+    Pid io = SUP_ADD_CHILD_OPTS(sup, RES_PERMANENT, clpf_server_io, .name = "server::io",
+                                .priority = PROCESS_PRIORITY_HIGH, .trap_exit = true);
     REGISTER("server::io", io);
 
     Funcall_t entry_call;
