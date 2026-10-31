@@ -19,6 +19,8 @@ TASK(entry, int argc, char *argv[]) {
     (void)argc;
     (void)argv;
 
+    // Let the runtime's processes start (each takes a stack at its first run) and the launcher end
+    SLEEP(50);
     size_t stacks = stack_pool_count();
     size_t heaps = safe_heap_pool_count();
     TEST_ASSERT(stacks >= PREWARMED - RUNTIME_PROCESSES && stacks <= PREWARMED);
@@ -28,10 +30,8 @@ TASK(entry, int argc, char *argv[]) {
     for (int i = 0; i < SPAWNED; ++i)
         SPAWN0(waiter);
     SLEEP(50); // A stack is taken when a process first runs
-    // Runtime processes ending meanwhile (the launcher) give theirs back
-    TEST_ASSERT(stack_pool_count() >= stacks - SPAWNED && stack_pool_count() <= stacks - SPAWNED + RUNTIME_PROCESSES);
-    TEST_ASSERT(safe_heap_pool_count() >= heaps - SPAWNED &&
-                safe_heap_pool_count() <= heaps - SPAWNED + RUNTIME_PROCESSES);
+    TEST_ASSERT(stack_pool_count() == stacks - SPAWNED);
+    TEST_ASSERT(safe_heap_pool_count() == heaps - SPAWNED);
 
     TEST_PASS();
 }
