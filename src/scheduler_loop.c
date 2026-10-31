@@ -50,21 +50,14 @@ process_state execute_process(Scheduler *scheduler, Process *process) {
     return process->state;
 }
 
-void request_process_exit(Process *process) {
-    CoreMessage *msg = malloc(sizeof(CoreMessage));
-    if (!msg)
-        return;
-
-    msg->op = CORE_MESSAGE_TYPE_PROCESS_EXIT;
-    msg->data.process_exit.pid = process->pid;
-
-    clpf_post(msg);
-}
-
 static bool scheduler_has_work(void *arg) {
     Scheduler *scheduler = arg;
 
     if (exit_in_progress || !mpscq_empty(&scheduler->wakeups))
+        return true;
+    // A timer armed from another thread, earlier than the planned wakeup
+    uint64_t next_timer = atomic_load(&scheduler->timers.next_deadline);
+    if (next_timer && (scheduler->sleep_deadline == 0 || next_timer < scheduler->sleep_deadline))
         return true;
     for (int i = 0; i < NB_RQ; i++) {
         if (!mpscq_empty(&scheduler->shared_rq[i]))
@@ -80,6 +73,8 @@ void scheduler_loop(Scheduler *scheduler) {
     aco_thread_init(NULL);
     stack_guard_thread_init();
     scheduler->scheduler_acoro = aco_create(NULL, NULL, 0, NULL, NULL);
+    timer_queue_set_current(&scheduler->timers);
+    clpf_slot_cache_attach(&scheduler->slot_cache);
 
     while (1) {
         if (UNLIKELY(exit_in_progress)) {
@@ -97,10 +92,19 @@ void scheduler_loop(Scheduler *scheduler) {
         // 6. If needed check IO and update time
         // 7. While needed pick a port task to execute
 
+        // Due timers first: their messages may make processes ready
+        uint64_t next_timer = atomic_load(&scheduler->timers.next_deadline);
+        if (next_timer) {
+            uint64_t now = now_ms();
+            if (now >= next_timer)
+                timer_queue_fire_due(&scheduler->timers, now);
+        }
+
         // 8. Pick a process to execute
         Process *process = pick_process(scheduler);
 
         if (!process) {
+            atomic_store(&scheduler->searching, true);
             bool work_elsewhere = scheduler_request_work(scheduler);
 
             // Replies often come back within microseconds: spin a little before
@@ -108,8 +112,14 @@ void scheduler_loop(Scheduler *scheduler) {
             for (int spin = 0; spin < SCHEDULER_IDLE_SPINS && !scheduler_has_work(scheduler); ++spin)
                 cpu_relax();
 
-            // Overloaded schedulers hand work over when they next pick: ask again soon
+            // Overloaded schedulers hand work over when they next pick: ask again soon.
+            // Sleep until the next timer at most.
             uint64_t deadline = work_elsewhere ? now_ms() + SCHEDULER_STEAL_RETRY_MS : 0;
+            uint64_t timer_deadline = atomic_load(&scheduler->timers.next_deadline);
+            if (timer_deadline && (!deadline || timer_deadline < deadline))
+                deadline = timer_deadline;
+            scheduler->sleep_deadline = deadline;
+            atomic_store(&scheduler->searching, false);
             idle_wait_until(&scheduler->idle, scheduler_has_work, scheduler, deadline);
             continue;
         }
@@ -134,10 +144,13 @@ void scheduler_loop(Scheduler *scheduler) {
                 break;
             case PROCESS_EXITING:
                 // exiting() stopped further wakeups; take its pending one out of
-                // the queue before the main thread frees or reuses the slot
+                // the queue before the slot is freed or reused
                 scheduler_drain_wakeups(scheduler);
+                clpf_process_end(process);
                 atomic_fetch_sub(&scheduler->process_count, 1);
-                request_process_exit(process);
+                // The main thread drives the shutdown: it waits for these ends
+                if (atomic_load(&clpf.shutdown_requested))
+                    clpf_wake_main();
                 break;
             default: break;
         }

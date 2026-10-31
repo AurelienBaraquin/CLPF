@@ -17,3 +17,7 @@ aco_share_stack_t *stack_acquire(size_t size);
 void stack_release(aco_share_stack_t *stack, size_t size);
 // Unmaps the pooled stacks
 void stack_pool_drain(void);
+// Maps count stacks of the default size into the pool ahead of time, as far as it
+// has room; returns how many it holds then
+size_t stack_pool_prewarm(size_t count);
+size_t stack_pool_count(void);

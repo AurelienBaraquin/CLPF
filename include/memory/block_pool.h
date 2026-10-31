@@ -26,5 +26,7 @@ typedef struct {
 bool block_pool_put(block_pool_t *pool, void *block);
 // The block put last, or NULL if the pool is empty
 void *block_pool_take(block_pool_t *pool);
+// Blocks kept now (statistics only)
+size_t block_pool_count(block_pool_t *pool);
 // Hands every block to release and empties the pool
 void block_pool_drain(block_pool_t *pool, void (*release)(void *block));

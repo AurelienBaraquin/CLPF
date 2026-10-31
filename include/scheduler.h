@@ -4,6 +4,7 @@
 #include <pthread.h>
 #include <utils/run_queue.h>
 #include <utils/idle.h>
+#include <timer.h>
 
 // Times an idle scheduler polls for work before going to sleep
 #define SCHEDULER_IDLE_SPINS 2000
@@ -11,6 +12,16 @@
 #define SCHEDULER_STEAL_RETRY_MS 5
 
 #define NB_RQ 3 // Number of run queues
+
+// Free process table slots a scheduler keeps, to spawn and end processes
+// without the table lock; it trades them with the table by batches
+#define SLOT_CACHE_SIZE  64
+#define SLOT_CACHE_BATCH 32
+
+typedef struct {
+    int slots[SLOT_CACHE_SIZE];
+    int count;
+} SlotCache;
 
 typedef struct scheduler_s {
     pthread_t system_thread_id;
@@ -34,8 +45,16 @@ typedef struct scheduler_s {
     _Atomic uint64_t steal_requests;
     // Processes in the private run queues, published after each pick
     atomic_int ready_count;
+    // Idle but awake, looking for work: an overloaded scheduler need not wake another
+    atomic_bool searching;
 
     aco_t *scheduler_acoro;
+
+    SlotCache slot_cache; // Its own thread only
+    TimerQueue timers;    // Armed by the processes it runs, fired in its loop
+    // When it sleeps: the deadline it sleeps until (0: none), so that an earlier
+    // timer armed by another thread wakes it (scheduler thread only)
+    uint64_t sleep_deadline;
 
     // For the watchdog: when the current process was resumed (0: none runs), and which
     _Atomic uint64_t running_since;

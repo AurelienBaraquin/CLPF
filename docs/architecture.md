@@ -106,9 +106,14 @@ at the newest message older than the request.
 ### Idle
 
 With nothing to run, a scheduler spins briefly, then sleeps on an
-`IdleWaiter` (mutex, condition variable and two atomics, `src/utils/idle.c`).
-The sleeper announces that it sleeps, then checks for work again; a waker
-publishes work, then signals. Whichever comes second sees the other.
+`IdleWaiter` (mutex, condition variable and two atomics, `src/utils/idle.c`),
+until its next timer at most. The sleeper announces that it sleeps, then
+checks for work again; a waker publishes work, then signals. Whichever comes
+second sees the other.
+
+A scheduler with at least two ready processes wakes **one** sleeping
+scheduler to share them, and none while an idle one is still awake and
+looking for work: that one will ask.
 
 ### Work stealing
 
@@ -164,13 +169,14 @@ locks are only ever taken in table order, so links cannot deadlock.
 
 ## The main thread
 
-`src/clpf.c`, `src/clpf_update.c`, `src/timer.c`
+`src/clpf.c`, `src/memory/reaper.c`
 
-The main thread:
+The main thread is mostly asleep. It:
 
-- destroys processes that have ended. Their scheduler posts a core message
-  once nothing can reach them anymore;
-- fires timers, kept in a min-heap, and sleeps until the next deadline;
+- unmaps memory for the schedulers: the stacks and heaps of ended processes
+  that the pools cannot keep go to a lock-free queue, the **reaper**, so
+  that the threads running processes never pay for a `munmap` and the TLB
+  flush of every core it causes. A batch wakes the main thread once;
 - runs the watchdog: each scheduler publishes when it resumed its current
   process (`src/watchdog.c`). While processes run, the main thread checks
   twice per limit. When nothing has run for a while it sleeps without a
@@ -179,13 +185,44 @@ The main thread:
   sleep is never missed;
 - drives the shutdown.
 
+Wakeups of the main thread go through `clpf_wake_main`, which counts them:
+the main thread notes the count before it looks at everything, and only
+sleeps if it did not change, so no wakeup is lost.
+
 A dedicated thread waits for `SIGUSR1` with `sigwait` and writes
 `clpf_dump` (`src/introspection.c`); the runtime blocks the signal in all
 its threads, and joins that thread before freeing the process table.
 
-Timers fire under the timer lock, so a failed `CANCEL_TIMER` means the message
-is already in the mailbox, and `RECEIVE_TIMEOUT` can always clean up its own
-timeout message.
+## Ending a process
+
+`src/process_end.c`
+
+The scheduler that ran a process ends it, once its coroutine is done and
+its pending wakeup taken out of the queue: it releases its registered name,
+leaves its parent's children, drops its fd watches, groups and tables,
+destroys it and frees its slot. Only then does it count the process out,
+so the main thread never frees the runtime under a process being destroyed.
+
+Each scheduler keeps up to 64 free slots and trades them with the table by
+batches of 32, and the user process count is atomic: spawning and ending a
+process take no global lock, unless it had a registered name.
+
+## Timers
+
+`src/timer.c`
+
+Each scheduler owns a `TimerQueue`: a min-heap of timers, and a table of
+slots that `TimerId`s point to. An id is `queue << 56 | generation << 32 |
+slot`: cancelling finds the timer in O(1) and takes it out of the heap in
+O(log n), and the generation makes a spent id fail. Timers go to the queue
+of the scheduler whose thread arms them. The scheduler fires due timers at
+the top of its loop, publishes its next deadline in an atomic, and sleeps
+until it at most. A timer armed from another thread wakes the queue's
+scheduler, which checks that deadline against its own before sleeping.
+
+Timers fire under their queue's lock, so a failed `CANCEL_TIMER` means the
+message is already in the mailbox, and `RECEIVE_TIMEOUT` can always clean up
+its own timeout message.
 
 ## System processes
 
@@ -237,7 +274,7 @@ processes that had none.
 
 ## Shutdown
 
-When the entry process ends, the main thread:
+When the entry process ends, its scheduler wakes the main thread, which:
 
 1. records its exit reason;
 2. kills every non-system process, sweeping again if dying processes spawned

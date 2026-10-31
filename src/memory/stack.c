@@ -1,5 +1,6 @@
 #include <memory/stack.h>
 #include <memory/block_pool.h>
+#include <memory/reaper.h>
 
 static block_pool_t stack_pool = BLOCK_POOL_INITIALIZER;
 
@@ -20,9 +21,31 @@ static void stack_destroy(void *stack) {
     aco_share_stack_destroy(stack);
 }
 
+static void stack_destroy_sized(void *stack, size_t size) {
+    (void)size;
+    aco_share_stack_destroy(stack);
+}
+
 void stack_release(aco_share_stack_t *stack, size_t size) {
-    if (size != CLPF_DEFAULT_STACK_SIZE || !block_pool_put(&stack_pool, stack))
+    if (size == CLPF_DEFAULT_STACK_SIZE && block_pool_put(&stack_pool, stack))
+        return;
+    if (reaper_defer(stack_destroy_sized, stack, size) != 0)
         stack_destroy(stack);
+}
+
+size_t stack_pool_prewarm(size_t count) {
+    while (block_pool_count(&stack_pool) < count) {
+        aco_share_stack_t *stack = aco_share_stack_new(CLPF_DEFAULT_STACK_SIZE);
+        if (!block_pool_put(&stack_pool, stack)) {
+            aco_share_stack_destroy(stack);
+            break;
+        }
+    }
+    return block_pool_count(&stack_pool);
+}
+
+size_t stack_pool_count(void) {
+    return block_pool_count(&stack_pool);
 }
 
 void stack_pool_drain(void) {

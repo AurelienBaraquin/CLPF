@@ -14,9 +14,12 @@ int scheduler_init(Scheduler *scheduler, Pid pid) {
     mpscq_init(&scheduler->wakeups);
     atomic_init(&scheduler->steal_requests, 0);
     atomic_init(&scheduler->ready_count, 0);
+    atomic_init(&scheduler->searching, false);
     atomic_init(&scheduler->running_since, 0);
     atomic_init(&scheduler->running_pid, INVALID_PID);
     idle_init(&scheduler->idle);
+    timer_queue_init(&scheduler->timers, (int)pid);
+    scheduler->sleep_deadline = 0;
     for (int i = 0; i < NB_RQ; i++) {
         runq_init(&scheduler->rq[i]);
     }
@@ -39,6 +42,7 @@ void scheduler_destroy(Scheduler *scheduler) {
     if (scheduler->scheduler_acoro)
         aco_destroy(scheduler->scheduler_acoro);
 
+    timer_queue_destroy(&scheduler->timers);
     idle_destroy(&scheduler->idle);
 }
 
@@ -174,6 +178,24 @@ static void give_work(Scheduler *scheduler, uint64_t thieves) {
 
 static Process *pick_ready(Scheduler *scheduler);
 
+// Overloaded: wakes one sleeping scheduler to come and take some work, unless
+// an idle one is already awake and looking for it. Once that one is busy, the
+// next pick wakes another if the work is still there.
+static void wake_helper(Scheduler *busy) {
+    Scheduler *sleeper = NULL;
+    for (int i = 0; i < clpf.scheduler_count; i++) {
+        Scheduler *other = &clpf.scheduler_table[i];
+        if (other == busy)
+            continue;
+        if (atomic_load(&other->searching))
+            return;
+        if (!sleeper && atomic_load(&other->idle.sleeping))
+            sleeper = other;
+    }
+    if (sleeper)
+        scheduler_wake(sleeper);
+}
+
 Process *pick_process(Scheduler *scheduler) {
     if (!scheduler)
         return NULL;
@@ -189,14 +211,8 @@ Process *pick_process(Scheduler *scheduler) {
     int ready = (int)ready_processes(scheduler);
     atomic_store(&scheduler->ready_count, ready);
 
-    // Overloaded: wake the sleeping schedulers so that they come and take some
-    if (ready >= 2) {
-        for (int i = 0; i < clpf.scheduler_count; i++) {
-            Scheduler *other = &clpf.scheduler_table[i];
-            if (other != scheduler && atomic_load(&other->idle.sleeping))
-                scheduler_wake(other);
-        }
-    }
+    if (ready >= 2)
+        wake_helper(scheduler);
     return picked;
 }
 

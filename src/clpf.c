@@ -7,6 +7,7 @@
 #include <flags_internal.h>
 #include <utils/time.h>
 #include <watchdog.h>
+#include <memory/reaper.h>
 #include <utils/stack_guard.h>
 #include <timer.h>
 
@@ -33,6 +34,22 @@ static bool zeroed_mutex_is_valid(void) {
     return true;
 }
 
+// CLPF_POOL_PREWARM=N maps N stacks and heaps ahead, so that the first N
+// processes spawn without mapping memory (at most the pools' capacity)
+static void prewarm_pools(void) {
+    const char *value = getenv("CLPF_POOL_PREWARM");
+    if (!value)
+        return;
+    char *end = NULL;
+    unsigned long long count = strtoull(value, &end, 10);
+    if (end == value || *end != '\0') {
+        fprintf(stderr, "CLPF_POOL_PREWARM: \"%s\" is not a number of processes\n", value);
+        return;
+    }
+    stack_pool_prewarm((size_t)count);
+    safe_heap_prewarm_pools((size_t)count);
+}
+
 static int clpf_init(void) {
     clpf.process_table = calloc(MAX_PROCESSES, sizeof(Process));
     clpf.free_slots = malloc(MAX_PROCESSES * sizeof(int));
@@ -57,31 +74,49 @@ static int clpf_init(void) {
     clpf.free_slot_count = 0;
     atomic_store(&clpf.slot_end, 1);
 
-    clpf.process_count = 0;
+    atomic_store(&clpf.user_process_count, 0);
     clpf.scheduler_count = 0;
     pthread_mutex_init(&clpf.table_lock, NULL);
 
-    mpscq_init(&clpf.message_queue);
     idle_init(&clpf.main_idle);
-    timers_init();
     clpf_log_init();
     watchdog_init();
+    // The main thread unmaps the memory of ended processes, off the schedulers
+    reaper_set_wake(clpf_wake_main);
+    prewarm_pools();
     return 0;
 }
 
-int clpf_slot_alloc(void) {
-    int index = -1;
+static _Thread_local SlotCache *local_slots;
 
+void clpf_slot_cache_attach(SlotCache *cache) {
+    cache->count = 0;
+    local_slots = cache;
+}
+
+// Takes up to count free slots into slots, under the table lock; returns how many
+static int take_slots(int *slots, int count) {
+    int taken = 0;
     pthread_mutex_lock(&clpf.table_lock);
+    while (taken < count && clpf.free_slot_count > 0)
+        slots[taken++] = clpf.free_slots[--clpf.free_slot_count];
     int end = atomic_load(&clpf.slot_end);
-    if (clpf.free_slot_count > 0) {
-        index = clpf.free_slots[--clpf.free_slot_count];
-    } else if (end < MAX_PROCESSES) {
-        index = end;
-        atomic_store(&clpf.slot_end, end + 1);
-    }
+    while (taken < count && end < MAX_PROCESSES)
+        slots[taken++] = end++;
+    atomic_store(&clpf.slot_end, end);
     pthread_mutex_unlock(&clpf.table_lock);
-    return index;
+    return taken;
+}
+
+int clpf_slot_alloc(void) {
+    SlotCache *cache = local_slots;
+    if (!cache) {
+        int index = -1;
+        return take_slots(&index, 1) == 1 ? index : -1;
+    }
+    if (cache->count == 0)
+        cache->count = take_slots(cache->slots, SLOT_CACHE_BATCH);
+    return cache->count > 0 ? cache->slots[--cache->count] : -1;
 }
 
 int clpf_slot_end(void) {
@@ -89,7 +124,16 @@ int clpf_slot_end(void) {
 }
 
 void clpf_slot_release(int index) {
+    SlotCache *cache = local_slots;
+    if (cache && cache->count < SLOT_CACHE_SIZE) {
+        cache->slots[cache->count++] = index;
+        return;
+    }
+
     pthread_mutex_lock(&clpf.table_lock);
+    // A full cache gives a batch back, so that other threads can use them
+    for (int i = 0; cache && i < SLOT_CACHE_BATCH; ++i)
+        clpf.free_slots[clpf.free_slot_count++] = cache->slots[--cache->count];
     clpf.free_slots[clpf.free_slot_count++] = index;
     pthread_mutex_unlock(&clpf.table_lock);
 }
@@ -110,25 +154,14 @@ static void clpf_destroy(void) {
 
     name_table_free(clpf.name_table);
 
-    for (MPSCQNode *n = mpscq_drain(&clpf.message_queue); n != NULL;) {
-        MPSCQNode *next = n->next;
-        clpf_message_destroy(container_of(n, CoreMessage, node));
-        n = next;
-    }
-
+    reaper_run();
     stack_pool_drain();
     safe_heap_drain_pools();
-    timers_destroy();
     idle_destroy(&clpf.main_idle);
 }
 
-void clpf_post(CoreMessage *msg) {
-    mpscq_push(&clpf.message_queue, &msg->node);
-    idle_wake(&clpf.main_idle);
-}
-
 void clpf_wake_all(void) {
-    idle_wake(&clpf.main_idle);
+    clpf_wake_main();
     for (int i = 0; i < clpf.scheduler_count; i++)
         scheduler_wake(&clpf.scheduler_table[i]);
 }
@@ -145,9 +178,14 @@ static void kill_user_processes(void) {
     }
 }
 
+void clpf_wake_main(void) {
+    atomic_fetch_add(&clpf.main_events, 1);
+    idle_wake(&clpf.main_idle);
+}
+
+// arg: the event count when the main thread last looked at everything
 static bool main_has_work(void *arg) {
-    (void)arg;
-    return exit_in_progress || !mpscq_empty(&clpf.message_queue);
+    return exit_in_progress || atomic_load(&clpf.main_events) != *(unsigned int *)arg;
 }
 
 int clpf_main(Task entry_point, int argc, char *argv[]) {
@@ -189,7 +227,7 @@ int clpf_main(Task entry_point, int argc, char *argv[]) {
 
     // Without a launcher no process exists: the loop below ends at once
     if (init_task(entry_point, argc, argv) != 0)
-        clpf.entry_exit_reason = EXIT_REASON_ERROR;
+        atomic_store(&clpf.entry_exit_reason, EXIT_REASON_ERROR);
 
     // Once the entry process ended: kill the user processes, then ask the
     // system servers (I/O last) to stop, then wait until every process is gone
@@ -197,20 +235,20 @@ int clpf_main(Task entry_point, int argc, char *argv[]) {
     bool system_stopped = false;
 
     while (1) {
+        // Changes made from now on bump the count: the wait below sees them
+        unsigned int events = atomic_load(&clpf.main_events);
         size_t total_process_count = 0;
         for (int i = 0; i < clpf.scheduler_count; ++i)
             total_process_count += atomic_load(&clpf.scheduler_table[i].process_count);
 
-        int updated = clpf_main_update();
-        uint64_t next_timer = timers_fire_due();
+        reaper_run();
 
-        if (total_process_count == 0 && mpscq_empty(&clpf.message_queue) && updated == 0)
+        // Schedulers count a process out once they destroyed it
+        if (total_process_count == 0)
             break;
 
-        if (clpf.shutdown_requested && updated == 0) {
-            pthread_mutex_lock(&clpf.table_lock);
-            int users = clpf.user_process_count;
-            pthread_mutex_unlock(&clpf.table_lock);
+        if (atomic_load(&clpf.shutdown_requested)) {
+            int users = atomic_load(&clpf.user_process_count);
 
             // Killed processes may spawn before their scheduler ends them: sweep until none is left
             if (users > 0 && !users_killed) {
@@ -227,10 +265,7 @@ int clpf_main(Task entry_point, int argc, char *argv[]) {
         }
 
         uint64_t next_check = watchdog_check(now_ms());
-        if (!next_timer || (next_check && next_check < next_timer))
-            next_timer = next_check;
-        if (updated == 0)
-            idle_wait_until(&clpf.main_idle, main_has_work, NULL, next_timer);
+        idle_wait_until(&clpf.main_idle, main_has_work, &events, next_check);
     }
 
     exit_in_progress = 1;
@@ -243,5 +278,5 @@ int clpf_main(Task entry_point, int argc, char *argv[]) {
 
     clpf_dump_signal_stop();
     clpf_destroy();
-    return clpf.entry_exit_reason == EXIT_REASON_NORMAL ? 0 : 1;
+    return atomic_load(&clpf.entry_exit_reason) == EXIT_REASON_NORMAL ? 0 : 1;
 }
