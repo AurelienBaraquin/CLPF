@@ -13,9 +13,8 @@
 #define PID_INDEX(pid)              ((pid) & (MAX_PROCESSES - 1))
 
 typedef struct {
-    Process *process_table; // MAX_PROCESSES slots, allocated by clpf_init
-    int process_count;
-    int user_process_count; // processes that are not system ones
+    Process *process_table;        // MAX_PROCESSES slots, allocated by clpf_init
+    atomic_int user_process_count; // processes that are not system ones
 
     // Set when the entry process ended, by the scheduler that ends it
     atomic_bool shutdown_requested;
@@ -34,9 +33,9 @@ typedef struct {
 
     TrieNode *name_table;
 
-    // Guards the free slot stack, the process counts, the name table and every
-    // Process.registered_name: processes are created and registered from any
-    // thread, and destroyed by the scheduler that ran them
+    // Guards the free slot stack, the name table and every Process.registered_name:
+    // processes are created and registered from any thread, and destroyed by the
+    // scheduler that ran them. Schedulers keep a few free slots of their own.
     pthread_mutex_t table_lock;
 
     // The main thread sleeps here between timers. Schedulers wake it when the
@@ -63,6 +62,8 @@ int clpf_slot_alloc(void);
 int clpf_slot_end(void);
 // Gives back the index of a destroyed process
 void clpf_slot_release(int index);
+// Scheduler thread: slots taken and given back from this thread go through cache
+void clpf_slot_cache_attach(SlotCache *cache);
 
 // Thread-safe: wakes the main thread after the caller changed something it watches
 // (process counts, timers, the watchdog), even if it is about to fall asleep

@@ -58,7 +58,7 @@ static int clpf_init(void) {
     clpf.free_slot_count = 0;
     atomic_store(&clpf.slot_end, 1);
 
-    clpf.process_count = 0;
+    atomic_store(&clpf.user_process_count, 0);
     clpf.scheduler_count = 0;
     pthread_mutex_init(&clpf.table_lock, NULL);
 
@@ -70,19 +70,36 @@ static int clpf_init(void) {
     return 0;
 }
 
-int clpf_slot_alloc(void) {
-    int index = -1;
+static _Thread_local SlotCache *local_slots;
 
+void clpf_slot_cache_attach(SlotCache *cache) {
+    cache->count = 0;
+    local_slots = cache;
+}
+
+// Takes up to count free slots into slots, under the table lock; returns how many
+static int take_slots(int *slots, int count) {
+    int taken = 0;
     pthread_mutex_lock(&clpf.table_lock);
+    while (taken < count && clpf.free_slot_count > 0)
+        slots[taken++] = clpf.free_slots[--clpf.free_slot_count];
     int end = atomic_load(&clpf.slot_end);
-    if (clpf.free_slot_count > 0) {
-        index = clpf.free_slots[--clpf.free_slot_count];
-    } else if (end < MAX_PROCESSES) {
-        index = end;
-        atomic_store(&clpf.slot_end, end + 1);
-    }
+    while (taken < count && end < MAX_PROCESSES)
+        slots[taken++] = end++;
+    atomic_store(&clpf.slot_end, end);
     pthread_mutex_unlock(&clpf.table_lock);
-    return index;
+    return taken;
+}
+
+int clpf_slot_alloc(void) {
+    SlotCache *cache = local_slots;
+    if (!cache) {
+        int index = -1;
+        return take_slots(&index, 1) == 1 ? index : -1;
+    }
+    if (cache->count == 0)
+        cache->count = take_slots(cache->slots, SLOT_CACHE_BATCH);
+    return cache->count > 0 ? cache->slots[--cache->count] : -1;
 }
 
 int clpf_slot_end(void) {
@@ -90,7 +107,16 @@ int clpf_slot_end(void) {
 }
 
 void clpf_slot_release(int index) {
+    SlotCache *cache = local_slots;
+    if (cache && cache->count < SLOT_CACHE_SIZE) {
+        cache->slots[cache->count++] = index;
+        return;
+    }
+
     pthread_mutex_lock(&clpf.table_lock);
+    // A full cache gives a batch back, so that other threads can use them
+    for (int i = 0; cache && i < SLOT_CACHE_BATCH; ++i)
+        clpf.free_slots[clpf.free_slot_count++] = cache->slots[--cache->count];
     clpf.free_slots[clpf.free_slot_count++] = index;
     pthread_mutex_unlock(&clpf.table_lock);
 }
@@ -205,9 +231,7 @@ int clpf_main(Task entry_point, int argc, char *argv[]) {
             break;
 
         if (atomic_load(&clpf.shutdown_requested)) {
-            pthread_mutex_lock(&clpf.table_lock);
-            int users = clpf.user_process_count;
-            pthread_mutex_unlock(&clpf.table_lock);
+            int users = atomic_load(&clpf.user_process_count);
 
             // Killed processes may spawn before their scheduler ends them: sweep until none is left
             if (users > 0 && !users_killed) {

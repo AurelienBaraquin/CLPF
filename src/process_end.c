@@ -19,14 +19,16 @@ void clpf_process_end(Process *process) {
         atomic_store(&clpf.shutdown_requested, true);
     }
 
-    pthread_mutex_lock(&clpf.table_lock);
-    // The name may already belong to another process if REGISTER reclaimed it
-    if (process->registered_name[0] && name_table_lookup(clpf.name_table, process->registered_name) == pid)
-        name_table_remove(clpf.name_table, process->registered_name);
-    clpf.process_count--;
+    // Only REGISTER sets the name, under the table lock, and only on a live process
+    if (process->registered_name[0]) {
+        pthread_mutex_lock(&clpf.table_lock);
+        // The name may already belong to another process if REGISTER reclaimed it
+        if (name_table_lookup(clpf.name_table, process->registered_name) == pid)
+            name_table_remove(clpf.name_table, process->registered_name);
+        pthread_mutex_unlock(&clpf.table_lock);
+    }
     if (!system)
-        clpf.user_process_count--;
-    pthread_mutex_unlock(&clpf.table_lock);
+        atomic_fetch_sub(&clpf.user_process_count, 1);
 
     Process *parent = process_lock(parent_pid);
     if (parent) {

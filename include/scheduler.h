@@ -13,6 +13,16 @@
 
 #define NB_RQ 3 // Number of run queues
 
+// Free process table slots a scheduler keeps, to spawn and end processes
+// without the table lock; it trades them with the table by batches
+#define SLOT_CACHE_SIZE  64
+#define SLOT_CACHE_BATCH 32
+
+typedef struct {
+    int slots[SLOT_CACHE_SIZE];
+    int count;
+} SlotCache;
+
 typedef struct scheduler_s {
     pthread_t system_thread_id;
     Pid pid;
@@ -38,7 +48,8 @@ typedef struct scheduler_s {
 
     aco_t *scheduler_acoro;
 
-    TimerQueue timers; // Armed by the processes it runs, fired in its loop
+    SlotCache slot_cache; // Its own thread only
+    TimerQueue timers;    // Armed by the processes it runs, fired in its loop
     // When it sleeps: the deadline it sleeps until (0: none), so that an earlier
     // timer armed by another thread wakes it (scheduler thread only)
     uint64_t sleep_deadline;
