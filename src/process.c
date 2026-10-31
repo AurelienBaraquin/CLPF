@@ -147,6 +147,8 @@ void process_unlock(Process *process) {
 }
 
 void process_notify_locked(Process *process) {
+    // Woken up: until it waits again, every message may concern it
+    process->wait_match = NULL;
     // An exiting process is never queued again, so its slot can be freed safely
     if (process->exit_notified)
         return;

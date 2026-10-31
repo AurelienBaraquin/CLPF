@@ -36,11 +36,8 @@ static void wait_for(Process *self, MessageMatch match, Tag pattern) {
     self->state = PROCESS_WAITING;
     pthread_mutex_unlock(&self->lock);
 
+    // The waker clears wait_match under the lock (see process_notify_locked)
     yield(self);
-
-    pthread_mutex_lock(&self->lock);
-    self->wait_match = NULL;
-    pthread_mutex_unlock(&self->lock);
 }
 
 // What the runtime sends always gets in, even into a full mailbox
