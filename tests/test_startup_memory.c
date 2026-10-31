@@ -8,6 +8,7 @@
 // The process table has room for 65 536 processes: only the slots in use may cost memory
 #define MAX_IDLE_RSS_KIB 8192
 
+#ifndef CLPF_SANITIZED // Sanitizers map shadow memory: resident sizes mean nothing there
 static long resident_kib(void) {
     FILE *status = fopen("/proc/self/status", "r");
     if (!status)
@@ -21,6 +22,7 @@ static long resident_kib(void) {
     fclose(status);
     return kib;
 }
+#endif
 
 TASK0(short_lived) {
     (void)self;

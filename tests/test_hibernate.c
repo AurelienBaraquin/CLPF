@@ -47,6 +47,7 @@ TASK0(waiter) {
     MSG_FREE(RECEIVE(MAKE_ATOM_TAG("never")));
 }
 
+#ifndef CLPF_SANITIZED // Sanitizers map shadow memory: resident sizes mean nothing there
 static long resident_kib(void) {
     FILE *status = fopen("/proc/self/status", "r");
     if (!status)
@@ -60,6 +61,7 @@ static long resident_kib(void) {
     fclose(status);
     return kib;
 }
+#endif
 
 TASK(entry, int argc, char *argv[]) {
     (void)argc;
