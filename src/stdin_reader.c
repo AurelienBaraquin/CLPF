@@ -34,9 +34,9 @@ static void *reader_thread(void *arg) {
 
             ssize_t length = getline(&buffer, &capacity, stdin);
             if (length < 0)
-                clpf_deliver(INVALID_PID, request->requester, NULL, 0, MAKE_STR_TAG("stdin::eof"));
+                clpf_deliver(INVALID_PID, request->requester, NULL, 0, MAKE_ATOM_TAG("stdin::eof"));
             else
-                clpf_deliver(INVALID_PID, request->requester, buffer, (size_t)length, MAKE_STR_TAG("stdin::line"));
+                clpf_deliver(INVALID_PID, request->requester, buffer, (size_t)length, MAKE_ATOM_TAG("stdin::line"));
             free(request);
         }
     }

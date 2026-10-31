@@ -12,7 +12,7 @@ static Pid DEF(request_child, Pid sup, SupChildSpec *spec, const void *arg_block
     if (spec->arg_block_size > 0)
         memcpy(request + sizeof(SupChildSpec), arg_block, spec->arg_block_size);
 
-    Message *reply = REQUEST(sup, request, size, MAKE_STR_TAG("supervisor::spawn"));
+    Message *reply = REQUEST(sup, request, size, MAKE_ATOM_TAG("supervisor::spawn"));
     FREE(request);
     if (!reply)
         return INVALID_PID;
@@ -68,7 +68,7 @@ Pid clpf_sup_add_child_opts(Process *self, Pid sup, RestartType restart, void (*
 }
 
 int clpf_sup_remove_child(Process *self, Pid sup, Pid child) {
-    Message *reply = REQUEST(sup, &child, sizeof(Pid), MAKE_STR_TAG("supervisor::remove"));
+    Message *reply = REQUEST(sup, &child, sizeof(Pid), MAKE_ATOM_TAG("supervisor::remove"));
     if (!reply)
         return -1;
 

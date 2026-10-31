@@ -58,7 +58,7 @@ int clpf_log(Process *self, LogLevel level, const char *fmt, ...) {
     // Without the I/O server, at shutdown, a log line still matters more than its order
     Pid io = WHEREIS("server::io");
     size_t length = strlen(line);
-    if (io == INVALID_PID || SEND(io, line, length, MAKE_STR_TAG("server::io::log")) != 0)
+    if (io == INVALID_PID || SEND(io, line, length, MAKE_ATOM_TAG("server::io::log")) != 0)
         (void)!write(STDERR_FILENO, line, length);
     safe_heap_free(&self->heap, line);
     return 0;

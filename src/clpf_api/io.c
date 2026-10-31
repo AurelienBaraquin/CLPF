@@ -50,7 +50,7 @@ int clpf_print(Process *self, const char *fmt, ...) {
 
     Pid io = WHEREIS("server::io");
     if (io != -1) {
-        SEND(io, str, strlen(str), MAKE_STR_TAG("server::io::print"));
+        SEND(io, str, strlen(str), MAKE_ATOM_TAG("server::io::print"));
     }
 
     safe_heap_free(&self->heap, str);
@@ -61,8 +61,8 @@ char *clpf_getline(Process *self) {
     if (stdin_request_line(self->pid) != 0)
         return NULL;
 
-    Message *reply = RECEIVE_IF(TM_PREFIX, MAKE_STR_TAG("stdin::"));
-    if (MSG_IS(reply, MAKE_STR_TAG("stdin::eof"))) {
+    Message *reply = RECEIVE_IF(TM_PREFIX, MAKE_ATOM_TAG("stdin::"));
+    if (MSG_IS(reply, MAKE_ATOM_TAG("stdin::eof"))) {
         MSG_FREE(reply);
         return NULL;
     }

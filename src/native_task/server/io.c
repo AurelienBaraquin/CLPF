@@ -31,12 +31,12 @@ static S_IO server_io_compute_message(Message *msg) {
     if (!msg)
         return S_IO_NOTHING;
 
-    if (MSG_IS(msg, MAKE_STR_TAG("server::io::print"))) {
+    if (MSG_IS(msg, MAKE_ATOM_TAG("server::io::print"))) {
         write_all(STDOUT_FILENO, msg->payload, msg->size);
         return S_IO_SUCCESS;
     }
 
-    if (MSG_IS(msg, MAKE_STR_TAG("server::io::log"))) {
+    if (MSG_IS(msg, MAKE_ATOM_TAG("server::io::log"))) {
         write_all(STDERR_FILENO, msg->payload, msg->size);
         return S_IO_SUCCESS;
     }
