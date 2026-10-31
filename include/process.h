@@ -56,6 +56,7 @@ typedef struct process_s {
     safe_heap_t heap;
     aco_t *acoro;
     aco_share_stack_t *share_stack;
+    void *fiber; // ThreadSanitizer's view of its call stack (see utils/fiber.h), NULL otherwise
     size_t stack_size;
     size_t mailbox_limit; // Messages that may wait in the mailbox (0: no limit)
     atomic_size_t queued; // Messages waiting: incremented by deliveries under lock, decremented by the owner

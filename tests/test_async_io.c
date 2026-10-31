@@ -3,6 +3,7 @@
 #include <api/message.h>
 #include <api/timer.h>
 #include <api/link.h>
+#include <api/monitor.h>
 #include <api/io.h>
 #include <unistd.h>
 
@@ -57,17 +58,15 @@ TASK(entry, int argc, char *argv[]) {
     TEST_ASSERT(FETCH(NO_TAG) == NULL);
     TEST_ASSERT(read(fds[0], &byte, 1) == 1);
 
-    // One watcher per fd; a dead watcher releases its fd
+    // One watcher per fd; a dead watcher has released its fd by the time its
+    // monitors hear of it, so they may reuse it at once
     Pid other = SPAWN(watcher, 2, fds[0], self->pid);
     MSG_FREE(RECEIVE(MAKE_STR_TAG("watching")));
     TEST_ASSERT(IO_WATCH(fds[0], IO_READ) == -1);
+    MONITOR(other);
     KILL(other);
-    int released = -1;
-    for (int i = 0; i < 100 && released != 0; ++i) {
-        SLEEP(5);
-        released = IO_WATCH(fds[0], IO_READ);
-    }
-    TEST_ASSERT(released == 0);
+    MSG_FREE(RECEIVE(MAKE_DOWN_TAG(other)));
+    TEST_ASSERT(IO_WATCH(fds[0], IO_READ) == 0);
     TEST_ASSERT(IO_UNWATCH(fds[0]) == 0);
 
     // A bad fd is an error

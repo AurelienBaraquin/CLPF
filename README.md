@@ -65,7 +65,9 @@ gcc -std=gnu11 app.c $(PKG_CONFIG_PATH=~/.local/lib/pkgconfig pkg-config --cflag
 
 With CMake: `find_package(clpf)` and link `clpf::clpf`. Run `./build/clpf_demo`
 for a showcase of the whole API, and see [`examples/`](examples) for short
-programs.
+programs. [`examples/chat/`](examples/chat) is a complete TCP chat server with
+a load test of hundreds of simulated users
+([explained here](https://aurelienbaraquin.github.io/CLPF/examples/chat/)).
 
 ## Features
 
@@ -89,7 +91,7 @@ programs.
 ## Status
 
 **Experimental, feature-complete for its scope.** Everything above works and
-is covered by 63 tests. The CI runs them in Debug and Release, and under
+is covered by 65 tests. The CI runs them in Debug and Release, and under
 AddressSanitizer and ThreadSanitizer.
 
 Limits:

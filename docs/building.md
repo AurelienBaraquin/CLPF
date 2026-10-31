@@ -90,7 +90,7 @@ exit with 0, or with the code given by an `<!-- expect-exit: N -->` line just
 before the block:
 
 ```sh
-python3 scripts/check_doc_examples.py build README.md docs/*.md docs/guides/*.md
+python3 scripts/check_doc_examples.py build README.md docs/*.md docs/guides/*.md docs/examples/*.md
 ```
 
 ## Continuous integration
@@ -123,7 +123,7 @@ documentation, and publishes the site to GitHub Pages from `main`.
 | `src/native_task/` | System processes: launcher, I/O server, supervisor |
 | `external/` | Vendored libaco (submodule), TLSF, stb_sprintf |
 | `tests/` | Test programs |
-| `examples/` | Short runnable programs |
+| `examples/` | Short runnable programs, and `chat/`, a complete TCP chat server |
 | `main.c` | The showcase (`clpf_demo`) |
 | `docs/`, `mkdocs.yml` | This documentation |
 | `cmake/` | Package config templates |

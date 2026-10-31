@@ -153,6 +153,8 @@ supervision trees contain failures.
 
 - Read the [concepts](concepts.md) behind the model.
 - Learn [selective receive and matchers](guides/messages.md).
+- Read a complete program: [a TCP chat server](examples/chat.md), with its
+  load test.
 - See the runnable programs in
   [`examples/`](https://github.com/AurelienBaraquin/CLPF/tree/main/examples),
   and the full showcase in

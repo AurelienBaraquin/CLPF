@@ -21,7 +21,7 @@ jobs:
           cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCLPF_BUILD_TESTS=OFF -DCLPF_BUILD_EXAMPLES=OFF
           cmake --build build -j --target clpf
       - name: Compile and run the examples of the documentation
-        run: python3 scripts/check_doc_examples.py build README.md docs/*.md docs/guides/*.md
+        run: python3 scripts/check_doc_examples.py build README.md docs/*.md docs/guides/*.md docs/examples/*.md
       # MkDocs 2 drops the plugin and theme system Material relies on
       - name: Build the site
         run: |

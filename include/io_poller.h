@@ -20,5 +20,5 @@
 int io_poller_watch(Pid pid, int fd, int events);
 // Returns -1 if pid does not watch fd (it may just have fired)
 int io_poller_unwatch(Pid pid, int fd);
-// Drops every watch of a process that ended (main thread)
+// Drops every watch of a process that ends, before its monitors hear of it
 void io_poller_forget(Pid pid);

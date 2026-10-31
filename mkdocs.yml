@@ -52,6 +52,7 @@ nav:
       - Scheduling and performance: guides/scheduling.md
       - Observability: guides/observability.md
   - Patterns: patterns.md
+  - "Example: a chat server": examples/chat.md
   - API reference: api.md
   - Architecture: architecture.md
   - Benchmarks: benchmarks.md
