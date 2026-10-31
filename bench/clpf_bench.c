@@ -17,6 +17,7 @@
 #define PAIRS         8
 #define PAIR_MESSAGES 200000
 #define BACKLOG       1000
+#define SPAWNERS      8
 #define REQUESTS      20000
 #define QUICK_DIVISOR 100
 // What a spawn loop charges itself per SPAWN, as SPAWN costs no reductions
@@ -105,6 +106,25 @@ static void bench_spawn(Process *self) {
     report(self, "spawn + exit", count / (now_s() - start), "processes/s");
 }
 
+TASK(spawner, Pid boss, int count) {
+    for (int i = 0; i < count; ++i) {
+        SPAWN(notify_and_exit, 1, self->pid);
+        REDUCE(SPAWN_REDUCTIONS);
+    }
+    collect(self, count);
+    SEND(boss, NULL, 0, MAKE_STR_TAG("done"));
+}
+
+// Spawns from every scheduler at once
+static void bench_parallel_spawn(Process *self) {
+    int count = SPAWNS / scale / SPAWNERS;
+    double start = now_s();
+    for (int i = 0; i < SPAWNERS; ++i)
+        SPAWN(spawner, 2, self->pid, count);
+    collect(self, SPAWNERS);
+    report(self, "parallel spawn + exit (8)", SPAWNERS * count / (now_s() - start), "processes/s");
+}
+
 static void bench_throughput(Process *self) {
     int count = MESSAGES / scale;
     Pid receiver = SPAWN(counter, 2, self->pid, count);
@@ -178,6 +198,7 @@ TASK(entry, int argc, char *argv[]) {
     PRINT("CLPF benchmarks%s, %ld cores\n\n", scale > 1 ? " (quick)" : "", sysconf(_SC_NPROCESSORS_ONLN));
 
     bench_spawn(self);
+    bench_parallel_spawn(self);
     bench_throughput(self);
     bench_latency(self);
     bench_backlog(self);
