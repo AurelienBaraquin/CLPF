@@ -4,6 +4,7 @@
 #include <pthread.h>
 #include <utils/run_queue.h>
 #include <utils/idle.h>
+#include <timer.h>
 
 // Times an idle scheduler polls for work before going to sleep
 #define SCHEDULER_IDLE_SPINS 2000
@@ -36,6 +37,11 @@ typedef struct scheduler_s {
     atomic_int ready_count;
 
     aco_t *scheduler_acoro;
+
+    TimerQueue timers; // Armed by the processes it runs, fired in its loop
+    // When it sleeps: the deadline it sleeps until (0: none), so that an earlier
+    // timer armed by another thread wakes it (scheduler thread only)
+    uint64_t sleep_deadline;
 
     // For the watchdog: when the current process was resumed (0: none runs), and which
     _Atomic uint64_t running_since;

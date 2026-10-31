@@ -17,6 +17,8 @@ int scheduler_init(Scheduler *scheduler, Pid pid) {
     atomic_init(&scheduler->running_since, 0);
     atomic_init(&scheduler->running_pid, INVALID_PID);
     idle_init(&scheduler->idle);
+    timer_queue_init(&scheduler->timers, (int)pid);
+    scheduler->sleep_deadline = 0;
     for (int i = 0; i < NB_RQ; i++) {
         runq_init(&scheduler->rq[i]);
     }
@@ -39,6 +41,7 @@ void scheduler_destroy(Scheduler *scheduler) {
     if (scheduler->scheduler_acoro)
         aco_destroy(scheduler->scheduler_acoro);
 
+    timer_queue_destroy(&scheduler->timers);
     idle_destroy(&scheduler->idle);
 }
 

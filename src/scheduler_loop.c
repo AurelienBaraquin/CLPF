@@ -55,6 +55,10 @@ static bool scheduler_has_work(void *arg) {
 
     if (exit_in_progress || !mpscq_empty(&scheduler->wakeups))
         return true;
+    // A timer armed from another thread, earlier than the planned wakeup
+    uint64_t next_timer = atomic_load(&scheduler->timers.next_deadline);
+    if (next_timer && (scheduler->sleep_deadline == 0 || next_timer < scheduler->sleep_deadline))
+        return true;
     for (int i = 0; i < NB_RQ; i++) {
         if (!mpscq_empty(&scheduler->shared_rq[i]))
             return true;
@@ -69,6 +73,7 @@ void scheduler_loop(Scheduler *scheduler) {
     aco_thread_init(NULL);
     stack_guard_thread_init();
     scheduler->scheduler_acoro = aco_create(NULL, NULL, 0, NULL, NULL);
+    timer_queue_set_current(&scheduler->timers);
 
     while (1) {
         if (UNLIKELY(exit_in_progress)) {
@@ -86,6 +91,14 @@ void scheduler_loop(Scheduler *scheduler) {
         // 6. If needed check IO and update time
         // 7. While needed pick a port task to execute
 
+        // Due timers first: their messages may make processes ready
+        uint64_t next_timer = atomic_load(&scheduler->timers.next_deadline);
+        if (next_timer) {
+            uint64_t now = now_ms();
+            if (now >= next_timer)
+                timer_queue_fire_due(&scheduler->timers, now);
+        }
+
         // 8. Pick a process to execute
         Process *process = pick_process(scheduler);
 
@@ -97,8 +110,13 @@ void scheduler_loop(Scheduler *scheduler) {
             for (int spin = 0; spin < SCHEDULER_IDLE_SPINS && !scheduler_has_work(scheduler); ++spin)
                 cpu_relax();
 
-            // Overloaded schedulers hand work over when they next pick: ask again soon
+            // Overloaded schedulers hand work over when they next pick: ask again soon.
+            // Sleep until the next timer at most.
             uint64_t deadline = work_elsewhere ? now_ms() + SCHEDULER_STEAL_RETRY_MS : 0;
+            uint64_t timer_deadline = atomic_load(&scheduler->timers.next_deadline);
+            if (timer_deadline && (!deadline || timer_deadline < deadline))
+                deadline = timer_deadline;
+            scheduler->sleep_deadline = deadline;
             idle_wait_until(&scheduler->idle, scheduler_has_work, scheduler, deadline);
             continue;
         }

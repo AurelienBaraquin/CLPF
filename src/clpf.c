@@ -63,7 +63,6 @@ static int clpf_init(void) {
     pthread_mutex_init(&clpf.table_lock, NULL);
 
     idle_init(&clpf.main_idle);
-    timers_init();
     clpf_log_init();
     watchdog_init();
     // The main thread unmaps the memory of ended processes, off the schedulers
@@ -115,7 +114,6 @@ static void clpf_destroy(void) {
     reaper_run();
     stack_pool_drain();
     safe_heap_drain_pools();
-    timers_destroy();
     idle_destroy(&clpf.main_idle);
 }
 
@@ -201,7 +199,6 @@ int clpf_main(Task entry_point, int argc, char *argv[]) {
             total_process_count += atomic_load(&clpf.scheduler_table[i].process_count);
 
         reaper_run();
-        uint64_t next_timer = timers_fire_due();
 
         // Schedulers count a process out once they destroyed it
         if (total_process_count == 0)
@@ -227,9 +224,7 @@ int clpf_main(Task entry_point, int argc, char *argv[]) {
         }
 
         uint64_t next_check = watchdog_check(now_ms());
-        if (!next_timer || (next_check && next_check < next_timer))
-            next_timer = next_check;
-        idle_wait_until(&clpf.main_idle, main_has_work, &events, next_timer);
+        idle_wait_until(&clpf.main_idle, main_has_work, &events, next_check);
     }
 
     exit_in_progress = 1;
