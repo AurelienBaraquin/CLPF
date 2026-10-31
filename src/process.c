@@ -1,4 +1,5 @@
 #include <process.h>
+#include <utils/fiber.h>
 #include <clpf_internal.h>
 #include <links.h>
 #include <string.h>
@@ -128,6 +129,7 @@ void process_destroy(Process *process) {
     safe_heap_destroy(&process->heap);
     if (process->acoro)
         aco_destroy(process->acoro);
+    fiber_destroy(process);
     process_release_stack(process);
     links_clear(&process->links);
     free_link_list(process->linked);

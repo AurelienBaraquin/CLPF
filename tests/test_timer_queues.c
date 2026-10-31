@@ -4,14 +4,17 @@
 #include <api/timer.h>
 #include <utils/time.h>
 
+// Under sanitizers the bound only catches gross regressions (ThreadSanitizer
+// slows down every switch); without them, the scan it guards against takes 5 s
 #ifdef CLPF_SANITIZED
 #define QUICK_TIMEOUTS 5000
+#define MAX_QUICK_MS   5000
 #else
 #define QUICK_TIMEOUTS 20000
+#define MAX_QUICK_MS   1000
 #endif
-#define MAX_QUICK_MS 1000
-#define PENDING      50000
-#define PINNED       16
+#define PENDING 50000
+#define PINNED  16
 
 TASK0(echo) {
     while (1) {

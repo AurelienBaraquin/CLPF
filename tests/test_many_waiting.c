@@ -4,13 +4,16 @@
 #include <api/memory.h>
 #include <utils/time.h>
 
+// ThreadSanitizer follows each process as a fiber, at a cost that grows with
+// the live ones: under sanitizers the bound only catches gross regressions
 #ifdef CLPF_SANITIZED
 #define WAITING_PROCESSES 1000
+#define MAX_DURATION_MS   8000
 #else
 #define WAITING_PROCESSES 10000
+#define MAX_DURATION_MS   1500
 #endif
-#define ROUND_TRIPS     5000
-#define MAX_DURATION_MS 1500
+#define ROUND_TRIPS 5000
 
 // Thousands of processes blocked in RECEIVE must not slow down the others:
 // a scheduler only looks at the processes that actually received something.

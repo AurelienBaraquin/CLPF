@@ -26,6 +26,11 @@ find_package(Threads REQUIRED)
 # Vendored dependencies, prefixed so that installing them cannot clash with system libraries
 add_library(clpf_tlsf STATIC external/tlsf/tlsf.c)
 add_library(clpf_aco STATIC external/libaco/aco.c external/libaco/acosw.S)
+# libaco switches stacks: ThreadSanitizer cannot follow that inside it. The
+# runtime tells it about each switch instead (see utils/fiber.h).
+if(CLPF_SANITIZE STREQUAL "thread")
+    target_compile_options(clpf_aco PRIVATE -fno-sanitize=thread)
+endif()
 add_library(clpf_stb_sprintf STATIC external/stb_sprintf/stb_sprintf.c)
 target_include_directories(clpf_tlsf PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/external>)
 

@@ -8,6 +8,7 @@
 #include <utils/spinlock.h>
 #include <utils/time.h>
 #include <watchdog.h>
+#include <utils/fiber.h>
 
 void co_entrypoint() {
     Process *proc = (Process *)aco_get_arg();
@@ -27,6 +28,7 @@ static process_state hibernate(Process *process) {
     process->hibernating = false;
     aco_destroy(process->acoro);
     process->acoro = NULL;
+    fiber_destroy(process);
     process_release_stack(process);
     safe_heap_trim(&process->heap);
 
@@ -60,6 +62,7 @@ process_state execute_process(Scheduler *scheduler, Process *process) {
     assert(process->acoro->is_end == 0);
     stack_guard_set_running(process);
     watchdog_enter(scheduler, process);
+    fiber_enter(process);
     aco_resume(process->acoro);
     watchdog_leave(scheduler);
     stack_guard_set_running(NULL);
@@ -94,6 +97,7 @@ void scheduler_loop(Scheduler *scheduler) {
     stack_guard_thread_init();
     scheduler->scheduler_acoro = aco_create(NULL, NULL, 0, NULL, NULL);
     timer_queue_set_current(&scheduler->timers);
+    fiber_thread_init();
     clpf_slot_cache_attach(&scheduler->slot_cache);
 
     while (1) {

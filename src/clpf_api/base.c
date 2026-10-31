@@ -1,6 +1,7 @@
 #include <api/base.h>
 #include <string.h>
 #include <io_poller.h>
+#include <utils/fiber.h>
 #include <api/monitor.h>
 #include <api/link.h>
 #include <assert.h>
@@ -11,6 +12,7 @@ void yield(Process *self) {
     assert(self->scheduler_pid != -1);
     assert(clpf.scheduler_table[self->scheduler_pid].pid == self->scheduler_pid);
     assert(clpf.scheduler_table[self->scheduler_pid].scheduler_acoro);
+    fiber_leave();
     aco_yield();
     self->reductions = REDUCTION_BUDGET;
 }
@@ -81,6 +83,7 @@ void exiting(Process *self, exit_reason reason) {
     process_terminate(self, reason);
 
     self->state = PROCESS_EXITING;
+    fiber_leave();
     aco_exit();
     // The scheduler never resumes a finished coroutine
     abort();
@@ -102,6 +105,7 @@ void clpf_hibernate(Process *self, const Funcall_t *call) {
     memcpy(&next.args[1], call->args, sizeof(uintptr_t) * (size_t)call->argc);
     self->taskcall = next;
     self->hibernating = true;
+    fiber_leave();
     aco_exit();
     // The scheduler never resumes a finished coroutine
     abort();
