@@ -177,6 +177,13 @@ int safe_heap_grow(safe_heap_t *safe_heap, size_t size) {
     return 0;
 }
 
+// A pool where an allocation of size fits: TLSF keeps its own headers in the
+// pool, and looks for a free block in the size class above the request, up to
+// 1/32 larger (its 32 second-level classes)
+static size_t pool_size_for(size_t size) {
+    return ALIGN_UP(size + size / 32 + tlsf_pool_overhead() + tlsf_alloc_overhead(), 4096);
+}
+
 void *safe_heap_alloc(safe_heap_t *safe_heap, size_t size) {
     if (!safe_heap || !safe_heap->tlsf || size == 0)
         return NULL;
@@ -188,7 +195,7 @@ void *safe_heap_alloc(safe_heap_t *safe_heap, size_t size) {
     spinlock_unlock(&safe_heap->lock);
 
     if (!ptr) {
-        if (safe_heap_grow(safe_heap, size) != 0) {
+        if (safe_heap_grow(safe_heap, pool_size_for(size)) != 0) {
             fprintf(stderr, "safe_heap_alloc: failed to grow heap\n");
             return NULL;
         }
