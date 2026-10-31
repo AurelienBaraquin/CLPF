@@ -100,6 +100,7 @@ Fields you leave out take their default:
 | `arg_block`, `arg_block_size` | none | Data copied into the child, passed as its argument |
 | `stack_size` | 16 KiB | Stack size |
 | `mailbox_limit` | `0` (none) | Messages that may wait; past it `SEND` returns `SEND_FULL` |
+| `max_heap_size` | `0` (none) | Bytes its heap may take; past it, the process ends with `EXIT_REASON_HEAP_LIMIT` (see [memory](memory.md#heap-limit)) |
 | `scheduler` | `0` | `1 +` the index of the scheduler to start on; `0` picks the least loaded |
 
 ```c
@@ -144,10 +145,55 @@ The exit reason is what monitors and links see:
 | `EXIT_REASON_ERROR` | Failed |
 | `EXIT_REASON_KILLED` | Ended by `KILL` |
 | `EXIT_REASON_SHUTDOWN` | Stopped by its supervisor or by the runtime |
+| `EXIT_REASON_HEAP_LIMIT` | Its heap would have grown past its `max_heap_size` |
 | `EXIT_REASON_NOPROC` | Only in DOWN messages: the process did not exist when it was monitored |
 
 When a process ends, its heap and stack are released at once, its registered
 name is freed, and its monitors and links are notified.
+
+## Hibernating
+
+A process that waits a long time between messages still holds its stack.
+`HIBERNATE(func, argc, args...)` drops it: the process gives its stack back,
+and the heap pools and pages it no longer uses, then waits for a message.
+When one comes, it starts again in `func` with these arguments, like a new
+`SPAWN`, but it keeps its pid, mailbox, links, monitors and registered name.
+`HIBERNATE0(func)` takes no arguments. Neither returns.
+
+Everything on the stack is lost, so the state the process needs must be in
+its arguments, or in its heap behind a pointer passed as one:
+
+```c
+#include <api/task.h>
+#include <api/message.h>
+#include <api/io.h>
+
+// A counter that sleeps between requests: its state is its argument
+TASK(counter, int total) {
+    Message *msg = RECEIVE(NO_TAG); // a request from REQUEST_REF
+    total += *(int *)msg->payload;
+    REPLY(msg, &total, sizeof total);
+    MSG_FREE(msg);
+    HIBERNATE(counter, 1, total);
+}
+
+TASK(entry, int argc, char *argv[]) {
+    Pid pid = SPAWN(counter, 1, 0);
+    for (int i = 1; i <= 3; ++i) {
+        Message *reply = REQUEST_REF(pid, &i, sizeof i, 1000);
+        PRINT("total: %d\n", *(int *)reply->payload);
+        MSG_FREE(reply);
+    }
+}
+
+CLPF_ENTRY(entry)
+```
+
+Any message wakes a hibernating process, including one it then leaves in its
+mailbox. A hibernating process costs about 12 KiB, the allocator at the
+start of its heap, against about 17 KiB for one waiting in `RECEIVE`, and
+waking it costs a coroutine start. Hibernate processes that wait seconds,
+not microseconds.
 
 ## The entry process and the program's exit
 

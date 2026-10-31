@@ -41,6 +41,9 @@ Your numbers will differ: run the benchmark on your machine.
 | Spawn + exit | 230 000/s | 255 000/s | Processes end on their scheduler, memory is unmapped by the reaper |
 | Parallel spawn + exit (8) | 780 000/s | 1 million/s | No table lock to spawn or end a process |
 | Spawning 1000 waiting processes | 45 µs each | 17 µs each | With `CLPF_POOL_PREWARM=1024` |
+| A process waiting for its next message | 17 KiB | 12 KiB | With `HIBERNATE`: no stack, unused heap given back |
+| Registered name of 63 characters | up to 33 KiB | about 100 bytes | The registry is a hash map instead of a trie |
+| `ALLOC` or message larger than the free heap | failed | works | The heap grows by enough for TLSF's headers and size classes |
 
 ## Reading them
 

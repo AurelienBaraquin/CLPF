@@ -56,10 +56,12 @@ behaviour in depth.
 | `CLPF_ENTRY(task)` | Generates `main()`; `task` gets `(int argc, char *argv[])` |
 | `EXIT_NORMAL()`, `EXIT_ERROR()`, `EXIT(reason)` | End the calling process at once; returning from the task is `EXIT_NORMAL()` |
 | `PARENT()`, `CHILD(i)`, `NB_CHILDREN()` | Spawner of the process, and its live children |
+| `HIBERNATE(func, argc, args...)`, `HIBERNATE0(func)` | Drop the stack, give back unused memory, and start again in `func` with these arguments at the next message; never return |
 
 Exit reasons (`exit_reason`): `EXIT_REASON_NORMAL`, `EXIT_REASON_ERROR`,
 `EXIT_REASON_NOPROC` (monitored process already gone), `EXIT_REASON_KILLED`
-(`KILL`), `EXIT_REASON_SHUTDOWN` (stopped by its supervisor or the runtime).
+(`KILL`), `EXIT_REASON_SHUTDOWN` (stopped by its supervisor or the runtime),
+`EXIT_REASON_HEAP_LIMIT` (its heap would have grown past `max_heap_size`).
 
 **The program ends with its entry task.** When the task given to `CLPF_ENTRY`
 ends, every other user process is killed, output queued for `PRINT` is
@@ -95,6 +97,7 @@ scheduler. `SPAWN*` return the pid, or `INVALID_PID`.
 | `arg_block`, `arg_block_size` | none | Block copied into the child heap and passed as its argument |
 | `stack_size` | `CLPF_DEFAULT_STACK_SIZE` (16 KiB) | Stack of the process |
 | `mailbox_limit` | `0` (none) | Messages that may wait; past it `SEND` returns `SEND_FULL` |
+| `max_heap_size` | `0` (none) | Bytes its heap may take; past it, the process ends with `EXIT_REASON_HEAP_LIMIT` |
 | `scheduler` | `0` | `1 + index` of the scheduler to start on; `0` picks the least loaded |
 
 `clpf_spawn(self, &funcall, options)` spawns with integer arguments and options.
@@ -267,6 +270,7 @@ the supervisor stops its children and exits with `EXIT_REASON_ERROR`.
 |---|---|
 | `YIELD()` | Lets the other ready processes of the scheduler run |
 | `REDUCE(n)` | Spends `n` of the process's reduction budget (2000); the process yields when it is used up |
+| `clpf::auto_reduce` (CMake target) | Builds the code that links it with `-finstrument-functions`: each of its function calls spends a reduction |
 
 Scheduling is cooperative: a process gives the CPU away in runtime calls
 (`SEND`, `FETCH`, `RECEIVE` when it waits, `YIELD`, `REDUCE`...). A long

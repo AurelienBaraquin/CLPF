@@ -245,11 +245,33 @@ from a cancelled or replaced watch is ignored. When an fd fires, the thread
 removes it from epoll and sends `MAKE_FD_TAG(fd)` to the watcher. The main
 thread drops the watches of a process when it destroys it.
 
+## Hibernation
+
+`HIBERNATE` stores the next function and its arguments as the process's task
+call, flags it, and ends its coroutine with `aco_exit`. Back on the
+scheduler, the flag makes it destroy the coroutine, give the stack back,
+trim the heap, and park the process: waiting, with no wait filter, unless a
+message or a kill is already there. Its next resume finds no coroutine and
+creates one on the new task call, as for a first run. Trimming removes the
+pools that hold no allocation (`tlsf_remove_pool`), and hands the pages
+inside the free blocks of the first pool back with `MADV_DONTNEED`.
+
+## Preemption holds
+
+A sender runs the receiver's `RECEIVE_IF` matcher under the receiver's lock
+(see waiting and waking). With `clpf::auto_reduce`, that matcher's own
+function calls would spend the sender's reductions and could make it yield
+while holding the lock. The runtime counts such regions per thread
+(`clpf_preemption_hold`), and the hooks only reduce outside them.
+
 ## Groups, binaries and tables
 
 `src/clpf_api/group.c`, `src/bin.c`, `src/clpf_api/bin.c`, `src/clpf_api/table.c`
 
-**Groups** are arrays of pids under one lock. `GROUP_SEND` copies the members
+Names are looked up in a string hash map (`src/utils/hash_map.c`): the
+registry, groups and tables use it.
+
+**Groups** are arrays of pids under one lock, found by name in the map. `GROUP_SEND` copies the members
 and sends outside the lock, since sending takes the receivers' locks.
 
 A **binary** is a `malloc` block with a header: a magic number, an atomic

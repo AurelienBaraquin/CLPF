@@ -34,7 +34,8 @@ cmake --install build --prefix /usr/local     # or any prefix
 ```
 
 This installs the libraries, the headers under `include/clpf`, a CMake package
-(`find_package(clpf)` gives the target `clpf::clpf`) and a relocatable
+(`find_package(clpf)` gives the targets `clpf::clpf` and
+[`clpf::auto_reduce`](guides/scheduling.md#automatic-reductions)) and a relocatable
 `clpf.pc` for pkg-config. See [getting started](getting-started.md).
 
 ## Tests
